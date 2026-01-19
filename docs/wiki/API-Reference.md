@@ -22,6 +22,10 @@ tc = TrustChain(config=None)
 | `verify(response)` | Verify a signed response |
 | `verify_chain(responses)` | Verify a chain of linked responses |
 | `get_key_id()` | Get the public key identifier |
+| `rotate_keys(save=True)` | Generate new key pair, returns new key ID |
+| `export_public_key()` | Export Base64-encoded public key |
+| `save_keys(filepath=None)` | Save keys to file |
+| `export_keys()` | Export keys as dict for persistence |
 | `get_tool_schema(tool_id, format)` | Get OpenAI/Anthropic schema for a tool |
 | `get_tools_schema(format)` | Get schemas for all tools |
 | `get_stats()` | Get usage statistics |
@@ -43,6 +47,7 @@ config = TrustChainConfig(
     enable_metrics=False,        # Enable Prometheus metrics
     storage_backend="memory",    # "memory" or "redis"
     redis_url=None,              # Redis URL for distributed mode
+    key_file=None,               # Path to save/load keys
 )
 ```
 
