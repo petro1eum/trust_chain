@@ -54,7 +54,7 @@ class TestTrustChainMCPServer:
         assert server.server is not None
 
     def test_tools_registered(self, tc):
-        server = TrustChainMCPServer(tc, "test-server")
+        TrustChainMCPServer(tc, "test-server")
 
         # Check tools are available
         assert len(tc._tools) == 2
@@ -101,7 +101,7 @@ class TestMCPToolExecution:
         return tc
 
     def test_tool_callable(self, tc):
-        server = TrustChainMCPServer(tc, "test")
+        TrustChainMCPServer(tc, "test")
 
         # The @tc.tool decorator creates a wrapper, but _tools stores original
         # For MCP, we sign manually when handling requests
@@ -128,7 +128,7 @@ class TestMCPSchemaGeneration:
         return tc
 
     def test_tool_schema_available(self, tc):
-        server = TrustChainMCPServer(tc, "test")
+        TrustChainMCPServer(tc, "test")
 
         # Schema should be generatable
         schema = tc.get_tool_schema("search")
@@ -149,7 +149,7 @@ class TestMCPSignaturePreservation:
         def test_func(x: int) -> int:
             return x * 2
 
-        server = TrustChainMCPServer(tc, "test")
+        TrustChainMCPServer(tc, "test")
 
         # Call through TrustChain
         result = test_func(5)
@@ -162,7 +162,7 @@ class TestMCPSignaturePreservation:
         def test_func(x: int) -> int:
             return x * 2
 
-        server = TrustChainMCPServer(tc, "test")
+        TrustChainMCPServer(tc, "test")
         result = test_func(5)
 
         assert tc.verify(result) is True

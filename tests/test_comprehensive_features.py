@@ -19,17 +19,6 @@ import time
 from typing import Any, Dict, List
 
 import pytest
-
-from trustchain import (
-    MemoryRegistry,
-    SignatureAlgorithm,
-    TrustedTool,
-    TrustLevel,
-    create_integrated_security_system,
-    disable_automatic_enforcement,
-    enable_automatic_enforcement,
-    get_signature_engine,
-)
 from trustchain.core.models import SignedResponse
 from trustchain.monitoring.hallucination_detector import (
     HallucinationDetector,
@@ -43,6 +32,17 @@ from trustchain.monitoring.tool_enforcement import (
 )
 from trustchain.monitoring.tool_enforcement_interceptor import (
     UnauthorizedDirectToolCall,
+)
+
+from trustchain import (
+    MemoryRegistry,
+    SignatureAlgorithm,
+    TrustedTool,
+    TrustLevel,
+    create_integrated_security_system,
+    disable_automatic_enforcement,
+    enable_automatic_enforcement,
+    get_signature_engine,
 )
 from trustchain.utils.exceptions import NonceReplayError, ToolExecutionError
 

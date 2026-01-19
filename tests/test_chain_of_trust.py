@@ -82,7 +82,7 @@ class TestVerifyChain:
 
     def test_verify_chain_missing_first_parent(self, tc):
         step1 = tc._signer.sign("step1", {"data": 1})
-        step2 = tc._signer.sign("step2", {"data": 2}, parent_signature=step1.signature)
+        tc._signer.sign("step2", {"data": 2}, parent_signature=step1.signature)
 
         # First item should not have parent
         step1_with_parent = tc._signer.sign(

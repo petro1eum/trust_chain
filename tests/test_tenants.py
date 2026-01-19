@@ -128,7 +128,6 @@ class TestTenantIsolation:
 
         # Same nonce should work for different tenants
         # (They have separate nonce stores)
-        nonce = "shared_nonce_id"
 
         # This would require access to nonce storage internals
         # Just verify they have separate instances

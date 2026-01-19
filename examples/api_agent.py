@@ -18,7 +18,7 @@ Usage:
 """
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from trustchain import TrustChain
 from trustchain.v2.events import TrustEvent

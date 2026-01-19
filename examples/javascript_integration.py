@@ -14,11 +14,11 @@ To run:
 """
 
 import asyncio
-import json
 from typing import Any, Dict
 
-from trustchain.v2 import TrustChain, TrustChainConfig
 from trustchain.web_api import start_server
+
+from trustchain.v2 import TrustChain, TrustChainConfig
 
 
 def main():
@@ -235,15 +235,15 @@ def main():
         """
     const { TrustChainClient } = require('trustchain-js');
     const client = new TrustChainClient('http://localhost:8000');
-    
+
     // Call weather tool
-    const weather = await client.callTool('weather_api', { 
+    const weather = await client.callTool('weather_api', {
         city: 'London',
         units: 'celsius'
     });
     console.log('Weather:', weather.data);
     console.log('Verified:', weather.is_verified);
-    
+
     // Call calculator
     const calc = await client.callTool('calculator', {
         operation: 'add',

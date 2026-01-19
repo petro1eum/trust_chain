@@ -18,7 +18,7 @@ Usage:
     python examples/secure_rag.py
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from trustchain import TrustChain
 from trustchain.v2.merkle import MerkleTree, verify_proof
@@ -144,15 +144,15 @@ def main():
     # Sample documents
     contracts = """
     CONTRACT AGREEMENT
-    
+
     This agreement is made between Acme Corp ("Company") and John Doe ("Client").
-    
+
     1. SERVICES: Company will provide software development services.
     2. PAYMENT: Client agrees to pay $10,000 upon completion.
     3. TIMELINE: Work will be completed within 30 days.
     4. CONFIDENTIALITY: All information is strictly confidential.
     5. TERMINATION: Either party may terminate with 7 days notice.
-    
+
     Signed: Acme Corp, John Doe
     Date: January 19, 2026
     """

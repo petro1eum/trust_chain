@@ -30,7 +30,7 @@ For Claude Desktop, add to ~/Library/Application Support/Claude/claude_desktop_c
 import asyncio
 import json
 import sys
-from typing import Any, Callable, Dict, List, Optional
+from typing import List
 
 # Check for MCP SDK
 try:
@@ -77,7 +77,7 @@ class TrustChainMCPServer:
         async def list_tools() -> List[Tool]:
             """Return list of available tools."""
             tools = []
-            for tool_id, tool_info in self.tc._tools.items():
+            for tool_id, _tool_info in self.tc._tools.items():
                 # Get schema
                 schema = self.tc.get_tool_schema(tool_id)
                 func_def = schema["function"]

@@ -104,17 +104,17 @@ def main():
     from langchain_openai import ChatOpenAI
     from langchain.agents import create_tool_calling_agent, AgentExecutor
     from langchain_core.prompts import ChatPromptTemplate
-    
+
     llm = ChatOpenAI(model="gpt-4")
     prompt = ChatPromptTemplate.from_messages([
         ("system", "You are a helpful assistant. Use tools when needed."),
         ("human", "{input}"),
         ("placeholder", "{agent_scratchpad}"),
     ])
-    
+
     agent = create_tool_calling_agent(llm, lc_tools, prompt)
     executor = AgentExecutor(agent=agent, tools=lc_tools)
-    
+
     # All tool responses will be cryptographically signed!
     result = executor.invoke({"input": "What is AAPL stock price?"})
     """

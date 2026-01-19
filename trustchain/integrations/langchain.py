@@ -21,11 +21,10 @@ Usage:
     agent = initialize_agent([lc_tool], llm)
 """
 
-from typing import Any, Callable, Dict, Optional, Type
+from typing import Any, Callable
 
 try:
     from langchain_core.tools import BaseTool
-    from pydantic import BaseModel, Field, create_model
 
     HAS_LANGCHAIN = True
 except ImportError:

@@ -19,7 +19,7 @@ Usage:
 
 import sqlite3
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 
 from trustchain import TrustChain
 
@@ -166,7 +166,7 @@ class AuditableDatabase:
 
         # Record transaction
         self.cursor.execute(
-            """INSERT INTO transactions 
+            """INSERT INTO transactions
                (account_from, account_to, amount, timestamp, description)
                VALUES (?, ?, ?, ?, ?)""",
             (from_account, to_account, amount, datetime.now().isoformat(), description),
@@ -195,7 +195,7 @@ class AuditableDatabase:
         """List transactions with signatures."""
         self.cursor.execute(
             """SELECT id, account_from, account_to, amount, timestamp, description
-               FROM transactions 
+               FROM transactions
                WHERE account_from = ? OR account_to = ?
                ORDER BY timestamp DESC LIMIT ?""",
             (account_id, account_id, limit),

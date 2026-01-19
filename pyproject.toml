@@ -189,6 +189,7 @@ ignore = [
     "F403", # star imports (used intentionally for library exports)
     "F405", # names from star imports (consequence of F403)
     "E402", # imports not at top (needed for debug prints)
+    "B027", # empty method in ABC without @abstractmethod (intentional for close())
 ]
 
 [tool.ruff.lint.per-file-ignores]

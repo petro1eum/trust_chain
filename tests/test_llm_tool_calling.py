@@ -21,9 +21,9 @@ import time
 from typing import Any, Dict, List, Optional
 
 import pytest
+from trustchain.core.signatures import set_signature_engine
 
 from trustchain import MemoryRegistry, SignatureEngine, TrustedTool, TrustLevel
-from trustchain.core.signatures import set_signature_engine
 
 
 class AIAgent:

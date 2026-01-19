@@ -72,10 +72,10 @@ class TestE2ERAGWorkflow:
         document = """
         Chapter 1: Company Overview
         Acme Corp was founded in 2010 with $1M seed funding.
-        
+
         Chapter 2: Financial Summary
         Revenue grew 25% year-over-year reaching $50M.
-        
+
         Chapter 3: Projections
         We expect 30% growth in the next fiscal year.
         """

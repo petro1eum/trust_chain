@@ -11,6 +11,9 @@ import time
 from typing import Any, Dict
 
 import pytest
+from trustchain.core.crypto import Ed25519KeyPair
+from trustchain.core.models import KeyMetadata, SignedResponse
+from trustchain.tools.base import FunctionTrustedTool
 
 from trustchain import (
     MemoryRegistry,
@@ -20,9 +23,6 @@ from trustchain import (
     get_crypto_engine,
     get_signature_engine,
 )
-from trustchain.core.crypto import Ed25519KeyPair
-from trustchain.core.models import KeyMetadata, SignedResponse
-from trustchain.tools.base import FunctionTrustedTool
 from trustchain.utils.exceptions import NonceReplayError, ToolExecutionError
 from trustchain.v2 import TrustChain, TrustChainConfig
 
