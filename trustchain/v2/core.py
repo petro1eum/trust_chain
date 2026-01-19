@@ -393,3 +393,77 @@ class TrustChain:
             self.save_keys()
 
         return self._signer.get_key_id()
+
+    # === Marketing-Friendly Class Decorator ===
+
+    def dehallucinate(self, cls: type = None, *, exclude: list = None):
+        """
+        Decorator to make an entire class 'hallucination-proof'.
+
+        All public methods (not starting with _) will automatically
+        return cryptographically signed responses.
+
+        Example:
+            @tc.dehallucinate
+            class MyAgentTools:
+                def search_database(self, query: str) -> dict:
+                    return {"results": [...]}
+
+                def call_api(self, endpoint: str) -> dict:
+                    return requests.get(endpoint).json()
+
+            # All methods now return SignedResponse!
+            tools = MyAgentTools()
+            result = tools.search_database("test")
+            assert tc.verify(result)  # True - this is real data!
+
+        Args:
+            cls: Class to wrap (used when decorator is @tc.dehallucinate)
+            exclude: List of method names to skip (e.g., ['helper_method'])
+
+        Returns:
+            Wrapped class with all public methods signed
+        """
+        exclude_set = set(exclude or [])
+
+        def wrap_class(cls: type) -> type:
+            import inspect
+
+            for name in dir(cls):
+                # Skip private/magic methods
+                if name.startswith("_"):
+                    continue
+
+                # Skip excluded methods
+                if name in exclude_set:
+                    continue
+
+                method = getattr(cls, name)
+
+                # Only wrap callable methods
+                if not callable(method) or isinstance(method, type):
+                    continue
+
+                # Skip class methods and static methods for now
+                if isinstance(
+                    inspect.getattr_static(cls, name), (classmethod, staticmethod)
+                ):
+                    continue
+
+                # Create tool_id from class.method
+                tool_id = f"{cls.__name__}.{name}"
+
+                # Wrap the method
+                wrapped = self.tool(tool_id)(method)
+                setattr(cls, name, wrapped)
+
+            # Mark class as dehallucinated
+            cls._trustchain_dehallucinated = True
+            cls._trustchain_instance = self
+
+            return cls
+
+        # Support both @tc.dehallucinate and @tc.dehallucinate()
+        if cls is not None:
+            return wrap_class(cls)
+        return wrap_class
