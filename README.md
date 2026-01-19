@@ -15,6 +15,8 @@ TrustChain adds **Ed25519 cryptographic signatures** to AI tool responses, enabl
 - **Audit trails** - beautiful HTML reports for compliance
 - **Integrations** - OpenAI, Anthropic, LangChain, MCP (Claude Desktop)
 
+![TrustChain Architecture](docs/wiki/architecture_flow.png)
+
 ---
 
 ## Installation
@@ -71,12 +73,7 @@ assert tc.verify(result) == True
 
 Link operations cryptographically to prove execution order:
 
-```mermaid
-graph LR
-  A[🔍 Search Tool] -->|signature| B[📊 Analyze Tool]
-  B -->|signature + parent| C[📝 Report Tool]
-  C -->|full chain| D[✅ Verified]
-```
+![Chain of Trust](docs/wiki/chain_of_trust.png)
 
 ```python
 step1 = tc._signer.sign("search", {"query": "balance"})
@@ -156,6 +153,8 @@ lc_tools = to_langchain_tools(tc)
 ```
 
 ### Merkle Trees for Large Documents
+
+![Merkle Tree Verification](docs/wiki/merkle_tree_rag.png)
 
 ```python
 from trustchain.v2.merkle import MerkleTree, verify_proof
