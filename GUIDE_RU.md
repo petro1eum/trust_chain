@@ -20,9 +20,11 @@ pip install trustchain
 
 Для дополнительных возможностей:
 ```bash
-pip install trustchain[mcp]      # MCP Server для Claude Desktop
-pip install trustchain[langchain] # LangChain интеграция
-pip install trustchain[redis]     # Распределенный nonce storage
+pip install trustchain[integrations]  # LangChain + MCP
+pip install trustchain[ai]            # OpenAI + Anthropic + LangChain
+pip install trustchain[mcp]           # Только MCP Server
+pip install trustchain[redis]         # Распределенный nonce storage
+pip install trustchain[all]           # Всё вместе
 ```
 
 ---
@@ -179,10 +181,26 @@ config = TrustChainConfig(
     enable_cache=True,        # Кэширование ответов
     cache_ttl=3600,           # Время жизни кэша (секунды)
     nonce_ttl=86400,          # Время жизни nonce (секунды)
+    key_file="keys.json",     # Файл для хранения ключей
 )
 
 tc = TrustChain(config)
 ```
+
+### Ротация ключей
+
+```python
+# Генерация новых ключей
+old_key = tc.get_key_id()
+new_key = tc.rotate_keys()  # Авто-сохраняет если key_file настроен
+
+print(f"Ротация: {old_key[:16]} -> {new_key[:16]}")
+
+# Экспорт публичного ключа для внешней верификации
+public_key = tc.export_public_key()
+```
+
+> После ротации все предыдущие подписи становятся невалидными!
 
 ### Распределенная конфигурация (Redis)
 
@@ -461,13 +479,23 @@ trustchain/
 
 ## Примеры
 
-В директории `examples/` доступны готовые примеры:
+### Jupyter Notebooks
 
-- `mcp_claude_desktop.py` -- MCP Server для Claude Desktop
-- `langchain_agent.py` -- Интеграция с LangChain
-- `secure_rag.py` -- RAG с Merkle Tree верификацией
-- `database_agent.py` -- SQL агент с Chain of Trust
-- `api_agent.py` -- HTTP клиент с CloudEvents
+| Notebook | Описание |
+|----------|----------|
+| [trustchain_tutorial.ipynb](examples/trustchain_tutorial.ipynb) | Базовый туториал — 7 ключевых сценариев |
+| [trustchain_advanced.ipynb](examples/trustchain_advanced.ipynb) | Продвинутое — key persistence, multi-agent, Redis |
+| [trustchain_pro.ipynb](examples/trustchain_pro.ipynb) | Полный справочник API v2.1 |
+
+### Python скрипты
+
+В директории `examples/`:
+
+- `mcp_claude_desktop.py` — MCP Server для Claude Desktop
+- `langchain_agent.py` — Интеграция с LangChain
+- `secure_rag.py` — RAG с Merkle Tree верификацией
+- `database_agent.py` — SQL агент с Chain of Trust
+- `api_agent.py` — HTTP клиент с CloudEvents
 
 ---
 
