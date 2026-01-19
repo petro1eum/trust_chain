@@ -89,14 +89,17 @@ class TrustChainLangChainTool(BaseTool if HAS_LANGCHAIN else object):
         
         The signature is stored in the response metadata.
         """
-        # Get the wrapped function
-        wrapped_func = self.tc_instance._tools[self.tc_tool_id]["func"]
+        # Call the original function
+        original_func = self.tc_original_func
+        result = original_func(**kwargs)
         
-        # Execute (this returns SignedResponse)
-        signed_response = wrapped_func(**kwargs)
+        # Sign the result
+        signed_response = self.tc_instance._signer.sign(
+            self.tc_tool_id,
+            result if isinstance(result, dict) else {"result": result}
+        )
         
         # Return the data, but include signature in metadata
-        # LangChain agents work with raw data, signature can be audited separately
         return {
             "result": signed_response.data,
             "_trustchain": {
