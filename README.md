@@ -1,4 +1,4 @@
-# TrustChain
+# TrustChain (NEW!!!)
 
 **Cryptographic verification layer for AI agents**
 
