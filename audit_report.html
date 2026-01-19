@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrustChain Audit Report</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e4e4e4;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+            background: linear-gradient(90deg, #00ff88, #00d4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.5rem;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(90deg, #00ff88, #00d4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stat-label { color: #888; margin-top: 0.5rem; }
+        .chain-container {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        h2 { margin-bottom: 1.5rem; color: #00d4ff; }
+        .chain-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+        .chain-item:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 50px;
+            width: 2px;
+            height: calc(100% - 20px);
+            background: linear-gradient(180deg, #00ff88, #00d4ff);
+        }
+        .chain-node {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00ff88, #00d4ff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #1a1a2e;
+            flex-shrink: 0;
+            z-index: 1;
+        }
+        .chain-content {
+            flex: 1;
+            margin-left: 1rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+        .chain-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .chain-tool { font-weight: bold; color: #00ff88; }
+        .chain-time { color: #666; font-size: 0.85rem; }
+        .chain-sig {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #888;
+            background: rgba(0,0,0,0.3);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            display: inline-block;
+            margin-top: 0.5rem;
+        }
+        .chain-data {
+            margin-top: 0.75rem;
+            padding: 0.75rem;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+        }
+        .verified { color: #00ff88; }
+        .failed { color: #ff4444; }
+        .parent-link {
+            font-size: 0.75rem;
+            color: #00d4ff;
+            margin-top: 0.5rem;
+        }
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+        .footer a { color: #00d4ff; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TrustChain Audit Report</h1>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">5</div>
+                <div class="stat-label">Operations</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">5</div>
+                <div class="stat-label">Verified</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">4</div>
+                <div class="stat-label">Chain Links</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">5</div>
+                <div class="stat-label">Unique Tools</div>
+            </div>
+        </div>
+        
+        <div class="chain-container">
+            <h2>Chain of Trust</h2>
+            <p style="color: #888; margin-bottom: 1rem;">Each operation is cryptographically signed. Operations with a parent link form a verified chain.</p>
+            
+<div class="chain-item">
+    <div class="chain-node">1</div>
+    <div class="chain-content">
+        <div class="chain-header">
+            <span class="chain-tool">user_auth</span>
+            <span class="chain-time">2026-01-19 20:30:56</span>
+        </div>
+        <div class="chain-sig">Signature: QUBzQ51sKZ7z7rYdWGXprNMuJI2LXNr+...</div>
+        
+        <div class="chain-data">{
+  "action": "login",
+  "user_id": "alice@example.com"
+}</div>
+        <div class="verified">[VERIFIED]</div>
+    </div>
+</div>
+
+
+<div class="chain-item">
+    <div class="chain-node">2</div>
+    <div class="chain-content">
+        <div class="chain-header">
+            <span class="chain-tool">query_balance</span>
+            <span class="chain-time">2026-01-19 20:30:56</span>
+        </div>
+        <div class="chain-sig">Signature: 5oR4He3zhr/4DJXAqFKijw3FjoiDIoo0...</div>
+        <div class="parent-link">↳ Parent: QUBzQ51sKZ7z7rYdWGXprNMu...</div>
+        <div class="chain-data">{
+  "account": "ACC001",
+  "balance": 10000.0
+}</div>
+        <div class="verified">[VERIFIED]</div>
+    </div>
+</div>
+
+
+<div class="chain-item">
+    <div class="chain-node">3</div>
+    <div class="chain-content">
+        <div class="chain-header">
+            <span class="chain-tool">transfer_funds</span>
+            <span class="chain-time">2026-01-19 20:30:56</span>
+        </div>
+        <div class="chain-sig">Signature: lXaDw7MwJ2e1dJuifecFCn+V92MuqvWY...</div>
+        <div class="parent-link">↳ Parent: 5oR4He3zhr/4DJXAqFKijw3F...</div>
+        <div class="chain-data">{
+  "from": "ACC001",
+  "to": "ACC002",
+  "amount": 500.0
+}</div>
+        <div class="verified">[VERIFIED]</div>
+    </div>
+</div>
+
+
+<div class="chain-item">
+    <div class="chain-node">4</div>
+    <div class="chain-content">
+        <div class="chain-header">
+            <span class="chain-tool">update_balance</span>
+            <span class="chain-time">2026-01-19 20:30:56</span>
+        </div>
+        <div class="chain-sig">Signature: rIEoy+KCKdg/3MkRFMpMi0IzOJ3q05TS...</div>
+        <div class="parent-link">↳ Parent: lXaDw7MwJ2e1dJuifecFCn+V...</div>
+        <div class="chain-data">{
+  "account": "ACC001",
+  "new_balance": 9500.0
+}</div>
+        <div class="verified">[VERIFIED]</div>
+    </div>
+</div>
+
+
+<div class="chain-item">
+    <div class="chain-node">5</div>
+    <div class="chain-content">
+        <div class="chain-header">
+            <span class="chain-tool">audit_log</span>
+            <span class="chain-time">2026-01-19 20:30:56</span>
+        </div>
+        <div class="chain-sig">Signature: 7+ZeCCBZy1/G068YJr5FmbClWFTIgebL...</div>
+        <div class="parent-link">↳ Parent: rIEoy+KCKdg/3MkRFMpMi0Iz...</div>
+        <div class="chain-data">{
+  "operation": "transfer_complete",
+  "status": "success"
+}</div>
+        <div class="verified">[VERIFIED]</div>
+    </div>
+</div>
+
+        </div>
+        
+        <div class="footer">
+            Generated by <a href="https://github.com/trustchain">TrustChain</a> | 2026-01-19 20:30:56
+        </div>
+    </div>
+</body>
+</html>

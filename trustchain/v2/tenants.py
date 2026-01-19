@@ -34,6 +34,7 @@ class TenantManager:
         key_storage_dir: Optional[str] = None,
         redis_url: Optional[str] = None,
     ):
+        """Initialize manager with optional config, key storage, and Redis URL."""
         self._base_config = base_config or TrustChainConfig()
         self._key_storage_dir = key_storage_dir
         self._redis_url = redis_url
@@ -86,4 +87,5 @@ class TenantManager:
 
     @property
     def count(self) -> int:
+        """Return number of active tenants."""
         return len(self._tenants)

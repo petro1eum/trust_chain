@@ -21,6 +21,7 @@ class TrustChain:
     """Simple API for cryptographically signed tool responses."""
 
     def __init__(self, config: Optional[TrustChainConfig] = None):
+        """Initialize TrustChain with optional configuration."""
         self.config = config or TrustChainConfig()
         self._signer = self._load_or_create_signer()
         self._storage = self._create_storage()
@@ -84,6 +85,8 @@ class TrustChain:
             # Store tool metadata
             self._tools[tool_id] = {
                 "func": func,
+                "original_func": func,  # For schema generation
+                "description": options.get("description", func.__doc__),
                 "options": options,
                 "created_at": time.time(),
                 "call_count": 0,
@@ -214,6 +217,40 @@ class TrustChain:
 
         return is_valid
 
+    def verify_chain(self, responses: list) -> bool:
+        """Verify a chain of linked SignedResponses.
+
+        Each response (except first) must have parent_signature
+        matching the previous response's signature.
+
+        Args:
+            responses: List of SignedResponse in order
+
+        Returns:
+            True if all signatures valid and chain is unbroken
+        """
+        if not responses:
+            return True
+
+        # Verify first response
+        if not self.verify(responses[0]):
+            return False
+
+        # Verify chain links
+        for i in range(1, len(responses)):
+            current = responses[i]
+            previous = responses[i - 1]
+
+            # Check chain link
+            if current.parent_signature != previous.signature:
+                return False
+
+            # Verify signature
+            if not self._signer.verify(current):
+                return False
+
+        return True
+
     def _generate_nonce(self) -> str:
         """Generate a unique nonce.
 
@@ -259,6 +296,42 @@ class TrustChain:
     def clear_cache(self) -> None:
         """Clear the response cache."""
         self._storage.clear()
+
+    # === Schema Export Methods ===
+
+    def get_tool_schema(self, tool_id: str, format: str = "openai") -> dict:
+        """Get OpenAI/Anthropic schema for a tool.
+
+        Args:
+            tool_id: Tool identifier
+            format: 'openai' or 'anthropic'
+
+        Returns:
+            Function schema dict
+        """
+        from .schemas import generate_anthropic_schema, generate_function_schema
+
+        if tool_id not in self._tools:
+            raise ValueError(f"Unknown tool: {tool_id}")
+
+        tool_info = self._tools[tool_id]
+        func = tool_info["original_func"]
+        desc = tool_info.get("description")
+
+        if format == "anthropic":
+            return generate_anthropic_schema(func, tool_id, desc)
+        return generate_function_schema(func, tool_id, desc)
+
+    def get_tools_schema(self, format: str = "openai") -> list:
+        """Get schemas for all registered tools.
+
+        Args:
+            format: 'openai' or 'anthropic'
+
+        Returns:
+            List of function schemas
+        """
+        return [self.get_tool_schema(tid, format) for tid in self._tools]
 
     # === Key Persistence Methods ===
 

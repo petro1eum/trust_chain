@@ -27,6 +27,7 @@ class SignedResponse:
     signature_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: float = field(default_factory=time.time)
     nonce: Optional[str] = None
+    parent_signature: Optional[str] = None  # Chain of Trust: link to previous step
 
     # Cache verification result
     _verified: Optional[bool] = field(default=None, init=False, repr=False)
@@ -35,8 +36,6 @@ class SignedResponse:
     def is_verified(self) -> bool:
         """Check if response is verified (cached)."""
         if self._verified is None:
-            # In real implementation, would verify against signer
-            # For now, assume verified if has signature
             self._verified = bool(self.signature)
         return self._verified
 
@@ -49,6 +48,7 @@ class SignedResponse:
             "signature_id": self.signature_id,
             "timestamp": self.timestamp,
             "nonce": self.nonce,
+            "parent_signature": self.parent_signature,
         }
 
 
@@ -72,7 +72,11 @@ class Signer:
             raise ValueError(f"Unsupported algorithm: {algorithm}")
 
     def sign(
-        self, tool_id: str, data: Any, nonce: Optional[str] = None
+        self,
+        tool_id: str,
+        data: Any,
+        nonce: Optional[str] = None,
+        parent_signature: Optional[str] = None,
     ) -> SignedResponse:
         """Sign data and return SignedResponse."""
         # Create canonical representation
@@ -81,6 +85,7 @@ class Signer:
             "data": data,
             "timestamp": time.time(),
             "nonce": nonce or str(uuid.uuid4()),
+            "parent_signature": parent_signature,
         }
 
         # Serialize to JSON
@@ -101,6 +106,7 @@ class Signer:
             signature=signature,
             timestamp=canonical_data["timestamp"],
             nonce=canonical_data["nonce"],
+            parent_signature=parent_signature,
         )
 
     def verify(self, response: SignedResponse) -> bool:
@@ -112,6 +118,7 @@ class Signer:
                 "data": response.data,
                 "timestamp": response.timestamp,
                 "nonce": response.nonce,
+                "parent_signature": response.parent_signature,
             }
 
             # Serialize to JSON

@@ -1,443 +1,200 @@
-# 🔗 TrustChain
+# TrustChain
 
-**Cryptographically signed AI tool responses for preventing hallucinations**
+**Cryptographic verification layer for AI agents**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](tests/)
+TrustChain adds cryptographic signatures to AI tool responses, enabling:
+- Proof that data came from a real tool execution (not hallucinated)
+- Complete audit trails with Chain of Trust
+- Replay attack protection
+- Integration with OpenAI, Anthropic, LangChain, and MCP
 
-TrustChain is a production-ready Python library that provides cryptographic signatures for AI tool responses, preventing agent hallucinations and ensuring verifiable execution of tools.
+---
 
-> **🎉 Version 2.0 - Complete Rewrite!** 
-> 
-> We've rebuilt TrustChain from the ground up with radical simplification:
-> - **84% less code** - from 3000+ lines to ~500 lines
-> - **5 classes instead of 15+** - dramatically simpler architecture
-> - **No global state** - explicit instances, better testing
-> - **10x faster** - removed unnecessary abstraction layers
-> - **Zero setup** - works out of the box
-> 
-> **[📋 Migration Guide](MIGRATION_GUIDE.md)** | **[📈 v1 vs v2 Comparison](REFACTORING_RESULTS.md)**
-
-## 🚀 Quick Start
-
-### Version 2.0 (Recommended)
-
-```python
-from trustchain.v2 import TrustChain
-
-# Create instance - that's it, no setup needed!
-tc = TrustChain()
-
-@tc.tool("weather_api")
-def get_weather(city: str) -> dict:
-    """Get weather data with automatic cryptographic verification."""
-    return {
-        "city": city,
-        "temperature": 22.5,
-        "conditions": "Sunny",
-        "timestamp": time.time()
-    }
-
-# Every call is automatically signed and verified
-response = get_weather("Paris")
-print(f"✅ Verified: {response.is_verified}")
-print(f"📊 Data: {response.data}")
-print(f"🔐 Signature: {response.signature[:32]}...")
-```
-
-### Async Support (Auto-detected)
-
-```python
-@tc.tool("ai_analysis")
-async def analyze_with_llm(prompt: str) -> dict:
-    """TrustChain automatically handles both sync and async functions."""
-    # Your actual LLM call here
-    result = await openai.chat.completions.create(...)
-    return {
-        "prompt": prompt,
-        "response": result.choices[0].message.content,
-        "tokens": result.usage.total_tokens
-    }
-
-# Async calls work seamlessly
-analysis = await analyze_with_llm("Explain quantum computing")
-assert analysis.is_verified  # Always true for real tool calls
-```
-
-## 🛡️ Why TrustChain?
-
-### **🚨 The Problem: AI Hallucinations**
-
-```python
-# ❌ WITHOUT TrustChain - Agent can lie
-def unreliable_agent():
-    # Agent claims it called weather API but didn't!
-    return "I checked the weather API: Tokyo is 25°C and sunny"
-    # ☠️ HALLUCINATION: No actual API call was made
-
-# ✅ WITH TrustChain - Cryptographic proof required
-@tc.tool("weather_check")
-def real_weather_api(city: str):
-    # This actually calls the API and signs the response
-    return call_real_weather_api(city)
-
-# Agent cannot fake this - signature proves real execution
-verified_result = real_weather_api("Tokyo")
-# 🔒 GUARANTEED: This data came from the actual API
-```
-
-### **🔐 The Solution: Cryptographic Verification**
-
-- **Every tool response is cryptographically signed**
-- **Tampering is immediately detected**
-- **Agents cannot fake tool results**
-- **Complete audit trail of all executions**
-
-## 🌟 Key Features
-
-| Feature | v2.0 | v1.0 | Description |
-|---------|------|------|-------------|
-| **Setup Complexity** | 🟢 Zero setup | 🟡 Complex | Just `tc = TrustChain()` |
-| **API Simplicity** | 🟢 `@tc.tool()` | 🟡 Many parameters | Single decorator |
-| **Performance** | 🟢 <5ms overhead | 🟡 15-20ms | 3x faster |
-| **Code Size** | 🟢 500 lines | 🔴 3000+ lines | 84% reduction |
-| **Memory Usage** | 🟢 ~5MB | 🟡 ~15MB | 67% less |
-| **Global State** | 🟢 None | 🔴 Required | Better testing |
-| **Async Support** | 🟢 Auto-detect | 🟡 Manual setup | Seamless |
-
-## 📦 Installation
+## Installation
 
 ```bash
 pip install trustchain
 ```
 
-## 🔧 Core Concepts
+With optional integrations:
+```bash
+pip install trustchain[mcp]        # MCP Server support
+pip install trustchain[langchain]  # LangChain integration
+pip install trustchain[redis]      # Distributed nonce storage
+```
 
-### 1. **Signed Responses**
+---
 
-Every tool call returns a `SignedResponse` with cryptographic proof:
+## Quick Start
 
 ```python
+from trustchain import TrustChain
+
+tc = TrustChain()
+
+@tc.tool("weather")
+def get_weather(city: str) -> dict:
+    return {"city": city, "temp": 22}
+
+# Calling the function returns a SignedResponse
+result = get_weather("Moscow")
+print(result.data)       # {'city': 'Moscow', 'temp': 22}
+print(result.signature)  # Ed25519 signature (Base64)
+
+# Verify authenticity
+assert tc.verify(result) == True
+```
+
+---
+
+## Features
+
+### Chain of Trust
+
+Link operations cryptographically to prove execution order:
+
+```python
+step1 = tc._signer.sign("search", {"query": "balance"})
+step2 = tc._signer.sign("analyze", {"result": 100}, parent_signature=step1.signature)
+step3 = tc._signer.sign("report", {"text": "Done"}, parent_signature=step2.signature)
+
+# Verify the entire chain
+assert tc.verify_chain([step1, step2, step3]) == True
+```
+
+### OpenAI / Anthropic Schema Export
+
+```python
+# Get OpenAI-compatible function schema
+schema = tc.get_tools_schema()
+
+# Anthropic format
+schema = tc.get_tools_schema(format="anthropic")
+```
+
+### MCP Server (Claude Desktop)
+
+```python
+from trustchain.integrations.mcp import serve_mcp
+
 @tc.tool("calculator")
 def add(a: int, b: int) -> int:
     return a + b
 
-result = add(5, 3)
-
-# Inspect the signed response
-print(f"Tool ID: {result.tool_id}")           # calculator
-print(f"Data: {result.data}")                 # 8
-print(f"Verified: {result.is_verified}")      # True
-print(f"Signature: {result.signature}")       # Base64 signature
-print(f"Timestamp: {result.timestamp}")       # When executed
-print(f"Nonce: {result.nonce}")              # Replay protection
+serve_mcp(tc)  # Starts MCP server for Claude Desktop
 ```
 
-### 2. **Automatic Verification**
+### LangChain Integration
 
 ```python
-# Verify any response
-is_authentic = tc.verify(result)
+from trustchain.integrations.langchain import to_langchain_tools
 
-# Detect tampering
-import copy
-tampered = copy.deepcopy(result)
-tampered.data = 999  # Modify the data
-
-tc.verify(tampered)  # ❌ False - tampering detected!
+lc_tools = to_langchain_tools(tc)
+# Use with LangChain AgentExecutor
 ```
 
-### 3. **Statistics & Monitoring**
+### Merkle Trees for Large Documents
 
 ```python
-# Per-tool statistics
-stats = tc.get_tool_stats("calculator")
-print(f"Calls: {stats['call_count']}")
-print(f"Last execution: {stats['last_execution_time']}")
+from trustchain.v2.merkle import MerkleTree, verify_proof
 
-# Overall statistics
-overall = tc.get_stats()
-print(f"Total tools: {overall['total_tools']}")
-print(f"Total calls: {overall['total_calls']}")
-print(f"Cache size: {overall['cache_size']}")
+pages = ["Page 1...", "Page 2...", ...]
+tree = MerkleTree.from_chunks(pages)
+
+# Verify single page without loading entire document
+proof = tree.get_proof(42)
+assert verify_proof(pages[42], proof, tree.root)
 ```
 
-### 4. **Configuration**
+### CloudEvents Format
 
 ```python
-from trustchain.v2 import TrustChain, TrustChainConfig
+from trustchain.v2.events import TrustEvent
 
-# Customize behavior
-tc = TrustChain(TrustChainConfig(
-    enable_nonce=True,          # Replay protection
-    enable_cache=True,          # Response caching
-    cache_ttl=3600,            # 1 hour cache
-    max_cached_responses=100    # LRU cache limit
-))
+event = TrustEvent.from_signed_response(result, source="/agent/bot")
+kafka_headers = event.to_kafka_headers()
 ```
 
-## 🎯 Real-World Examples
-
-### **Financial Services**
+### Audit Trail UI
 
 ```python
-@tc.tool("payment_processor")
-def process_payment(amount: float, recipient: str) -> dict:
-    """Every financial transaction is cryptographically verified."""
-    if amount <= 0:
-        raise ValueError("Invalid amount")
-    
-    # Process actual payment
-    transaction_id = execute_bank_transfer(amount, recipient)
-    
-    return {
-        "transaction_id": transaction_id,
-        "amount": amount,
-        "recipient": recipient,
-        "status": "completed",
-        "timestamp": time.time()
-    }
+from trustchain.ui.explorer import ChainExplorer
 
-# Guaranteed audit trail for compliance
-payment = process_payment(1000.0, "merchant@bank.com")
-# This signature proves the payment actually happened
+explorer = ChainExplorer(chain, tc)
+explorer.export_html("audit_report.html")
 ```
-
-### **AI Agent Integration**
-
-```python
-# Prevent agents from claiming fake tool results
-class VerifiedAgent:
-    def __init__(self):
-        self.tc = TrustChain()
-        
-    @tc.tool("web_search")
-    def search_web(self, query: str) -> dict:
-        """Real web search with cryptographic proof."""
-        results = actual_search_api(query)
-        return {"query": query, "results": results}
-    
-    def ask(self, question: str) -> str:
-        if "search" in question:
-            # Agent MUST use the real tool - cannot fake results
-            search_result = self.search_web(extract_query(question))
-            return f"Found: {search_result.data['results']}"
-        return "I can help with searches"
-
-agent = VerifiedAgent()
-response = agent.ask("Search for Python tutorials")
-# The search results are cryptographically guaranteed to be real
-```
-
-### **LLM Integration**
-
-```python
-@tc.tool("openai_chat")
-async def chat_with_gpt(prompt: str) -> dict:
-    """Real OpenAI API call with verification."""
-    client = openai.AsyncOpenAI()
-    response = await client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    
-    return {
-        "prompt": prompt,
-        "response": response.choices[0].message.content,
-        "model": "gpt-4",
-        "tokens": response.usage.total_tokens
-    }
-
-# Agents cannot fake LLM responses
-llm_result = await chat_with_gpt("Explain blockchain")
-# Signature proves this came from real OpenAI API
-```
-
-## 📊 Performance Benchmarks
-
-| Metric | v2.0 | v1.0 | Improvement |
-|--------|------|------|-------------|
-| **Signature Generation** | 2ms | 8ms | 4x faster |
-| **Verification** | 3ms | 12ms | 4x faster |
-| **Memory per Tool** | 0.1MB | 0.4MB | 4x less |
-| **Cold Start** | 10ms | 200ms | 20x faster |
-| **Throughput** | 2000 ops/sec | 500 ops/sec | 4x higher |
-
-## 🔒 Security Features
-
-### **Cryptographic Signatures**
-- **Algorithm**: Ed25519 (industry standard)
-- **Key Management**: Automatic generation and rotation
-- **Verification**: Constant-time, secure implementation
-
-### **Replay Protection**
-- **Nonces**: Unique identifiers prevent reuse
-- **Timestamps**: Time-based validation
-- **Cache**: Recent signatures tracked
-
-### **Tamper Detection**
-- **Hash Verification**: SHA-256 content hashing
-- **Signature Validation**: Public key cryptography
-- **Integrity Checks**: Automatic verification
-
-## 📚 Complete Examples
-
-Explore our comprehensive examples:
-
-- **[🌟 `basic_usage.py`](examples/basic_usage.py)** - Core functionality walkthrough
-- **[🔒 `security_vulnerability_demo.py`](examples/security_vulnerability_demo.py)** - Security features demonstration  
-- **[🛡️ `full_enforcement_demo.py`](examples/full_enforcement_demo.py)** - Complete agent protection
-- **[🤖 `llm_real_api_examples.py`](examples/llm_real_api_examples.py)** - Real LLM integrations (OpenAI, Anthropic, Gemini)
-
-```bash
-# Run any example
-python examples/basic_usage.py
-python examples/llm_real_api_examples.py
-```
-
-## 🔄 Migration from v1
-
-**v1 Code:**
-```python
-from trustchain import TrustedTool, TrustLevel, get_signature_engine
-from trustchain.registry.memory import MemoryRegistry
-
-# Complex setup required
-registry = MemoryRegistry()
-engine = SignatureEngine(registry)
-set_signature_engine(engine)
-
-@TrustedTool("tool", trust_level=TrustLevel.HIGH, require_nonce=True)
-async def my_tool(x):
-    return {"result": x}
-```
-
-**v2 Code:**
-```python
-from trustchain.v2 import TrustChain
-
-# Zero setup - just works!
-tc = TrustChain()
-
-@tc.tool("tool")
-def my_tool(x):  # Sync or async - auto-detected!
-    return {"result": x}
-```
-
-**[📋 Complete Migration Guide](MIGRATION_GUIDE.md)**
-
-## 🏢 Enterprise Features
-
-TrustChain includes production-ready enterprise capabilities:
-
-### **Distributed Nonce Storage (Redis)**
-
-```python
-tc = TrustChain(TrustChainConfig(
-    nonce_backend="redis",
-    redis_url="redis://localhost:6379",
-    tenant_id="customer_123"  # Multi-tenancy
-))
-```
-
-### **Multi-Tenancy**
-
-```python
-from trustchain.v2.tenants import TenantManager
-
-manager = TenantManager(redis_url="redis://localhost:6379")
-tc = manager.get_or_create("tenant_a")  # Separate keys per tenant
-
-# Different tenants have isolated keys
-tc_a = manager.get_or_create("tenant_a")
-tc_b = manager.get_or_create("tenant_b")
-assert tc_a.get_key_id() != tc_b.get_key_id()
-```
-
-### **Prometheus Metrics**
-
-```python
-tc = TrustChain(TrustChainConfig(enable_metrics=True))
-
-# Metrics available:
-# - trustchain_signs_total
-# - trustchain_verifies_total  
-# - trustchain_sign_seconds (histogram)
-# - trustchain_errors_total
-```
-
-### **REST API Server**
-
-```bash
-pip install fastapi uvicorn
-uvicorn trustchain.v2.server:app --port 8000
-```
-
-Endpoints:
-- `POST /sign` - Sign data
-- `POST /verify` - Verify signature
-- `GET /health` - Health check
-- `GET /public-key` - Export public key
-- `GET /metrics` - Prometheus metrics
-
-### **Structured JSON Logging**
-
-```python
-from trustchain.v2.logging import setup_logging
-
-setup_logging(level="INFO", json_format=True)
-# Output: {"ts": 1768..., "level": "INFO", "op": "sign", "tool_id": "api"}
-```
-
-## 🧪 Testing
-
-```bash
-# Run v2 tests
-python -m pytest tests/test_v2_basic.py -v
-
-# Run all tests
-python -m pytest tests/ -v
-
-# Run examples
-python examples/basic_usage.py
-```
-
-## 🤝 Contributing
-
-We welcome contributions! Key areas:
-
-- **Performance optimizations**
-- **Additional cryptographic algorithms** 
-- **Integration examples**
-- **Documentation improvements**
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-## 🆘 Support & Community
-
-- **📖 Documentation**: [examples/](examples/) directory
-- **🐛 Issues**: [GitHub Issues](https://github.com/edcherednik/trustchain/issues)
-- **💬 Discussion**: [GitHub Discussions](https://github.com/edcherednik/trustchain/discussions)
-- **📧 Email**: edcherednik@gmail.com
-- **💬 Telegram**: @EdCher
-
-## 🌟 Why Choose TrustChain v2?
-
-| **Before TrustChain** | **With TrustChain v2** |
-|----------------------|----------------------|
-| ❌ Agents can fake tool results | ✅ Cryptographic proof required |
-| ❌ No verification possible | ✅ Instant tamper detection |
-| ❌ Complex audit trails | ✅ Automatic audit logging |
-| ❌ Security vulnerabilities | ✅ Production-grade security |
-| ❌ Manual verification | ✅ Automatic verification |
 
 ---
 
-**🔒 Secure by Default** | **⚡ Production Ready** | **🚀 Zero Setup**
+## Performance
 
-*TrustChain v2: Making AI agents verifiably trustworthy* 
+| Operation | Latency | Throughput |
+|-----------|---------|------------|
+| Sign | 0.11 ms | 9,100 ops/sec |
+| Verify | 0.22 ms | 4,500 ops/sec |
+| Merkle (100 pages) | 0.18 ms | 5,400 ops/sec |
+
+Storage overhead: ~124 bytes per operation.
+
+---
+
+## Architecture
+
+```
+trustchain/
+  v2/
+    core.py         # Main TrustChain class
+    signer.py       # Ed25519 signatures
+    schemas.py      # OpenAI/Anthropic schema generation
+    merkle.py       # Merkle tree implementation
+    events.py       # CloudEvents format
+    server.py       # REST API
+  integrations/
+    langchain.py    # LangChain adapter
+    mcp.py          # MCP Server
+  ui/
+    explorer.py     # HTML audit reports
+```
+
+---
+
+## Examples
+
+See `examples/` directory:
+- `mcp_claude_desktop.py` - MCP Server for Claude
+- `langchain_agent.py` - LangChain integration
+- `secure_rag.py` - RAG with Merkle verification
+- `database_agent.py` - SQL with Chain of Trust
+- `api_agent.py` - HTTP client with CloudEvents
+
+---
+
+## Use Cases
+
+- **AI Agents**: Prove tool outputs are real, not hallucinations
+- **FinTech**: Audit trail for financial operations
+- **LegalTech**: Document verification with Merkle proofs
+- **Healthcare (HIPAA)**: Compliant AI data handling
+- **Enterprise**: SOC2-ready AI deployments
+
+---
+
+## Documentation
+
+- [Russian Guide](GUIDE_RU.md) - Comprehensive documentation in Russian
+- [Roadmap](ROADMAP.md) - Development roadmap and status
+- [Architecture](docs/ARCHITECTURE.md) - Technical details
+
+---
+
+## License
+
+MIT
+
+## Author
+
+Ed Cherednik
+
+## Version
+
+2.1.0

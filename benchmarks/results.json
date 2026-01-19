@@ -1,0 +1,69 @@
+{
+  "sign": {
+    "name": "Sign",
+    "iterations": 1000,
+    "total_time_sec": 0.10986574785783887,
+    "mean_latency_ms": 0.10986574785783887,
+    "median_latency_ms": 0.10620895773172379,
+    "p99_latency_ms": 0.17912499606609344,
+    "throughput_ops_sec": 9102.017867242419
+  },
+  "verify": {
+    "name": "Verify",
+    "iterations": 1000,
+    "total_time_sec": 0.22159895696677268,
+    "mean_latency_ms": 0.22159895696677268,
+    "median_latency_ms": 0.21408300381153822,
+    "p99_latency_ms": 0.343875028192997,
+    "throughput_ops_sec": 4512.656619362805
+  },
+  "chain_sign": {
+    "name": "Chain Sign",
+    "iterations": 100,
+    "total_time_sec": 0.024577667005360126,
+    "mean_latency_ms": 0.2449949993751943,
+    "median_latency_ms": 0.10922946967184544,
+    "p99_latency_ms": 3.844166873022914,
+    "throughput_ops_sec": 4068.7344318804167
+  },
+  "chain_verify": {
+    "name": "Chain Verify (100 items)",
+    "iterations": 1,
+    "total_time_sec": 0.028128499863669276,
+    "mean_latency_ms": 28.128499863669276,
+    "median_latency_ms": 28.128499863669276,
+    "p99_latency_ms": 28.128499863669276,
+    "throughput_ops_sec": 3555.113158706335
+  },
+  "merkle": {
+    "name": "Merkle (100 pages)",
+    "iterations": 100,
+    "total_time_sec": 0.01824082527309656,
+    "mean_latency_ms": 0.18240825273096561,
+    "median_latency_ms": 0.17054157797247171,
+    "p99_latency_ms": 0.6489581428468227,
+    "throughput_ops_sec": 5482.208096554175
+  },
+  "storage": {
+    "10_bytes_data": {
+      "signature_bytes": 88,
+      "nonce_bytes": 36,
+      "total_overhead_bytes": 124
+    },
+    "100_bytes_data": {
+      "signature_bytes": 88,
+      "nonce_bytes": 36,
+      "total_overhead_bytes": 124
+    },
+    "1000_bytes_data": {
+      "signature_bytes": 88,
+      "nonce_bytes": 36,
+      "total_overhead_bytes": 124
+    },
+    "10000_bytes_data": {
+      "signature_bytes": 88,
+      "nonce_bytes": 36,
+      "total_overhead_bytes": 124
+    }
+  }
+}

@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from typing import Optional
 
 try:
-    from prometheus_client import REGISTRY, Counter, Gauge, Histogram
+    from prometheus_client import Counter, Histogram
 
     HAS_PROMETHEUS = True
 except ImportError:
@@ -24,6 +24,7 @@ class TrustChainMetrics:
     """Prometheus metrics. Does nothing if prometheus_client not installed."""
 
     def __init__(self, enabled: bool = True, prefix: str = "trustchain"):
+        """Initialize metrics with optional prefix."""
         self.enabled = enabled and HAS_PROMETHEUS
         if not self.enabled:
             return
@@ -43,6 +44,7 @@ class TrustChainMetrics:
 
     @contextmanager
     def track_sign(self, tool_id: str):
+        """Track sign operation latency and success/error count."""
         if not self.enabled:
             yield
             return
@@ -60,6 +62,7 @@ class TrustChainMetrics:
 
     @contextmanager
     def track_verify(self):
+        """Track verify operation count."""
         if not self.enabled:
             yield
             return
@@ -71,6 +74,7 @@ class TrustChainMetrics:
             raise
 
     def record_nonce_reject(self):
+        """Record a nonce rejection (blocked replay attack)."""
         if self.enabled:
             self.nonce_rejects.inc()
 
