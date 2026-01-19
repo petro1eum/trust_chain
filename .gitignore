@@ -216,3 +216,4 @@ private_key*
 public_key*
 ssh_keys/
 
+trust_chain.wiki
