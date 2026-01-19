@@ -1,5 +1,7 @@
 """Policy Layer for TrustChain (Phase 13).
 
+Note: Uses `from __future__ import annotations` for Python 3.8 compatibility.
+
 Runtime policy enforcement for signed tool calls.
 Supports YAML-based policy definitions with deny/allow/require rules.
 
@@ -14,9 +16,11 @@ Example policy:
             - parent_tool: user_consent
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -35,13 +39,13 @@ class PolicyAction(Enum):
 class PolicyCondition:
     """Condition for policy matching."""
 
-    tool: Optional[str] = None
-    output_contains: Optional[list[str]] = None
-    args_match: Optional[dict] = None
-    amount_gt: Optional[float] = None
-    amount_lt: Optional[float] = None
+    tool: str | None = None
+    output_contains: list[str] | None = None
+    args_match: dict | None = None
+    amount_gt: float | None = None
+    amount_lt: float | None = None
 
-    def matches(self, response: SignedResponse, args: Optional[dict] = None) -> bool:
+    def matches(self, response: SignedResponse, args: dict | None = None) -> bool:
         """Check if condition matches the response."""
         # Tool name match
         if self.tool and response.tool_id != self.tool:
@@ -72,9 +76,7 @@ class PolicyCondition:
 
         return True
 
-    def _extract_amount(
-        self, data: Any, args: Optional[dict] = None
-    ) -> Optional[float]:
+    def _extract_amount(self, data: Any, args: dict | None = None) -> float | None:
         """Extract numeric amount from data or args."""
         # Try args first
         if args:
@@ -101,9 +103,9 @@ class PolicyCondition:
 class PolicyRequirement:
     """Requirement for policy enforcement."""
 
-    parent_tool: Optional[str] = None
+    parent_tool: str | None = None
     signature_valid: bool = True
-    within_seconds: Optional[int] = None
+    within_seconds: int | None = None
 
 
 @dataclass
@@ -119,8 +121,8 @@ class Policy:
     def evaluate(
         self,
         response: SignedResponse,
-        chain: Optional[list[SignedResponse]] = None,
-        args: Optional[dict] = None,
+        chain: list[SignedResponse] | None = None,
+        args: dict | None = None,
     ) -> tuple[bool, str]:
         """Evaluate policy against response.
 
@@ -152,7 +154,7 @@ class Policy:
         self,
         req: PolicyRequirement,
         response: SignedResponse,
-        chain: Optional[list[SignedResponse]],
+        chain: list[SignedResponse] | None,
     ) -> tuple[bool, str]:
         """Check a single requirement."""
         # Parent tool requirement
@@ -258,8 +260,8 @@ class PolicyEngine:
     def evaluate(
         self,
         response: SignedResponse,
-        chain: Optional[list[SignedResponse]] = None,
-        args: Optional[dict] = None,
+        chain: list[SignedResponse] | None = None,
+        args: dict | None = None,
     ) -> tuple[bool, list[str]]:
         """Evaluate all policies against a response.
 

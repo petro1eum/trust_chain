@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrustChain - Cryptographic Verification for AI Agents</title>
+    <meta name="description"
+        content="TrustChain provides verifiable execution proofs for AI agent tool calls. Prevent hallucinations, ensure compliance, build trust.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a24;
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border: rgba(255, 255, 255, 0.08);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .glow-orb {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            filter: blur(80px);
+            pointer-events: none;
+            z-index: -1;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .glow-orb:nth-child(1) {
+            top: -200px;
+            left: -200px;
+        }
+
+        .glow-orb:nth-child(2) {
+            bottom: -200px;
+            right: -200px;
+            animation-delay: -10s;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translate(0, 0);
+            }
+
+            50% {
+                transform: translate(30px, 30px);
+            }
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(10, 10, 15, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            z-index: 1000;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-light), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo svg {
+            width: 32px;
+            height: 32px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        .nav-cta {
+            display: flex;
+            gap: 1rem;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            color: white;
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card);
+            border-color: var(--accent);
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 8rem 2rem 4rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        .badge-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        h1 {
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .highlight {
+            background: linear-gradient(135deg, var(--accent-light), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin-bottom: 2.5rem;
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 4rem;
+        }
+
+        /* Code Preview */
+        .code-preview {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            max-width: 700px;
+            width: 100%;
+            text-align: left;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .code-header {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .code-dot:nth-child(1) {
+            background: #ff5f56;
+        }
+
+        .code-dot:nth-child(2) {
+            background: #ffbd2e;
+        }
+
+        .code-dot:nth-child(3) {
+            background: #27c93f;
+        }
+
+        .code-content {
+            color: var(--text-secondary);
+        }
+
+        .code-content .keyword {
+            color: #c792ea;
+        }
+
+        .code-content .function {
+            color: #82aaff;
+        }
+
+        .code-content .string {
+            color: #c3e88d;
+        }
+
+        .code-content .comment {
+            color: var(--text-muted);
+        }
+
+        .code-content .operator {
+            color: #89ddff;
+        }
+
+        /* Features Section */
+        .features {
+            padding: 6rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .section-header p {
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        /* Use Cases */
+        .use-cases {
+            padding: 6rem 2rem;
+            background: var(--bg-secondary);
+        }
+
+        .use-cases-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .use-case-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .use-case {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .use-case-icon {
+            font-size: 2rem;
+        }
+
+        .use-case h4 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .use-case p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        /* Stats */
+        .stats {
+            padding: 4rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            text-align: center;
+        }
+
+        .stat-item h3 {
+            font-size: 3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-light), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-item p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* CTA Section */
+        .cta {
+            padding: 6rem 2rem;
+            text-align: center;
+        }
+
+        .cta-card {
+            max-width: 800px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, var(--bg-card), var(--bg-secondary));
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 4rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at top right, var(--accent-glow) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .cta-card h2 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        .cta-card p {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        .install-code {
+            display: inline-flex;
+            align-items: center;
+            gap: 1rem;
+            background: var(--bg-primary);
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        .install-code .prefix {
+            color: var(--text-muted);
+        }
+
+        .copy-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.25rem;
+            transition: color 0.2s;
+        }
+
+        .copy-btn:hover {
+            color: var(--accent);
+        }
+
+        /* Footer */
+        footer {
+            padding: 3rem 2rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent);
+        }
+
+        .copyright {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            nav {
+                padding: 1rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hero {
+                padding: 6rem 1rem 3rem;
+            }
+
+            .hero-cta {
+                flex-direction: column;
+            }
+
+            .code-preview {
+                font-size: 0.75rem;
+            }
+
+            .footer-content {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-grid"></div>
+    <div class="glow-orb"></div>
+    <div class="glow-orb"></div>
+
+    <nav>
+        <div class="logo">
+            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 2L4 8v8c0 7.5 5.1 14.5 12 16 6.9-1.5 12-8.5 12-16V8L16 2z" stroke="url(#grad)"
+                    stroke-width="2" fill="none" />
+                <path d="M12 16l3 3 6-6" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                <defs>
+                    <linearGradient id="grad" x1="4" y1="2" x2="28" y2="26">
+                        <stop stop-color="#818cf8" />
+                        <stop offset="1" stop-color="#6366f1" />
+                    </linearGradient>
+                </defs>
+            </svg>
+            TrustChain
+        </div>
+        <ul class="nav-links">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#use-cases">Use Cases</a></li>
+            <li><a href="https://github.com/petro1eum/trust_chain/wiki">Docs</a></li>
+        </ul>
+        <div class="nav-cta">
+            <a href="https://github.com/petro1eum/trust_chain" class="btn btn-secondary">GitHub</a>
+            <a href="https://pypi.org/project/trustchain" class="btn btn-primary">Install</a>
+        </div>
+    </nav>
+
+    <main>
+        <section class="hero">
+            <div class="badge">
+                <span class="badge-dot"></span>
+                v2.1.0 Now Available
+            </div>
+            <h1>Cryptographic <span class="highlight">Proof</span><br>for AI Agent Actions</h1>
+            <p class="hero-subtitle">
+                TrustChain provides verifiable execution proofs for every AI tool call.
+                Prevent hallucinations, ensure compliance, build auditable AI systems.
+            </p>
+            <div class="hero-cta">
+                <a href="https://github.com/petro1eum/trust_chain" class="btn btn-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                    </svg>
+                    View on GitHub
+                </a>
+                <a href="#quick-start" class="btn btn-secondary">Quick Start</a>
+            </div>
+
+            <div class="code-preview">
+                <div class="code-header">
+                    <span class="code-dot"></span>
+                    <span class="code-dot"></span>
+                    <span class="code-dot"></span>
+                </div>
+                <div class="code-content">
+                    <span class="keyword">from</span> trustchain <span class="keyword">import</span> TrustChain<br><br>
+                    <span class="comment"># Sign AI tool responses with Ed25519</span><br>
+                    tc = TrustChain()<br>
+                    response <span class="operator">=</span> tc.<span class="function">sign_response</span>(<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;tool_id<span class="operator">=</span><span
+                        class="string">"database_query"</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;output<span class="operator">=</span><span class="string">"User balance:
+                        $1,234.56"</span><br>
+                    )<br><br>
+                    <span class="comment"># Verify response integrity</span><br>
+                    <span class="keyword">assert</span> tc.<span class="function">verify</span>(response) <span
+                        class="comment"># True</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="features" id="features">
+            <div class="section-header">
+                <h2>Enterprise-Grade Security</h2>
+                <p>Everything you need to build trustworthy, auditable AI systems</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">&#128274;</div>
+                    <h3>Ed25519 Signatures</h3>
+                    <p>Every tool call is cryptographically signed with fast, secure Ed25519 elliptic curve signatures.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128279;</div>
+                    <h3>Chain of Trust</h3>
+                    <p>Link responses together with parent hashes. Prove the complete execution history of any AI
+                        action.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128737;</div>
+                    <h3>Replay Protection</h3>
+                    <p>Built-in nonce and timestamp validation prevents replay attacks and ensures freshness.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128196;</div>
+                    <h3>Policy Engine</h3>
+                    <p>Define YAML-based policies for runtime enforcement. Allow, deny, or require specific tool
+                        patterns.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128200;</div>
+                    <h3>Execution Graphs</h3>
+                    <p>Visualize agent execution as DAGs. Detect forks, replays, and orphaned responses automatically.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#127891;</div>
+                    <h3>Merkle Audit Trail</h3>
+                    <p>Append-only audit logs with Merkle tree verification. Perfect for compliance and forensics.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="use-cases" id="use-cases">
+            <div class="use-cases-content">
+                <div class="section-header">
+                    <h2>Built for Critical Industries</h2>
+                    <p>Where AI decisions must be explainable and auditable</p>
+                </div>
+                <div class="use-case-grid">
+                    <div class="use-case">
+                        <span class="use-case-icon">&#9878;</span>
+                        <div>
+                            <h4>Financial Services</h4>
+                            <p>Prove AI trading decisions, audit recommendations, meet SEC requirements</p>
+                        </div>
+                    </div>
+                    <div class="use-case">
+                        <span class="use-case-icon">&#128137;</span>
+                        <div>
+                            <h4>Healthcare</h4>
+                            <p>HIPAA-compliant AI auditing, track diagnostic recommendations</p>
+                        </div>
+                    </div>
+                    <div class="use-case">
+                        <span class="use-case-icon">&#9878;</span>
+                        <div>
+                            <h4>Legal Tech</h4>
+                            <p>Merkle-verified citations, prove which document pages were analyzed</p>
+                        </div>
+                    </div>
+                    <div class="use-case">
+                        <span class="use-case-icon">&#127970;</span>
+                        <div>
+                            <h4>Enterprise AI</h4>
+                            <p>MCP server integration, multi-tenant isolation, SOC2 compliance</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="stats">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <h3>185+</h3>
+                    <p>Unit Tests</p>
+                </div>
+                <div class="stat-item">
+                    <h3>&lt;1ms</h3>
+                    <p>Sign & Verify</p>
+                </div>
+                <div class="stat-item">
+                    <h3>100%</h3>
+                    <p>Type Coverage</p>
+                </div>
+                <div class="stat-item">
+                    <h3>3.8+</h3>
+                    <p>Python Support</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="cta" id="quick-start">
+            <div class="cta-card">
+                <h2>Get Started in Seconds</h2>
+                <p>Install TrustChain and start signing AI responses today</p>
+                <div class="install-code">
+                    <span class="prefix">$</span>
+                    <span>pip install trustchain</span>
+                    <button class="copy-btn" onclick="navigator.clipboard.writeText('pip install trustchain')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                        </svg>
+                    </button>
+                </div>
+                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; position: relative;">
+                    <a href="https://github.com/petro1eum/trust_chain/wiki/Getting-Started" class="btn btn-primary">Read
+                        the Docs</a>
+                    <a href="https://github.com/petro1eum/trust_chain/tree/main/examples" class="btn btn-secondary">View
+                        Examples</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="logo" style="font-size: 1.25rem;">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
+                    style="width: 24px; height: 24px;">
+                    <path d="M16 2L4 8v8c0 7.5 5.1 14.5 12 16 6.9-1.5 12-8.5 12-16V8L16 2z" stroke="url(#grad2)"
+                        stroke-width="2" fill="none" />
+                    <path d="M12 16l3 3 6-6" stroke="url(#grad2)" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    <defs>
+                        <linearGradient id="grad2" x1="4" y1="2" x2="28" y2="26">
+                            <stop stop-color="#818cf8" />
+                            <stop offset="1" stop-color="#6366f1" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                TrustChain
+            </div>
+            <ul class="footer-links">
+                <li><a href="https://github.com/petro1eum/trust_chain">GitHub</a></li>
+                <li><a href="https://pypi.org/project/trustchain">PyPI</a></li>
+                <li><a href="https://github.com/petro1eum/trust_chain/wiki">Documentation</a></li>
+                <li><a href="https://github.com/petro1eum/trust_chain/blob/main/LICENSE">MIT License</a></li>
+            </ul>
+            <p class="copyright">2026 TrustChain. Open Source.</p>
+        </div>
+    </footer>
+</body>
+
+</html>

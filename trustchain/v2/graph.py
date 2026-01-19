@@ -1,5 +1,7 @@
 """Execution Graph for TrustChain (Phase 14).
 
+Note: Uses `from __future__ import annotations` for Python 3.8 compatibility.
+
 DAG representation of agent execution for forensic analysis.
 Supports fork detection, replay detection, and visualization.
 
@@ -11,10 +13,15 @@ Usage:
     graph.export_mermaid("execution.md")
 """
 
+from __future__ import annotations
+
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 
 from .signer import SignedResponse
 
@@ -24,7 +31,7 @@ class GraphNode:
     """A node in the execution graph."""
 
     response: SignedResponse
-    children: list["GraphNode"] = field(default_factory=list)
+    children: list[GraphNode] = field(default_factory=list)
     depth: int = 0
 
     @property
@@ -77,7 +84,7 @@ class ExecutionGraph:
         self._signature_to_node: dict[str, GraphNode] = {}
 
     @classmethod
-    def from_chain(cls, responses: list[SignedResponse]) -> "ExecutionGraph":
+    def from_chain(cls, responses: list[SignedResponse]) -> ExecutionGraph:
         """Build graph from list of responses."""
         graph = cls()
 
@@ -178,7 +185,7 @@ class ExecutionGraph:
             "orphans": len(self.detect_orphans()),
         }
 
-    def export_mermaid(self, filepath: Optional[str] = None) -> str:
+    def export_mermaid(self, filepath: str | None = None) -> str:
         """Export graph as Mermaid diagram."""
         lines = ["graph TD"]
 
@@ -213,7 +220,7 @@ class ExecutionGraph:
 
         return content
 
-    def export_graphviz(self, filepath: Optional[str] = None) -> str:
+    def export_graphviz(self, filepath: str | None = None) -> str:
         """Export graph as Graphviz DOT format."""
         lines = ["digraph ExecutionGraph {", "    rankdir=TB;"]
 
