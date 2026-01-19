@@ -1,15 +1,16 @@
 """Tests for trustchain/v2/schemas.py - OpenAI/Anthropic schema generation."""
 
+from typing import List, Optional
+
 import pytest
-from typing import Optional, List
 from pydantic import BaseModel, Field
 
 from trustchain.v2.schemas import (
-    generate_function_schema,
     generate_anthropic_schema,
-    python_type_to_json,
+    generate_function_schema,
     is_pydantic_model,
     pydantic_to_json_schema,
+    python_type_to_json,
 )
 
 

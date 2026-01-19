@@ -99,7 +99,8 @@ def main():
 
     # To use with actual LangChain agent:
     print("💡 To use with LangChain agent:")
-    print("""
+    print(
+        """
     from langchain_openai import ChatOpenAI
     from langchain.agents import create_tool_calling_agent, AgentExecutor
     from langchain_core.prompts import ChatPromptTemplate
@@ -116,7 +117,8 @@ def main():
     
     # All tool responses will be cryptographically signed!
     result = executor.invoke({"input": "What is AAPL stock price?"})
-    """)
+    """
+    )
 
 
 if __name__ == "__main__":

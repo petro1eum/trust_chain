@@ -8,9 +8,9 @@ Available integrations:
 # LangChain (optional)
 try:
     from .langchain import (
+        TrustChainLangChainTool,
         to_langchain_tool,
         to_langchain_tools,
-        TrustChainLangChainTool,
     )
 except ImportError:
     to_langchain_tool = None
@@ -20,9 +20,9 @@ except ImportError:
 # MCP (optional)
 try:
     from .mcp import (
-        serve_mcp,
-        create_mcp_server,
         TrustChainMCPServer,
+        create_mcp_server,
+        serve_mcp,
     )
 except ImportError:
     serve_mcp = None

@@ -1,8 +1,9 @@
 """Tests for trustchain/v2/events.py - CloudEvents format."""
 
-import pytest
 import json
 from datetime import datetime
+
+import pytest
 
 from trustchain import TrustChain
 from trustchain.v2.events import TrustEvent

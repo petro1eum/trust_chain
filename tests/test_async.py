@@ -1,7 +1,8 @@
 """Tests for async tools and coroutines."""
 
-import pytest
 import asyncio
+
+import pytest
 
 from trustchain import TrustChain
 from trustchain.v2.signer import SignedResponse

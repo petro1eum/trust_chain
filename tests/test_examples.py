@@ -4,11 +4,12 @@ These tests ensure that all examples in the examples/ directory work correctly.
 This prevents the situation where library tests pass but examples fail in CI.
 """
 
-import pytest
+import os
 import subprocess
 import sys
-import os
 from pathlib import Path
+
+import pytest
 
 # Get the project root
 PROJECT_ROOT = Path(__file__).parent.parent

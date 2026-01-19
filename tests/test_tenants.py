@@ -1,13 +1,14 @@
 """Tests for trustchain/v2/tenants.py - Multi-tenancy support."""
 
-import pytest
 import os
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from trustchain import TrustChain
-from trustchain.v2.tenants import TenantManager, TenantInfo
+from trustchain.v2.tenants import TenantInfo, TenantManager
 
 
 class TestTenantInfo:

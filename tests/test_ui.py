@@ -1,9 +1,10 @@
 """Tests for trustchain/ui/explorer.py - Audit Trail UI."""
 
-import os
-import pytest
 import json
+import os
 from pathlib import Path
+
+import pytest
 
 from trustchain import TrustChain
 from trustchain.ui.explorer import ChainExplorer, export_chain_graph

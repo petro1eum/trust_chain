@@ -1,12 +1,13 @@
 """End-to-end tests for complete TrustChain workflows."""
 
-import pytest
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from trustchain import TrustChain
-from trustchain.v2.merkle import MerkleTree, verify_proof
 from trustchain.v2.events import TrustEvent
+from trustchain.v2.merkle import MerkleTree, verify_proof
 
 
 class TestE2EBankingWorkflow:

@@ -1,7 +1,8 @@
 """Tests for trustchain/integrations/langchain.py - LangChain integration."""
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from trustchain import TrustChain
 

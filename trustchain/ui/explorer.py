@@ -15,7 +15,7 @@ Usage:
 
 import json
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">

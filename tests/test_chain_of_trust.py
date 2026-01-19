@@ -1,6 +1,7 @@
 """Tests for Chain of Trust functionality."""
 
 import pytest
+
 from trustchain import TrustChain
 from trustchain.v2.signer import SignedResponse
 

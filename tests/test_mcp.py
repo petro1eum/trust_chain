@@ -1,7 +1,8 @@
 """Tests for trustchain/integrations/mcp.py - MCP Server integration."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 
 from trustchain import TrustChain
 
@@ -9,9 +10,9 @@ from trustchain import TrustChain
 mcp = pytest.importorskip("mcp")
 
 from trustchain.integrations.mcp import (
+    HAS_MCP,
     TrustChainMCPServer,
     create_mcp_server,
-    HAS_MCP,
 )
 
 

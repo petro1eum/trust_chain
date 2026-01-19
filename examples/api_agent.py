@@ -17,8 +17,8 @@ Usage:
     python examples/api_agent.py
 """
 
-from typing import Dict, Any, Optional
 from datetime import datetime
+from typing import Any, Dict, Optional
 
 from trustchain import TrustChain
 from trustchain.v2.events import TrustEvent

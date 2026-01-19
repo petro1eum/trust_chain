@@ -15,11 +15,11 @@ Usage:
     producer.send("ai.tool.responses", value=event.to_json())
 """
 
+import json
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
-import json
-import uuid
 
 
 @dataclass

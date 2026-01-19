@@ -36,7 +36,7 @@ from typing import Any, Callable, Dict, List, Optional
 try:
     from mcp.server import Server
     from mcp.server.stdio import stdio_server
-    from mcp.types import Tool, TextContent
+    from mcp.types import TextContent, Tool
 
     HAS_MCP = True
 except ImportError:

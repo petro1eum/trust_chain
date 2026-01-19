@@ -13,11 +13,12 @@ To run:
 4. Test with JavaScript SDK
 """
 
-from trustchain.v2 import TrustChain, TrustChainConfig
-from trustchain.web_api import start_server
 import asyncio
 import json
-from typing import Dict, Any
+from typing import Any, Dict
+
+from trustchain.v2 import TrustChain, TrustChainConfig
+from trustchain.web_api import start_server
 
 
 def main():
@@ -230,7 +231,8 @@ def main():
     print("   4. Verify cryptographic signatures")
 
     print("\n📝 Example JavaScript usage:")
-    print("""
+    print(
+        """
     const { TrustChainClient } = require('trustchain-js');
     const client = new TrustChainClient('http://localhost:8000');
     
@@ -249,7 +251,8 @@ def main():
         b: 5
     });
     console.log('Result:', calc.data.result);
-    """)
+    """
+    )
 
     print("\n🚀 Starting server... (Press Ctrl+C to stop)")
 

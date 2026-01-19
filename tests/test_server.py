@@ -1,13 +1,15 @@
 """Tests for trustchain/v2/server.py - REST API endpoints."""
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 # FastAPI test client
 pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
 
 from fastapi.testclient import TestClient
+
 from trustchain.v2.server import app, get_trustchain
 
 

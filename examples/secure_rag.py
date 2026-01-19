@@ -18,7 +18,8 @@ Usage:
     python examples/secure_rag.py
 """
 
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 from trustchain import TrustChain
 from trustchain.v2.merkle import MerkleTree, verify_proof
 

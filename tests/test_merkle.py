@@ -1,14 +1,15 @@
 """Tests for trustchain/v2/merkle.py - Merkle Tree implementation."""
 
-import pytest
 import hashlib
 
+import pytest
+
 from trustchain.v2.merkle import (
-    MerkleTree,
     MerkleProof,
-    verify_proof,
+    MerkleTree,
     hash_data,
     hash_pair,
+    verify_proof,
 )
 
 

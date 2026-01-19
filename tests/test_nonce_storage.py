@@ -1,7 +1,8 @@
 """Tests for trustchain/v2/nonce_storage.py - Nonce storage backends."""
 
-import pytest
 import time
+
+import pytest
 
 from trustchain.v2.nonce_storage import MemoryNonceStorage, create_nonce_storage
 
