@@ -60,9 +60,7 @@ jobs:
           path: dist/
 
       - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        uses: astral-sh/setup-uv@v5
 
       - name: Install from wheel
         run: uv pip install --system dist/*.whl
