@@ -71,6 +71,13 @@ assert tc.verify(result) == True
 
 Link operations cryptographically to prove execution order:
 
+```mermaid
+graph LR
+  A[🔍 Search Tool] -->|signature| B[📊 Analyze Tool]
+  B -->|signature + parent| C[📝 Report Tool]
+  C -->|full chain| D[✅ Verified]
+```
+
 ```python
 step1 = tc._signer.sign("search", {"query": "balance"})
 step2 = tc._signer.sign("analyze", {"result": 100}, parent_signature=step1.signature)
@@ -185,6 +192,45 @@ stats = explorer.get_stats()     # Summary statistics
 
 ---
 
+## Why TrustChain? (Before / After)
+
+**❌ Without TrustChain:**
+```python
+# LLM hallucinates a tool response
+result = {"balance": 1000000}  # Fake! Tool was never called
+agent.send_to_user(result)     # User gets wrong data
+```
+
+**✅ With TrustChain:**
+```python
+# Every tool response is signed
+result = get_balance("user_123")  # Returns SignedResponse
+
+# Verification catches fakes
+if not tc.verify(result):
+    raise SecurityError("Invalid signature - possible hallucination!")
+```
+
+---
+
+## Security Model
+
+**TrustChain protects against:**
+- ✅ LLM hallucinations (model invents tool output without calling it)
+- ✅ Replay attacks (reusing old signed responses)
+- ✅ Chain tampering (modifying execution order)
+
+**TrustChain does NOT protect against:**
+- ❌ Compromised infrastructure (if attacker has your private key)
+- ❌ Prompt injection that tricks the *real* tool into returning malicious data
+
+**Best practices:**
+- Store private keys in **KMS/Vault/HSM**, not in code
+- Use **Redis** nonce storage for production (in-memory = single instance only)
+- Rotate keys periodically with `tc.rotate_keys()`
+
+---
+
 ## Performance
 
 | Operation | Latency | Throughput |
@@ -252,9 +298,20 @@ trustchain/
 
 ## Documentation
 
-- [Russian Guide](GUIDE_RU.md) - Comprehensive documentation in Russian
-- [Roadmap](ROADMAP.md) - Development roadmap and status
-- [Architecture](docs/ARCHITECTURE.md) - Technical details
+| Language | Guide |
+|----------|-------|
+| 🇷🇺 Russian | [GUIDE_RU.md](GUIDE_RU.md) |
+| 🇺🇸 English | [GUIDE_EN.md](GUIDE_EN.md) |
+| 🇨🇳 Chinese | [GUIDE_ZH.md](GUIDE_ZH.md) |
+| 🇪🇸 Spanish | [GUIDE_ES.md](GUIDE_ES.md) |
+| 🇫🇷 French | [GUIDE_FR.md](GUIDE_FR.md) |
+| 🇩🇪 German | [GUIDE_DE.md](GUIDE_DE.md) |
+| 🇯🇵 Japanese | [GUIDE_JA.md](GUIDE_JA.md) |
+| 🇰🇷 Korean | [GUIDE_KO.md](GUIDE_KO.md) |
+| 🇧🇷 Portuguese | [GUIDE_PT.md](GUIDE_PT.md) |
+
+- [Roadmap](ROADMAP.md) - Development roadmap
+- [MCP Security Spec](docs/MCP_SECURITY_SPEC.md) - MCP integration details
 - [GitHub Wiki](https://github.com/petro1eum/trust_chain/wiki) - Full API reference
 
 ---
