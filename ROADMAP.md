@@ -569,4 +569,137 @@ Storage overhead: 124 bytes/op (target: ~200 bytes)
 
 **Версия:** 2.1.0  
 **Дата:** 19 января 2026  
-**Статус:** Все 8 core phases ✅ COMPLETE
+**Статус:** Все 12 core phases ✅ COMPLETE
+
+---
+
+# 🔮 Phase 13-15: Strategic Expansion
+
+## Phase 13: Policy Layer (Q1 2026)
+
+**Status:** IN PROGRESS
+
+Runtime policy enforcement for signed tool calls.
+
+#### Goals:
+- YAML-based policy definitions
+- Deny/Allow/Require parent rules
+- Integration with Chain of Trust
+
+#### Policy Format:
+```yaml
+policies:
+  - name: no_pii_without_consent
+    if:
+      tool: database_query
+      output.contains: ["ssn", "passport"]
+    then:
+      require:
+        - parent_tool: "user_consent"
+        - signature_valid: true
+
+  - name: require_approval_for_payments
+    if:
+      tool: payment
+      args.amount: { ">": 10000 }
+    then:
+      require:
+        - parent_tool: "manager_approval"
+```
+
+#### Use Cases:
+- AI Governance Engine
+- SOC2/ISO/AI Act compliance
+- Runtime enforcement (not just audit)
+
+---
+
+## Phase 14: Execution Graph (Q2 2026)
+
+**Status:** PLANNED
+
+Transform Chain of Trust into full DAG analysis.
+
+#### Goals:
+- DAG representation of agent execution
+- Fork detection (where agent "went wrong")
+- Replay attack pattern detection
+- Forensic analysis for incidents
+
+#### Data Model:
+```
+Execution Graph:
+- nodes: SignedResponse[]
+- edges: parent_signature links
+- invariants: 
+  - no unsigned edges
+  - temporal ordering
+  - single root per session
+```
+
+#### Features:
+```python
+from trustchain.v2.graph import ExecutionGraph
+
+graph = ExecutionGraph.from_chain(responses)
+
+# Detect anomalies
+forks = graph.detect_forks()      # Agent branched unexpectedly
+replays = graph.detect_replays()  # Same tool called with same args
+orphans = graph.detect_orphans()  # Responses without valid parent
+
+# Visualize
+graph.export_mermaid("execution.md")
+graph.export_graphviz("execution.dot")
+```
+
+---
+
+## Phase 15: MCP Security Reference (Q2 2026)
+
+**Status:** IN PROGRESS
+
+Position TrustChain as **the** reference MCP security implementation.
+
+#### Deliverables:
+- [x] `docs/MCP_SECURITY_SPEC.md` - RFC-style specification
+- [ ] Submit to MCP community as standard
+- [ ] Integration with Claude Desktop docs
+- [ ] Partnership discussions with Anthropic
+
+#### Key Message:
+> "If you run MCP in production, you MUST have cryptographic verification."
+
+#### Spec Sections:
+1. Threat model for MCP
+2. MUST/SHOULD/MAY requirements
+3. Signed response format
+4. Key management
+5. Replay protection
+6. Compliance mapping (SOC2, HIPAA, AI Act)
+
+See: [MCP Security Specification](docs/MCP_SECURITY_SPEC.md)
+
+---
+
+## 📊 Updated Timeline
+
+| Phase | Description | Status | ETA |
+|-------|-------------|--------|-----|
+| 1-12 | Core Features | ✅ COMPLETE | Done |
+| 13 | Policy Layer | 🟡 IN PROGRESS | Q1 2026 |
+| 14 | Execution Graph | ⬜ PLANNED | Q2 2026 |
+| 15 | MCP Security Ref | 🟡 IN PROGRESS | Q2 2026 |
+
+---
+
+## 🎯 Strategic Position
+
+```
+2025: TrustChain = Library
+2026: TrustChain = Infrastructure Layer
+2027: TrustChain = Industry Standard
+```
+
+**Winner takes middleware.** 
+The first library to become the default MCP security layer will be embedded in every enterprise AI stack.
