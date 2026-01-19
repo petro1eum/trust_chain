@@ -8,7 +8,7 @@ Generates interactive HTML reports showing:
 
 Usage:
     from trustchain.ui.explorer import ChainExplorer
-    
+
     explorer = ChainExplorer(responses)
     explorer.export_html("audit_report.html")
 """
@@ -17,7 +17,7 @@ import json
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
-HTML_TEMPLATE = '''<!DOCTYPE html>
+HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -181,9 +181,9 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         </div>
     </div>
 </body>
-</html>'''
+</html>"""
 
-CHAIN_ITEM_TEMPLATE = '''
+CHAIN_ITEM_TEMPLATE = """
 <div class="chain-item">
     <div class="chain-node">{index}</div>
     <div class="chain-content">
@@ -197,32 +197,32 @@ CHAIN_ITEM_TEMPLATE = '''
         <div class="{verified_class}">{verified_text}</div>
     </div>
 </div>
-'''
+"""
 
 
 class ChainExplorer:
     """Interactive HTML explorer for TrustChain audit trails."""
-    
+
     def __init__(self, responses: List = None, tc: "TrustChain" = None):
         """Initialize explorer.
-        
+
         Args:
             responses: List of SignedResponse objects
             tc: TrustChain instance (for verification)
         """
         self.responses = responses or []
         self.tc = tc
-    
+
     def add_response(self, response):
         """Add a response to the explorer."""
         self.responses.append(response)
-    
+
     def export_html(self, filepath: str) -> str:
         """Export chain as interactive HTML.
-        
+
         Args:
             filepath: Output file path
-            
+
         Returns:
             Path to generated file
         """
@@ -231,15 +231,15 @@ class ChainExplorer:
         verified_count = 0
         unique_tools = set()
         chain_links = 0
-        
+
         for i, resp in enumerate(self.responses):
             unique_tools.add(resp.tool_id)
-            
+
             # Check for chain link
-            has_parent = bool(getattr(resp, 'parent_signature', None))
+            has_parent = bool(getattr(resp, "parent_signature", None))
             if has_parent:
                 chain_links += 1
-            
+
             # Verify signature
             is_verified = True
             if self.tc:
@@ -247,26 +247,28 @@ class ChainExplorer:
                     is_verified = self.tc._signer.verify(resp)
                 except:
                     is_verified = False
-            
+
             if is_verified:
                 verified_count += 1
-            
+
             # Format data
             data_str = json.dumps(resp.data, indent=2, default=str)
             if len(data_str) > 500:
                 data_str = data_str[:500] + "..."
-            
+
             # Format timestamp
             try:
-                ts = datetime.fromtimestamp(resp.timestamp).strftime("%Y-%m-%d %H:%M:%S")
+                ts = datetime.fromtimestamp(resp.timestamp).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
             except:
                 ts = str(resp.timestamp)
-            
+
             # Parent link
             parent_link = ""
             if has_parent:
                 parent_link = f'<div class="parent-link">↳ Parent: {resp.parent_signature[:24]}...</div>'
-            
+
             item = CHAIN_ITEM_TEMPLATE.format(
                 index=i + 1,
                 tool_id=resp.tool_id,
@@ -275,46 +277,48 @@ class ChainExplorer:
                 parent_link=parent_link,
                 data=data_str,
                 verified_class="verified" if is_verified else "failed",
-                verified_text="[VERIFIED]" if is_verified else "[FAILED]"
+                verified_text="[VERIFIED]" if is_verified else "[FAILED]",
             )
             chain_items.append(item)
-        
+
         # Generate full HTML using Template to avoid CSS brace issues
         from string import Template
-        
+
         html = Template(HTML_TEMPLATE).safe_substitute(
             total_operations=len(self.responses),
             verified_count=verified_count,
             chain_length=chain_links,
             unique_tools=len(unique_tools),
             chain_items="\n".join(chain_items),
-            generated_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            generated_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         )
-        
+
         # Write to file
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(html)
-        
+
         return filepath
-    
+
     def to_json(self) -> str:
         """Export chain as JSON."""
         data = []
         for resp in self.responses:
-            data.append({
-                "tool_id": resp.tool_id,
-                "signature": resp.signature,
-                "timestamp": resp.timestamp,
-                "nonce": resp.nonce,
-                "data": resp.data,
-                "parent_signature": getattr(resp, 'parent_signature', None),
-            })
+            data.append(
+                {
+                    "tool_id": resp.tool_id,
+                    "signature": resp.signature,
+                    "timestamp": resp.timestamp,
+                    "nonce": resp.nonce,
+                    "data": resp.data,
+                    "parent_signature": getattr(resp, "parent_signature", None),
+                }
+            )
         return json.dumps(data, indent=2, default=str)
 
 
 def export_chain_graph(tc: "TrustChain", responses: List, filepath: str) -> str:
     """Quick export function.
-    
+
     Usage:
         export_chain_graph(tc, [resp1, resp2, resp3], "audit.html")
     """
@@ -324,5 +328,6 @@ def export_chain_graph(tc: "TrustChain", responses: List, filepath: str) -> str:
 
 # Type hints
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from trustchain.v2 import TrustChain

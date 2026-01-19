@@ -22,7 +22,7 @@ tc = TrustChain()
 @tc.tool("search")
 def search_web(query: str, max_results: int = 5) -> dict:
     """Search the web for information.
-    
+
     Args:
         query: Search query string
         max_results: Maximum number of results to return
@@ -38,7 +38,7 @@ def search_web(query: str, max_results: int = 5) -> dict:
 @tc.tool("get_stock_price")
 def get_stock_price(symbol: str) -> dict:
     """Get current stock price.
-    
+
     Args:
         symbol: Stock ticker symbol (e.g., "AAPL", "GOOGL")
     """
@@ -60,7 +60,7 @@ def get_stock_price(symbol: str) -> dict:
 @tc.tool("send_email")
 def send_email(to: str, subject: str, body: str) -> dict:
     """Send an email (demo, doesn't actually send).
-    
+
     Args:
         to: Recipient email address
         subject: Email subject line
@@ -77,26 +77,26 @@ def send_email(to: str, subject: str, body: str) -> dict:
 
 def main():
     """Run the LangChain agent with TrustChain tools."""
-    
+
     # Convert TrustChain tools to LangChain format
     lc_tools = to_langchain_tools(tc)
-    
+
     print("🔐 TrustChain + LangChain Integration")
     print(f"   Tools: {[t.name for t in lc_tools]}")
     print()
-    
+
     # Show tool schemas
     for tool in lc_tools:
         print(f"   📌 {tool.name}: {tool.description[:50]}...")
     print()
-    
+
     # Demo: Execute a tool directly
     print("🧪 Direct tool execution test:")
     result = get_stock_price("AAPL")
     print(f"   get_stock_price('AAPL') = {result.data}")
     print(f"   Signature: {result.signature[:32]}...")
     print()
-    
+
     # To use with actual LangChain agent:
     print("💡 To use with LangChain agent:")
     print("""

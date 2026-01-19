@@ -195,6 +195,7 @@ def create_app(config: Optional[TrustChainConfig] = None, **config_kwargs) -> "F
                     generate_latest(tc._metrics.registry),
                     media_type=CONTENT_TYPE_LATEST,
                 )
+
         except ImportError:
             pass
 

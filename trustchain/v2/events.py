@@ -10,7 +10,7 @@ Usage:
 
     # Convert SignedResponse to CloudEvent
     event = TrustEvent.from_signed_response(response, source="/agent/bot")
-    
+
     # Send to Kafka
     producer.send("ai.tool.responses", value=event.to_json())
 """
@@ -25,32 +25,32 @@ import uuid
 @dataclass
 class TrustEvent:
     """CloudEvents-compatible event for TrustChain responses.
-    
+
     Follows CloudEvents spec v1.0:
     https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/spec.md
     """
-    
+
     # Required CloudEvents attributes
     specversion: str = "1.0"
     type: str = "ai.tool.response.v1"
     source: str = ""  # URI of the agent/tool
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    
+
     # Optional CloudEvents attributes
     time: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     datacontenttype: str = "application/json"
     subject: Optional[str] = None  # Tool ID
-    
+
     # Event data
     data: Dict[str, Any] = field(default_factory=dict)
-    
+
     # TrustChain extensions (prefixed with 'trustchain')
     trustchain_signature: Optional[str] = None
     trustchain_key_id: Optional[str] = None
     trustchain_nonce: Optional[str] = None
     trustchain_chain_id: Optional[str] = None
     trustchain_parent_signature: Optional[str] = None
-    
+
     @classmethod
     def from_signed_response(
         cls,
@@ -59,7 +59,7 @@ class TrustEvent:
         chain_id: Optional[str] = None,
     ) -> "TrustEvent":
         """Create TrustEvent from SignedResponse.
-        
+
         Args:
             response: The signed response to convert
             source: URI identifying the source (e.g., "/agent/my-bot/tool/weather")
@@ -76,7 +76,7 @@ class TrustEvent:
             trustchain_chain_id=chain_id,
             trustchain_parent_signature=response.parent_signature,
         )
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary (CloudEvents JSON format)."""
         result = {
@@ -88,10 +88,10 @@ class TrustEvent:
             "datacontenttype": self.datacontenttype,
             "data": self.data,
         }
-        
+
         if self.subject:
             result["subject"] = self.subject
-        
+
         # Add TrustChain extensions
         if self.trustchain_signature:
             result["trustchainsignature"] = self.trustchain_signature
@@ -103,16 +103,16 @@ class TrustEvent:
             result["trustchainchainid"] = self.trustchain_chain_id
         if self.trustchain_parent_signature:
             result["trustchainparentsignature"] = self.trustchain_parent_signature
-        
+
         return result
-    
+
     def to_json(self) -> str:
         """Convert to JSON string."""
         return json.dumps(self.to_dict(), default=str)
-    
+
     def to_kafka_headers(self) -> list:
         """Generate Kafka headers for quick filtering.
-        
+
         Returns:
             List of (key, value) tuples for Kafka headers
         """
@@ -122,16 +122,16 @@ class TrustEvent:
             ("ce_source", self.source.encode()),
             ("ce_id", self.id.encode()),
         ]
-        
+
         if self.subject:
             headers.append(("ce_subject", self.subject.encode()))
         if self.trustchain_signature:
             headers.append(("trustchain_sig", self.trustchain_signature[:32].encode()))
         if self.trustchain_chain_id:
             headers.append(("trustchain_chain", self.trustchain_chain_id.encode()))
-        
+
         return headers
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "TrustEvent":
         """Create TrustEvent from dictionary."""
@@ -150,7 +150,7 @@ class TrustEvent:
             trustchain_chain_id=data.get("trustchainchainid"),
             trustchain_parent_signature=data.get("trustchainparentsignature"),
         )
-    
+
     @classmethod
     def from_json(cls, json_str: str) -> "TrustEvent":
         """Create TrustEvent from JSON string."""
@@ -159,5 +159,6 @@ class TrustEvent:
 
 # Type hint for SignedResponse (avoid circular import)
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from .signer import SignedResponse

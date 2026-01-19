@@ -113,7 +113,7 @@ class SimpleAgent:
             )
 
             return f"The current price of {response.data['symbol']} is ${response.data['price']:.2f}."
-        
+
         elif "news" in query.lower():
             # Extract topic
             topic = "technology"  # Default
@@ -138,7 +138,7 @@ class SimpleAgent:
                 news_summary += f"- {article['title']}\n"
 
             return news_summary
-        
+
         else:
             return "I'm not sure how to help with that. Try asking about weather, stocks, or news."
 
