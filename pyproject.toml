@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trustchain"
-version = "0.1.0"
+version = "2.1.0"
 description = "Cryptographically signed AI tool responses for preventing hallucinations"
 readme = "README.md"
 authors = [
@@ -94,10 +94,10 @@ dev = [
 trustchain = "trustchain.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/petro1eum/Tool_blockchain"
+Homepage = "https://github.com/petro1eum/trust_chain"
 Documentation = "https://trustchain.readthedocs.io/"
-Repository = "https://github.com/petro1eum/Tool_blockchain.git"
-"Bug Tracker" = "https://github.com/petro1eum/Tool_blockchain/issues"
+Repository = "https://github.com/petro1eum/trust_chain.git"
+"Bug Tracker" = "https://github.com/petro1eum/trust_chain/issues"
 
 [tool.black]
 line-length = 88

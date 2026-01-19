@@ -95,12 +95,13 @@ class TrustChainVerifier:
                 )
 
         try:
-            # Recreate canonical data
+            # Recreate canonical data (must match signer.py format exactly)
             canonical_data = {
                 "tool_id": response.tool_id,
                 "data": response.data,
                 "timestamp": response.timestamp,
                 "nonce": response.nonce,
+                "parent_signature": response.parent_signature,
             }
 
             # Serialize to JSON (same format as signer)
