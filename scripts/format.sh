@@ -14,8 +14,8 @@ black trustchain/ tests/ examples/ 2>/dev/null || pip install black==24.8.0 && b
 echo "  → isort..."
 isort trustchain/ tests/ examples/ --skip trustchain/core/__init__.py
 
-# Run ruff fix
-echo "  → ruff --fix..."
+# Run ruff fix (including notebooks)
+echo "  → ruff --fix (py + ipynb)..."
 ruff check trustchain/ tests/ examples/ --fix --unsafe-fixes 2>/dev/null || pip install ruff && ruff check trustchain/ tests/ examples/ --fix --unsafe-fixes
 
 echo "✅ All formatting complete!"
