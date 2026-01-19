@@ -7,6 +7,7 @@ TrustChain is a cryptographic verification layer for AI agent tool calls. It add
 - **Cryptographic Signatures**: Every tool response is signed with Ed25519
 - **Replay Protection**: Nonce-based protection against replay attacks
 - **Chain of Trust**: Link operations cryptographically to prove execution order
+- **Key Rotation**: Seamless key management with persistence
 - **Merkle Trees**: Verify large documents with compact proofs
 - **CloudEvents**: Standard event format for Kafka and other systems
 
@@ -36,9 +37,10 @@ pip install trustchain
 With optional integrations:
 
 ```bash
-pip install trustchain[mcp]        # MCP Server for Claude Desktop
-pip install trustchain[langchain]  # LangChain integration
-pip install trustchain[redis]      # Distributed nonce storage
+pip install trustchain[integrations]  # LangChain + MCP
+pip install trustchain[ai]            # OpenAI + Anthropic + LangChain
+pip install trustchain[mcp]           # MCP Server only
+pip install trustchain[redis]         # Distributed nonce storage
 ```
 
 ## Basic Example
@@ -56,6 +58,14 @@ result = get_weather("London")
 print(result.signature)  # Ed25519 signature
 print(tc.verify(result)) # True
 ```
+
+## Interactive Examples
+
+| Notebook | Description |
+|----------|-------------|
+| [trustchain_tutorial.ipynb](../examples/trustchain_tutorial.ipynb) | Basic tutorial - 7 core use cases |
+| [trustchain_advanced.ipynb](../examples/trustchain_advanced.ipynb) | Advanced - key persistence, multi-agent |
+| [trustchain_pro.ipynb](../examples/trustchain_pro.ipynb) | Full API reference |
 
 ## Version
 

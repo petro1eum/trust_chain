@@ -8,6 +8,13 @@ This guide will help you get TrustChain up and running in 5 minutes.
 pip install trustchain
 ```
 
+With optional integrations:
+
+```bash
+pip install trustchain[integrations]  # LangChain + MCP
+pip install trustchain[ai]            # OpenAI + Anthropic + LangChain
+```
+
 ## Basic Usage
 
 ### 1. Create a TrustChain Instance
@@ -71,13 +78,27 @@ config = TrustChainConfig(
     enable_nonce=True,
     enable_cache=True,
     cache_ttl=3600,
+    key_file="keys.json",  # Persistent keys
 )
 
 tc = TrustChain(config)
+```
+
+## Key Management
+
+```python
+# Save keys for later use
+tc.save_keys()
+
+# Rotate to new keys
+new_key = tc.rotate_keys()
+
+# Export public key for external verification
+public_key = tc.export_public_key()
 ```
 
 ## Next Steps
 
 - [API Reference](API-Reference) - Full API documentation
 - [Examples](Examples) - Ready-to-use code examples
-- [Chain of Trust](Chain-of-Trust) - Link operations cryptographically
+- [Architecture](Architecture) - Technical deep dive

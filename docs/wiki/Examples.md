@@ -328,9 +328,45 @@ All examples are available in the `examples/` directory:
 git clone https://github.com/petro1eum/trust_chain.git
 cd trust_chain
 
-# Install dependencies
-pip install -e .
+# Install with all dependencies
+pip install -e ".[integrations]"
 
 # Run an example
 python examples/database_agent.py
 ```
+
+---
+
+## 10. Key Rotation
+
+Rotate keys for security or compliance.
+
+```python
+from trustchain import TrustChain, TrustChainConfig
+
+config = TrustChainConfig(key_file="keys.json")
+tc = TrustChain(config)
+tc.save_keys()
+
+# Current key
+old_key = tc.get_key_id()
+print(f"Current key: {old_key[:16]}...")
+
+# Rotate to new keys
+new_key = tc.rotate_keys()
+print(f"New key: {new_key[:16]}...")
+
+# Export public key for external verification
+public_key = tc.export_public_key()
+```
+
+---
+
+## Interactive Jupyter Notebooks
+
+| Notebook | Description |
+|----------|-------------|
+| [trustchain_tutorial.ipynb](../examples/trustchain_tutorial.ipynb) | Basic tutorial - 7 core use cases |
+| [trustchain_advanced.ipynb](../examples/trustchain_advanced.ipynb) | Advanced - key persistence, multi-agent, Redis |
+| [trustchain_pro.ipynb](../examples/trustchain_pro.ipynb) | Full API reference with all v2.1 capabilities |
+
