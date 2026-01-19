@@ -205,7 +205,7 @@ async def demonstrate_enforcement():
         print(f"Verifying response from {sample_response.tool_id}...")
         print(f"Original data: {sample_response.data}")
 
-        # Verify the original
+        # Verify the original (this consumes the nonce)
         is_valid = tc.verify(sample_response)
         print(f"✅ Original verification: {is_valid}")
 
@@ -215,7 +215,9 @@ async def demonstrate_enforcement():
         tampered = copy.deepcopy(sample_response)
         tampered.data["tampered"] = True
 
-        is_valid_tampered = tc.verify(tampered)
+        # Use _signer.verify() to check signature without nonce check
+        # (nonce was already consumed above)
+        is_valid_tampered = tc._signer.verify(tampered)
         print(f"❌ Tampered verification: {is_valid_tampered}")
 
         print("\n✅ TrustChain v2 successfully detected tampering!")
