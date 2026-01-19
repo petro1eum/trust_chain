@@ -47,7 +47,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.8", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     
     steps:
       - uses: actions/setup-python@v5
@@ -59,8 +59,13 @@ jobs:
           name: dist
           path: dist/
 
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
       - name: Install from wheel
-        run: pip install dist/*.whl
+        run: uv pip install --system dist/*.whl
         shell: bash
 
       - name: Test import

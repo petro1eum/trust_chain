@@ -3,7 +3,7 @@
 **Cryptographic verification layer for AI agents - "SSL for AI"**
 
 [![CI](https://github.com/petro1eum/trust_chain/actions/workflows/ci.yml/badge.svg)](https://github.com/petro1eum/trust_chain/actions/workflows/ci.yml)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 TrustChain adds **Ed25519 cryptographic signatures** to AI tool responses, enabling:
@@ -19,6 +19,14 @@ TrustChain adds **Ed25519 cryptographic signatures** to AI tool responses, enabl
 
 ## Installation
 
+We recommend using **uv** for lightning-fast installation:
+
+```bash
+uv pip install trustchain
+```
+
+Or using standard pip:
+
 ```bash
 pip install trustchain
 ```
@@ -26,11 +34,11 @@ pip install trustchain
 **Optional extras:**
 
 ```bash
-pip install trustchain[integrations]  # LangChain + MCP support
-pip install trustchain[ai]            # OpenAI + Anthropic + LangChain
-pip install trustchain[mcp]           # MCP Server only
-pip install trustchain[redis]         # Distributed nonce storage
-pip install trustchain[all]           # Everything
+uv pip install trustchain[integrations]  # LangChain + MCP support
+uv pip install trustchain[ai]            # OpenAI + Anthropic + LangChain
+uv pip install trustchain[mcp]           # MCP Server only
+uv pip install trustchain[redis]         # Distributed nonce storage
+uv pip install trustchain[all]           # Everything
 ```
 
 ---

@@ -14,17 +14,26 @@ TrustChain добавляет к каждому ответу:
 
 ## Установка
 
+Рекомендуется использовать **uv** для быстрой установки:
+
+```bash
+uv pip install trustchain
+```
+
+Или стандартный pip:
+
 ```bash
 pip install trustchain
 ```
 
 Для дополнительных возможностей:
+
 ```bash
-pip install trustchain[integrations]  # LangChain + MCP
-pip install trustchain[ai]            # OpenAI + Anthropic + LangChain
-pip install trustchain[mcp]           # Только MCP Server
-pip install trustchain[redis]         # Распределенный nonce storage
-pip install trustchain[all]           # Всё вместе
+uv pip install trustchain[integrations]  # LangChain + MCP
+uv pip install trustchain[ai]            # OpenAI + Anthropic + LangChain
+uv pip install trustchain[mcp]           # Только MCP Server
+uv pip install trustchain[redis]         # Распределенный nonce storage
+uv pip install trustchain[all]           # Всё вместе
 ```
 
 ---
