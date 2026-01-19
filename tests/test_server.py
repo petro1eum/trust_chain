@@ -10,7 +10,7 @@ pytest.importorskip("httpx")
 
 from fastapi.testclient import TestClient
 
-from trustchain.v2.server import app, get_trustchain
+from trustchain.v2.server import app
 
 
 class TestHealthEndpoint:
@@ -125,6 +125,7 @@ class TestVerifyEndpoint:
                 "tool_id": "verify_test",
                 "data": {"test": "data"},
                 "signature": signed_data["signature"],
+                "signature_id": signed_data["signature_id"],
                 "nonce": signed_data["nonce"],
                 "timestamp": signed_data["timestamp"],
             },
@@ -141,6 +142,7 @@ class TestVerifyEndpoint:
                 "tool_id": "test",
                 "data": {"test": "data"},
                 "signature": "invalid_signature_here",
+                "signature_id": "fake-sig-id",
                 "nonce": "some-nonce",
                 "timestamp": 1234567890,
             },
@@ -164,6 +166,7 @@ class TestVerifyEndpoint:
                 "tool_id": "tamper_test",
                 "data": {"tampered": "data"},  # Different data
                 "signature": signed_data["signature"],
+                "signature_id": signed_data["signature_id"],
                 "nonce": signed_data["nonce"],
                 "timestamp": signed_data["timestamp"],
             },

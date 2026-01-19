@@ -1,6 +1,5 @@
 """Utility modules for TrustChain."""
 
-from trustchain.utils.config import *
 from trustchain.utils.exceptions import *
 
 __all__ = [
@@ -10,6 +9,4 @@ __all__ = [
     "KeyNotFoundError",
     "ChainIntegrityError",
     "ConfigurationError",
-    "TrustChainConfig",
-    "load_config",
 ]
