@@ -16,9 +16,8 @@ To run:
 import asyncio
 from typing import Any, Dict
 
-from trustchain.web_api import start_server
-
 from trustchain.v2 import TrustChain, TrustChainConfig
+from trustchain.web_api import start_server
 
 
 def main():
