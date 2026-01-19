@@ -373,3 +373,23 @@ class TrustChain:
     def get_key_id(self) -> str:
         """Get unique identifier for current signing key."""
         return self._signer.get_key_id()
+
+    def rotate_keys(self, save: bool = True) -> str:
+        """Rotate to new signing keys.
+
+        Generates a new key pair, invalidating all previous signatures.
+
+        Args:
+            save: If True and key_file is configured, save new keys to file.
+
+        Returns:
+            New key ID
+        """
+        # Create new signer with fresh keys
+        self._signer = Signer(algorithm=self.config.algorithm)
+
+        # Save if configured
+        if save and self.config.key_file:
+            self.save_keys()
+
+        return self._signer.get_key_id()
