@@ -30,6 +30,8 @@ from trustchain.v2 import (
     get_metrics,
     setup_logging,
 )
+from trustchain.v2.graph import ExecutionGraph
+from trustchain.v2.policy import PolicyEngine, PolicyViolationError
 
 __all__ = [
     # Core
@@ -46,6 +48,10 @@ __all__ = [
     "get_logger",
     "RedisNonceStorage",
     "create_trustchain",
+    # Governance (Phase 13-14)
+    "PolicyEngine",
+    "PolicyViolationError",
+    "ExecutionGraph",
     # Exceptions
     "TrustChainError",
     "SignatureVerificationError",
