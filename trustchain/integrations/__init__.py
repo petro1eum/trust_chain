@@ -19,11 +19,7 @@ except ImportError:
 
 # MCP (optional)
 try:
-    from .mcp import (
-        TrustChainMCPServer,
-        create_mcp_server,
-        serve_mcp,
-    )
+    from .mcp import TrustChainMCPServer, create_mcp_server, serve_mcp
 except ImportError:
     serve_mcp = None
     create_mcp_server = None

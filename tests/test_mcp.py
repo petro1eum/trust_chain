@@ -9,11 +9,7 @@ from trustchain import TrustChain
 # Skip tests if mcp not installed
 mcp = pytest.importorskip("mcp")
 
-from trustchain.integrations.mcp import (
-    HAS_MCP,
-    TrustChainMCPServer,
-    create_mcp_server,
-)
+from trustchain.integrations.mcp import HAS_MCP, TrustChainMCPServer, create_mcp_server
 
 
 class TestMCPAvailability:
