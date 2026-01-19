@@ -133,7 +133,7 @@ tc.verify(result)  # NonceReplayError -- 논스 이미 사용됨
 
 ---
 
-## 신뢰 체인
+## 신뢰 체인 (Chain of Trust)
 
 여러 작업을 암호화적으로 연결할 수 있습니다.
 
@@ -145,6 +145,42 @@ AI가 다단계 작업을 수행할 때:
 3. 보고서 생성
 
 2단계가 1단계를 기반으로 수행되었으며 조작되지 않았음을 증명해야 합니다.
+
+### 사용법
+
+```python
+from trustchain import TrustChain
+
+tc = TrustChain()
+
+# 단계 1: 검색 (부모 없음)
+step1 = tc._signer.sign("search", {"query": "balance", "results": [100, 200]})
+
+# 단계 2: 분석 (단계 1 참조)
+step2 = tc._signer.sign(
+    "analyze", 
+    {"summary": "total=300"},
+    parent_signature=step1.signature
+)
+
+# 단계 3: 보고서 (단계 2 참조)
+step3 = tc._signer.sign(
+    "report",
+    {"text": "Balance is 300"},
+    parent_signature=step2.signature
+)
+
+# 전체 체인 검증
+chain = [step1, step2, step3]
+is_valid = tc.verify_chain(chain)
+print(is_valid)  # True -- 체인 무결
+```
+
+### verify_chain이 확인하는 것:
+
+1. 각 서명이 유효함
+2. 각 `parent_signature`가 이전 단계의 `signature`와 일치
+3. 체인이 끊어지지 않음
 
 ---
 
@@ -174,26 +210,181 @@ old_key = tc.get_key_id()
 new_key = tc.rotate_keys()
 
 print(f"로테이션: {old_key[:16]} -> {new_key[:16]}")
+public_key = tc.export_public_key()
 ```
 
 > 로테이션 후 모든 이전 서명이 무효화됩니다!
+
+### 분산 구성 (Redis)
+
+```python
+config = TrustChainConfig(
+    nonce_backend="redis",
+    redis_url="redis://localhost:6379/0",
+    nonce_ttl=86400,
+)
+tc = TrustChain(config)
+```
+
+### 멀티 테넌시
+
+```python
+from trustchain import TenantManager
+
+manager = TenantManager(
+    redis_url="redis://localhost:6379",
+    key_storage_dir="./keys"
+)
+
+tc_acme = manager.get_or_create("acme_corp")
+tc_beta = manager.get_or_create("beta_inc")
+```
+
+---
+
+## 통합
+
+### OpenAI / Anthropic 스키마
+
+```python
+schema = tc.get_tool_schema("weather")
+schema = tc.get_tool_schema("weather", format="anthropic")
+all_schemas = tc.get_tools_schema()
+```
+
+### Pydantic V2
+
+```python
+from pydantic import BaseModel, Field
+
+class SearchParams(BaseModel):
+    query: str = Field(..., description="검색 쿼리 문자열")
+    limit: int = Field(10, le=100)
+
+@tc.tool("search")
+def search(params: SearchParams) -> list:
+    return []
+```
+
+### LangChain
+
+```python
+from trustchain.integrations.langchain import to_langchain_tools
+lc_tools = to_langchain_tools(tc)
+```
+
+### MCP 서버 (Claude Desktop)
+
+```python
+from trustchain.integrations.mcp import serve_mcp
+serve_mcp(tc)
+```
+
+---
+
+## Merkle 트리
+
+```python
+from trustchain.v2.merkle import MerkleTree, verify_proof
+
+pages = [f"Page {i}: ..." for i in range(100)]
+tree = MerkleTree.from_chunks(pages)
+
+proof = tree.get_proof(42)
+is_valid = verify_proof(pages[42], proof, tree.root)
+```
+
+---
+
+## CloudEvents
+
+```python
+from trustchain.v2.events import TrustEvent
+
+event = TrustEvent.from_signed_response(result, source="/agent/bot")
+json_str = event.to_json()
+```
+
+---
+
+## 감사 UI
+
+```python
+from trustchain.ui.explorer import ChainExplorer
+
+explorer = ChainExplorer(chain, tc)
+explorer.export_html("audit_report.html")
+```
+
+---
+
+## REST API 서버
+
+```bash
+uvicorn trustchain.v2.server:app --port 8000
+```
+
+---
+
+## Prometheus 메트릭
+
+```python
+config = TrustChainConfig(enable_metrics=True)
+tc = TrustChain(config)
+```
 
 ---
 
 ## 성능
 
-벤치마크 결과 (Apple M1):
-
 | 작업 | 지연 시간 | 처리량 |
 |------|----------|--------|
 | 서명 | 0.11 ms | 9,102 ops/초 |
 | 검증 | 0.22 ms | 4,513 ops/초 |
+| 체인 검증 (100개) | 28 ms | - |
+| Merkle (100페이지) | 0.18 ms | 5,482 ops/초 |
+
+---
+
+## 예제
+
+### Jupyter Notebooks
+
+| Notebook | 설명 |
+|----------|------|
+| trustchain_tutorial.ipynb | 기본 튜토리얼 |
+| trustchain_advanced.ipynb | 고급 |
+| trustchain_pro.ipynb | 전체 API 참조 |
+
+### Python 스크립트
+
+- `mcp_claude_desktop.py` — MCP 서버
+- `langchain_agent.py` — LangChain 통합
+- `secure_rag.py` — Merkle을 사용한 RAG
+- `database_agent.py` — SQL 에이전트
+- `api_agent.py` — HTTP 클라이언트
+
+---
+
+## FAQ
+
+**Q: 이것이 블록체인인가요?**
+A: 아니요. HTTPS의 암호화 서명과 같습니다.
+
+**Q: 코드가 느려지나요?**
+A: 서명: 0.11 ms, 검증: 0.22 ms. 일반적으로 눈에 띄지 않습니다.
+
+**Q: Redis가 필요한가요?**
+A: 개발용으로는 아니요. 여러 서버가 있는 프로덕션에서는 예.
+
+**Q: 모든 AI와 작동하나요?**
+A: 예. TrustChain은 함수 결과에 서명합니다.
 
 ---
 
 ## 라이선스
 
-MIT
+MIT License
 
 ## 저자
 
@@ -201,4 +392,4 @@ Ed Cherednik
 
 ## 버전
 
-2.1.0
+2.1.0 (2026년 1월 19일)

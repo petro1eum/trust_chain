@@ -264,12 +264,43 @@ TrustChain automatically generates JSON Schema for functions:
 ```python
 # OpenAI format
 schema = tc.get_tool_schema("weather")
+# {
+#   "type": "function",
+#   "function": {
+#     "name": "weather",
+#     "description": "Get weather for a city.",
+#     "parameters": {...}
+#   }
+# }
 
 # Anthropic format
 schema = tc.get_tool_schema("weather", format="anthropic")
+# {"name": "weather", "input_schema": {...}}
 
 # All tools at once
 all_schemas = tc.get_tools_schema()
+```
+
+### Pydantic V2
+
+Full support for Pydantic models:
+
+```python
+from pydantic import BaseModel, Field
+
+class SearchParams(BaseModel):
+    query: str = Field(..., description="Search query string")
+    limit: int = Field(10, le=100, description="Max results")
+
+@tc.tool("search")
+def search(params: SearchParams) -> list:
+    """Search for documents."""
+    return []
+
+# Schema automatically includes descriptions and constraints
+schema = tc.get_tool_schema("search")
+# properties.query.description == "Search query string"
+# properties.limit.maximum == 100
 ```
 
 ### LangChain
@@ -312,6 +343,113 @@ For Claude Desktop add to `claude_desktop_config.json`:
 
 ---
 
+## Merkle Trees
+
+For verifying large documents without loading entire content.
+
+### Usage
+
+```python
+from trustchain.v2.merkle import MerkleTree, verify_proof
+
+# Document with 100 pages
+pages = [f"Page {i}: ..." for i in range(100)]
+
+# Build Merkle Tree
+tree = MerkleTree.from_chunks(pages)
+print(tree.root)  # Single hash for entire document
+
+# Sign only the root
+signed = tc._signer.sign("document", {"merkle_root": tree.root})
+
+# Later: verify only page 42
+proof = tree.get_proof(42)
+is_valid = verify_proof(pages[42], proof, tree.root)
+```
+
+### Why is this needed?
+
+- RAG systems: verify source without loading all documents
+- LegalTech: verification of individual contract pages
+- IoT: verify data packet from large batch
+
+---
+
+## CloudEvents
+
+Standard format for integration with Kafka and other systems:
+
+```python
+from trustchain.v2.events import TrustEvent
+
+# Convert SignedResponse to CloudEvent
+event = TrustEvent.from_signed_response(
+    result,
+    source="/agent/my-bot/tool/weather"
+)
+
+# JSON for Kafka
+json_str = event.to_json()
+
+# Kafka headers for fast filtering
+headers = event.to_kafka_headers()
+```
+
+---
+
+## Audit Trail UI
+
+Generate HTML reports for auditing:
+
+```python
+from trustchain.ui.explorer import ChainExplorer
+
+# Collect operations
+chain = [step1, step2, step3, ...]
+
+# Export to HTML
+explorer = ChainExplorer(chain, tc)
+explorer.export_html("audit_report.html")
+```
+
+Opens interactive report with:
+- Operation statistics
+- Chain visualization
+- Verification status for each step
+
+---
+
+## REST API Server
+
+TrustChain can run as an HTTP server:
+
+```bash
+uvicorn trustchain.v2.server:app --port 8000
+```
+
+Endpoints:
+- `POST /sign` -- sign data
+- `POST /verify` -- verify signature
+- `GET /health` -- server status
+- `GET /public-key` -- get public key
+
+---
+
+## Prometheus Metrics
+
+```python
+config = TrustChainConfig(enable_metrics=True)
+tc = TrustChain(config)
+```
+
+Available metrics:
+- `trustchain_signs_total` -- number of signatures
+- `trustchain_verifies_total` -- number of verifications
+- `trustchain_sign_seconds` -- signing time
+- `trustchain_nonce_rejects_total` -- blocked replay attacks
+
+---
+
 ## Performance
 
 Benchmark results (Apple M1):
@@ -327,9 +465,78 @@ Storage overhead: ~124 bytes per operation (88 bytes signature + 36 bytes nonce)
 
 ---
 
+## Project Structure
+
+```
+trustchain/
+  __init__.py          # Main export
+  v2/
+    core.py            # TrustChain class
+    signer.py          # Signatures and SignedResponse
+    config.py          # Configuration
+    schemas.py         # OpenAI/Anthropic schemas
+    nonce_storage.py   # Memory/Redis storage
+    metrics.py         # Prometheus metrics
+    tenants.py         # Multi-tenancy
+    server.py          # REST API
+    verifier.py        # External verification
+    merkle.py          # Merkle Trees
+    events.py          # CloudEvents
+  integrations/
+    langchain.py       # LangChain adapter
+    mcp.py             # MCP Server
+  ui/
+    explorer.py        # HTML reports
+  utils/
+    exceptions.py      # Errors
+```
+
+---
+
+## Examples
+
+### Jupyter Notebooks
+
+| Notebook | Description |
+|----------|-------------|
+| [trustchain_tutorial.ipynb](examples/trustchain_tutorial.ipynb) | Basic tutorial — 7 key scenarios |
+| [trustchain_advanced.ipynb](examples/trustchain_advanced.ipynb) | Advanced — key persistence, multi-agent, Redis |
+| [trustchain_pro.ipynb](examples/trustchain_pro.ipynb) | Complete API reference v2.1 |
+
+### Python Scripts
+
+In the `examples/` directory:
+
+- `mcp_claude_desktop.py` — MCP Server for Claude Desktop
+- `langchain_agent.py` — Integration with LangChain
+- `secure_rag.py` — RAG with Merkle Tree verification
+- `database_agent.py` — SQL agent with Chain of Trust
+- `api_agent.py` — HTTP client with CloudEvents
+
+---
+
+## FAQ
+
+**Q: Is this blockchain?**
+A: No. These are cryptographic signatures, like in HTTPS. No mining or consensus.
+
+**Q: Does this slow down code?**
+A: Signing takes 0.11 ms, verification 0.22 ms. Usually unnoticeable.
+
+**Q: Do I need Redis?**
+A: For development — no (uses in-memory storage). For production with multiple servers — yes.
+
+**Q: Works with any AI?**
+A: Yes. TrustChain signs results of your functions, regardless of which AI calls them.
+
+**Q: What algorithms are supported?**
+A: Currently Ed25519 (fast, secure, 128-bit security level).
+
+---
+
 ## License
 
-MIT
+MIT License
 
 ## Author
 
@@ -337,4 +544,4 @@ Ed Cherednik
 
 ## Version
 
-2.1.0
+2.1.0 (January 19, 2026)

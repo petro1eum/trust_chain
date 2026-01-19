@@ -146,6 +146,42 @@ Lorsque l'IA effectue une tâche en plusieurs étapes :
 
 Vous devez prouver que l'étape 2 a été effectuée sur la base de l'étape 1, pas fabriquée.
 
+### Utilisation
+
+```python
+from trustchain import TrustChain
+
+tc = TrustChain()
+
+# Étape 1 : Recherche (sans parent)
+step1 = tc._signer.sign("search", {"query": "balance", "results": [100, 200]})
+
+# Étape 2 : Analyse (référence étape 1)
+step2 = tc._signer.sign(
+    "analyze", 
+    {"summary": "total=300"},
+    parent_signature=step1.signature
+)
+
+# Étape 3 : Rapport (référence étape 2)
+step3 = tc._signer.sign(
+    "report",
+    {"text": "Balance is 300"},
+    parent_signature=step2.signature
+)
+
+# Vérifier toute la chaîne
+chain = [step1, step2, step3]
+is_valid = tc.verify_chain(chain)
+print(is_valid)  # True -- chaîne intacte
+```
+
+### Que vérifie verify_chain ?
+
+1. Chaque signature est valide
+2. Chaque `parent_signature` correspond à la `signature` de l'étape précédente
+3. La chaîne n'est pas cassée
+
 ---
 
 ## Configuration
@@ -174,26 +210,181 @@ old_key = tc.get_key_id()
 new_key = tc.rotate_keys()
 
 print(f"Rotation : {old_key[:16]} -> {new_key[:16]}")
+public_key = tc.export_public_key()
 ```
 
 > Après rotation, toutes les signatures précédentes deviennent invalides !
+
+### Configuration Distribuée (Redis)
+
+```python
+config = TrustChainConfig(
+    nonce_backend="redis",
+    redis_url="redis://localhost:6379/0",
+    nonce_ttl=86400,
+)
+tc = TrustChain(config)
+```
+
+### Multi-Tenancy
+
+```python
+from trustchain import TenantManager
+
+manager = TenantManager(
+    redis_url="redis://localhost:6379",
+    key_storage_dir="./keys"
+)
+
+tc_acme = manager.get_or_create("acme_corp")
+tc_beta = manager.get_or_create("beta_inc")
+```
+
+---
+
+## Intégrations
+
+### OpenAI / Anthropic Schema
+
+```python
+schema = tc.get_tool_schema("weather")
+schema = tc.get_tool_schema("weather", format="anthropic")
+all_schemas = tc.get_tools_schema()
+```
+
+### Pydantic V2
+
+```python
+from pydantic import BaseModel, Field
+
+class SearchParams(BaseModel):
+    query: str = Field(..., description="Chaîne de recherche")
+    limit: int = Field(10, le=100)
+
+@tc.tool("search")
+def search(params: SearchParams) -> list:
+    return []
+```
+
+### LangChain
+
+```python
+from trustchain.integrations.langchain import to_langchain_tools
+lc_tools = to_langchain_tools(tc)
+```
+
+### Serveur MCP (Claude Desktop)
+
+```python
+from trustchain.integrations.mcp import serve_mcp
+serve_mcp(tc)
+```
+
+---
+
+## Arbres Merkle
+
+```python
+from trustchain.v2.merkle import MerkleTree, verify_proof
+
+pages = [f"Page {i}: ..." for i in range(100)]
+tree = MerkleTree.from_chunks(pages)
+
+proof = tree.get_proof(42)
+is_valid = verify_proof(pages[42], proof, tree.root)
+```
+
+---
+
+## CloudEvents
+
+```python
+from trustchain.v2.events import TrustEvent
+
+event = TrustEvent.from_signed_response(result, source="/agent/bot")
+json_str = event.to_json()
+```
+
+---
+
+## UI d'Audit
+
+```python
+from trustchain.ui.explorer import ChainExplorer
+
+explorer = ChainExplorer(chain, tc)
+explorer.export_html("audit_report.html")
+```
+
+---
+
+## Serveur REST API
+
+```bash
+uvicorn trustchain.v2.server:app --port 8000
+```
+
+---
+
+## Métriques Prometheus
+
+```python
+config = TrustChainConfig(enable_metrics=True)
+tc = TrustChain(config)
+```
 
 ---
 
 ## Performance
 
-Résultats de benchmark (Apple M1) :
-
 | Opération | Latence | Débit |
 |-----------|---------|-------|
 | Signer | 0,11 ms | 9 102 ops/sec |
 | Vérifier | 0,22 ms | 4 513 ops/sec |
+| Chaîne (100 éléments) | 28 ms | - |
+| Merkle (100 pages) | 0,18 ms | 5 482 ops/sec |
+
+---
+
+## Exemples
+
+### Jupyter Notebooks
+
+| Notebook | Description |
+|----------|-------------|
+| trustchain_tutorial.ipynb | Tutoriel de base |
+| trustchain_advanced.ipynb | Avancé |
+| trustchain_pro.ipynb | Référence API complète |
+
+### Scripts Python
+
+- `mcp_claude_desktop.py` — Serveur MCP
+- `langchain_agent.py` — Intégration LangChain
+- `secure_rag.py` — RAG avec Merkle
+- `database_agent.py` — Agent SQL
+- `api_agent.py` — Client HTTP
+
+---
+
+## FAQ
+
+**Q: C'est une blockchain ?**
+R: Non. Ce sont des signatures cryptographiques, comme HTTPS.
+
+**Q: Ça ralentit le code ?**
+R: Signer : 0,11 ms, vérifier : 0,22 ms. Généralement imperceptible.
+
+**Q: J'ai besoin de Redis ?**
+R: Pour le développement non. Pour la production avec plusieurs serveurs oui.
+
+**Q: Ça fonctionne avec n'importe quelle IA ?**
+R: Oui. TrustChain signe les résultats de vos fonctions.
 
 ---
 
 ## Licence
 
-MIT
+MIT License
 
 ## Auteur
 
@@ -201,4 +392,4 @@ Ed Cherednik
 
 ## Version
 
-2.1.0
+2.1.0 (19 janvier 2026)
