@@ -688,24 +688,15 @@
             <div class="lang-selector">
                 <div class="lang-current">🌐 ▾</div>
                 <div class="lang-dropdown">
-                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_EN.md" class="lang-option"><span
-                            class="flag">🇺🇸</span> English</a>
-                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_RU.md" class="lang-option"><span
-                            class="flag">🇷🇺</span> Русский</a>
-                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_ZH.md" class="lang-option"><span
-                            class="flag">🇨🇳</span> 中文</a>
-                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_ES.md" class="lang-option"><span
-                            class="flag">🇪🇸</span> Español</a>
-                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_FR.md" class="lang-option"><span
-                            class="flag">🇫🇷</span> Français</a>
-                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_DE.md" class="lang-option"><span
-                            class="flag">🇩🇪</span> Deutsch</a>
-                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_JA.md" class="lang-option"><span
-                            class="flag">🇯🇵</span> 日本語</a>
-                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_KO.md" class="lang-option"><span
-                            class="flag">🇰🇷</span> 한국어</a>
-                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_PT.md" class="lang-option"><span
-                            class="flag">🇧🇷</span> Português</a>
+                    <div class="lang-option" onclick="setLanguage('en')"><span class="flag">🇺🇸</span> English</div>
+                    <div class="lang-option" onclick="setLanguage('ru')"><span class="flag">🇷🇺</span> Русский</div>
+                    <div class="lang-option" onclick="setLanguage('zh')"><span class="flag">🇨🇳</span> 中文</div>
+                    <div class="lang-option" onclick="setLanguage('es')"><span class="flag">🇪🇸</span> Español</div>
+                    <div class="lang-option" onclick="setLanguage('fr')"><span class="flag">🇫🇷</span> Français</div>
+                    <div class="lang-option" onclick="setLanguage('de')"><span class="flag">🇩🇪</span> Deutsch</div>
+                    <div class="lang-option" onclick="setLanguage('ja')"><span class="flag">🇯🇵</span> 日本語</div>
+                    <div class="lang-option" onclick="setLanguage('ko')"><span class="flag">🇰🇷</span> 한국어</div>
+                    <div class="lang-option" onclick="setLanguage('pt')"><span class="flag">🇧🇷</span> Português</div>
                 </div>
             </div>
             <a href="https://github.com/petro1eum/trust_chain" class="btn btn-secondary">GitHub</a>
@@ -1121,6 +1112,147 @@
             <p class="copyright">2026 TrustChain. Open Source.</p>
         </div>
     </footer>
+
+    <script>
+        // i18n Translations
+        const translations = {
+            en: {
+                hero_title: 'Cryptographic <span class="highlight">Proof</span><br>for AI Agent Actions',
+                hero_subtitle: '<strong>AI either hallucinates facts or gets them from tools.<br>TrustChain signs every fact from real tools. Signature = trust.</strong>',
+                nav_features: 'Features',
+                nav_usecases: 'Use Cases',
+                nav_notebooks: 'Notebooks',
+                nav_docs: 'Docs',
+                btn_install: 'Install',
+                badge: 'v2.1.0 Now Available'
+            },
+            ru: {
+                hero_title: 'Криптографическое <span class="highlight">доказательство</span><br>для AI-агентов',
+                hero_subtitle: '<strong>ИИ либо галлюцинирует факты, либо получает их из инструментов.<br>TrustChain подписывает каждый факт из реальных инструментов. Подпись = доверие.</strong>',
+                nav_features: 'Возможности',
+                nav_usecases: 'Применение',
+                nav_notebooks: 'Примеры',
+                nav_docs: 'Документация',
+                btn_install: 'Установить',
+                badge: 'v2.1.0 Доступна'
+            },
+            zh: {
+                hero_title: 'AI代理操作的<span class="highlight">加密证明</span>',
+                hero_subtitle: '<strong>AI要么产生幻觉，要么使用工具获取事实。<br>TrustChain签署来自真实工具的每个事实。签名 = 信任。</strong>',
+                nav_features: '功能',
+                nav_usecases: '用例',
+                nav_notebooks: '笔记本',
+                nav_docs: '文档',
+                btn_install: '安装',
+                badge: 'v2.1.0 现已发布'
+            },
+            es: {
+                hero_title: '<span class="highlight">Prueba</span> criptográfica<br>para agentes de IA',
+                hero_subtitle: '<strong>La IA alucina hechos o los obtiene de herramientas.<br>TrustChain firma cada hecho de herramientas reales. Firma = confianza.</strong>',
+                nav_features: 'Características',
+                nav_usecases: 'Casos de uso',
+                nav_notebooks: 'Notebooks',
+                nav_docs: 'Documentación',
+                btn_install: 'Instalar',
+                badge: 'v2.1.0 Disponible'
+            },
+            fr: {
+                hero_title: '<span class="highlight">Preuve</span> cryptographique<br>pour les agents IA',
+                hero_subtitle: '<strong>L\'IA hallucine ou obtient des faits via des outils.<br>TrustChain signe chaque fait des outils réels. Signature = confiance.</strong>',
+                nav_features: 'Fonctionnalités',
+                nav_usecases: 'Cas d\'usage',
+                nav_notebooks: 'Notebooks',
+                nav_docs: 'Documentation',
+                btn_install: 'Installer',
+                badge: 'v2.1.0 Disponible'
+            },
+            de: {
+                hero_title: 'Kryptografischer <span class="highlight">Beweis</span><br>für KI-Agenten',
+                hero_subtitle: '<strong>KI halluziniert Fakten oder erhält sie von Tools.<br>TrustChain signiert jeden Fakt von echten Tools. Signatur = Vertrauen.</strong>',
+                nav_features: 'Funktionen',
+                nav_usecases: 'Anwendungsfälle',
+                nav_notebooks: 'Notebooks',
+                nav_docs: 'Dokumentation',
+                btn_install: 'Installieren',
+                badge: 'v2.1.0 Verfügbar'
+            },
+            ja: {
+                hero_title: 'AIエージェント操作の<span class="highlight">暗号証明</span>',
+                hero_subtitle: '<strong>AIは事実を幻覚するか、ツールから取得します。<br>TrustChainは実際のツールからの各事実に署名します。署名 = 信頼。</strong>',
+                nav_features: '機能',
+                nav_usecases: 'ユースケース',
+                nav_notebooks: 'ノートブック',
+                nav_docs: 'ドキュメント',
+                btn_install: 'インストール',
+                badge: 'v2.1.0 利用可能'
+            },
+            ko: {
+                hero_title: 'AI 에이전트 작업을 위한<br><span class="highlight">암호화 증명</span>',
+                hero_subtitle: '<strong>AI는 사실을 환각하거나 도구에서 가져옵니다.<br>TrustChain은 실제 도구의 모든 사실에 서명합니다. 서명 = 신뢰.</strong>',
+                nav_features: '기능',
+                nav_usecases: '사용 사례',
+                nav_notebooks: '노트북',
+                nav_docs: '문서',
+                btn_install: '설치',
+                badge: 'v2.1.0 출시'
+            },
+            pt: {
+                hero_title: '<span class="highlight">Prova</span> criptográfica<br>para agentes de IA',
+                hero_subtitle: '<strong>A IA alucina fatos ou os obtém de ferramentas.<br>TrustChain assina cada fato de ferramentas reais. Assinatura = confiança.</strong>',
+                nav_features: 'Recursos',
+                nav_usecases: 'Casos de uso',
+                nav_notebooks: 'Notebooks',
+                nav_docs: 'Documentação',
+                btn_install: 'Instalar',
+                badge: 'v2.1.0 Disponível'
+            }
+        };
+
+        const langFlags = {
+            en: '🇺🇸', ru: '🇷🇺', zh: '🇨🇳', es: '🇪🇸', fr: '🇫🇷',
+            de: '🇩🇪', ja: '🇯🇵', ko: '🇰🇷', pt: '🇧🇷'
+        };
+
+        function setLanguage(lang) {
+            const t = translations[lang];
+            if (!t) return;
+
+            // Update hero
+            const heroTitle = document.querySelector('.hero h1');
+            const heroSubtitle = document.querySelector('.hero-subtitle');
+            const badge = document.querySelector('.badge');
+
+            if (heroTitle) heroTitle.innerHTML = t.hero_title;
+            if (heroSubtitle) heroSubtitle.innerHTML = t.hero_subtitle;
+            if (badge) badge.innerHTML = `<span class="badge-dot"></span>${t.badge}`;
+
+            // Update nav
+            const navLinks = document.querySelectorAll('.nav-links a');
+            if (navLinks[0]) navLinks[0].textContent = t.nav_features;
+            if (navLinks[1]) navLinks[1].textContent = t.nav_usecases;
+            if (navLinks[2]) navLinks[2].textContent = t.nav_notebooks;
+            if (navLinks[3]) navLinks[3].textContent = t.nav_docs;
+
+            // Update install button
+            const installBtn = document.querySelector('.nav-cta .btn-primary');
+            if (installBtn) installBtn.textContent = t.btn_install;
+
+            // Update current language display
+            const langCurrent = document.querySelector('.lang-current');
+            if (langCurrent) langCurrent.innerHTML = `${langFlags[lang]} ▾`;
+
+            // Save preference
+            localStorage.setItem('trustchain_lang', lang);
+        }
+
+        // Initialize language from localStorage or browser
+        document.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('trustchain_lang');
+            const browserLang = navigator.language.split('-')[0];
+            const lang = saved || (translations[browserLang] ? browserLang : 'en');
+            setLanguage(lang);
+        });
+    </script>
 </body>
 
 </html>
