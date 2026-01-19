@@ -10,6 +10,8 @@ TrustChain añade a cada respuesta:
 - Marca de tiempo
 - Opcionalmente: enlace al paso anterior (Cadena de Confianza)
 
+![TrustChain Architecture](docs/wiki/architecture_flow.png) (Cadena de Confianza)
+
 ---
 
 ## Requisitos

@@ -10,6 +10,8 @@ TrustChain adds to every response:
 - Timestamp
 - Optionally: link to previous step (Chain of Trust)
 
+![TrustChain Architecture](docs/wiki/architecture_flow.png)
+
 ---
 
 ## Requirements
@@ -134,6 +136,8 @@ tc.verify(result)  # NonceReplayError -- nonce already used
 ---
 
 ## Chain of Trust
+
+![Chain of Trust](docs/wiki/chain_of_trust.png)
 
 Allows cryptographically linking multiple operations.
 
@@ -344,6 +348,8 @@ For Claude Desktop add to `claude_desktop_config.json`:
 ---
 
 ## Merkle Trees
+
+![Merkle Tree Verification](docs/wiki/merkle_tree_rag.png)
 
 For verifying large documents without loading entire content.
 

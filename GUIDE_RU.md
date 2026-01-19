@@ -10,6 +10,8 @@ TrustChain добавляет к каждому ответу:
 - Временную метку
 - Опционально: связь с предыдущим шагом (Chain of Trust)
 
+![TrustChain Architecture](docs/wiki/architecture_flow.png)
+
 ---
 
 ## Требования
@@ -134,6 +136,8 @@ tc.verify(result)  # NonceReplayError -- nonce уже использован
 ---
 
 ## Chain of Trust (Цепочка доверия)
+
+![Chain of Trust](docs/wiki/chain_of_trust.png)
 
 Позволяет связывать несколько операций криптографически.
 
@@ -344,6 +348,8 @@ serve_mcp(tc)
 ---
 
 ## Merkle Trees
+
+![Merkle Tree Verification](docs/wiki/merkle_tree_rag.png)
 
 Для верификации больших документов без загрузки всего содержимого.
 

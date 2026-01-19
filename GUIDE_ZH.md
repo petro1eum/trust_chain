@@ -10,6 +10,8 @@ TrustChain 为每个响应添加：
 - 时间戳
 - 可选：与上一步的链接（信任链）
 
+![TrustChain Architecture](docs/wiki/architecture_flow.png)
+
 ---
 
 ## 系统要求
