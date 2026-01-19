@@ -142,6 +142,71 @@
         .nav-cta {
             display: flex;
             gap: 1rem;
+            align-items: center;
+        }
+
+        /* Language Selector */
+        .lang-selector {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .lang-current {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.4rem 0.8rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+        }
+
+        .lang-current:hover {
+            border-color: var(--accent);
+        }
+
+        .lang-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 0.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.5rem;
+            display: none;
+            flex-direction: column;
+            gap: 0.25rem;
+            min-width: 140px;
+            z-index: 100;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .lang-selector:hover .lang-dropdown {
+            display: flex;
+        }
+
+        .lang-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 4px;
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .lang-option:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .lang-option .flag {
+            font-size: 1.1rem;
         }
 
         /* Buttons */
@@ -620,6 +685,29 @@
             <li><a href="https://github.com/petro1eum/trust_chain/wiki">Docs</a></li>
         </ul>
         <div class="nav-cta">
+            <div class="lang-selector">
+                <div class="lang-current">🌐 ▾</div>
+                <div class="lang-dropdown">
+                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_EN.md" class="lang-option"><span
+                            class="flag">🇺🇸</span> English</a>
+                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_RU.md" class="lang-option"><span
+                            class="flag">🇷🇺</span> Русский</a>
+                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_ZH.md" class="lang-option"><span
+                            class="flag">🇨🇳</span> 中文</a>
+                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_ES.md" class="lang-option"><span
+                            class="flag">🇪🇸</span> Español</a>
+                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_FR.md" class="lang-option"><span
+                            class="flag">🇫🇷</span> Français</a>
+                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_DE.md" class="lang-option"><span
+                            class="flag">🇩🇪</span> Deutsch</a>
+                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_JA.md" class="lang-option"><span
+                            class="flag">🇯🇵</span> 日本語</a>
+                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_KO.md" class="lang-option"><span
+                            class="flag">🇰🇷</span> 한국어</a>
+                    <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_PT.md" class="lang-option"><span
+                            class="flag">🇧🇷</span> Português</a>
+                </div>
+            </div>
             <a href="https://github.com/petro1eum/trust_chain" class="btn btn-secondary">GitHub</a>
             <a href="https://pypi.org/project/trustchain" class="btn btn-primary">Install</a>
         </div>
@@ -635,12 +723,6 @@
             <p class="hero-subtitle">
                 <strong>AI either hallucinates facts or gets them from tools.<br>
                     TrustChain signs every fact from real tools. Signature = trust.</strong>
-            </p>
-            <p class="hero-subtitle" style="font-size: 0.9rem; margin-top: 1rem; opacity: 0.8;">
-                🇷🇺 ИИ либо галлюцинирует, либо использует инструменты. TrustChain подписывает каждый факт из реальных
-                инструментов.<br>
-                🇨🇳 AI要么产生幻觉，要么使用工具。TrustChain签署来自真实工具的每个事实。<br>
-                🇪🇸 La IA alucina o usa herramientas. TrustChain firma cada dato real.
             </p>
             <div class="hero-cta">
                 <a href="https://github.com/petro1eum/trust_chain" class="btn btn-primary">
