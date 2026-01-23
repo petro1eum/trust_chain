@@ -3,7 +3,7 @@
  * 
  * Provides cryptographically verified tool execution for JavaScript/Node.js applications.
  * 
- * @version 2.0.0
+ * @version 2.1.0
  * @author TrustChain Team
  */
 
@@ -83,11 +83,11 @@ class TrustChainClient {
             autoVerify: true,
             ...options
         };
-        
+
         // WebSocket connection for real-time updates
         this.websocket = null;
         this.wsCallbacks = new Map();
-        
+
         // Statistics
         this.stats = {
             totalCalls: 0,
@@ -231,7 +231,7 @@ class TrustChainClient {
     getClientStats() {
         return {
             ...this.stats,
-            successRate: this.stats.totalCalls > 0 
+            successRate: this.stats.totalCalls > 0
                 ? (this.stats.successfulCalls / this.stats.totalCalls * 100).toFixed(2) + '%'
                 : 'N/A',
             verificationRate: this.stats.verificationSuccess + this.stats.verificationFailed > 0
@@ -270,20 +270,20 @@ class TrustChainClient {
         }
 
         const wsUrl = this.baseUrl.replace(/^http/, 'ws') + '/ws';
-        
+
         return new Promise((resolve, reject) => {
             try {
                 this.websocket = new WebSocket(wsUrl);
-                
+
                 this.websocket.onopen = () => {
                     console.log('Connected to TrustChain WebSocket');
                     resolve();
                 };
-                
+
                 this.websocket.onmessage = (event) => {
                     try {
                         const message = JSON.parse(event.data);
-                        
+
                         // Call registered callbacks
                         this.wsCallbacks.forEach(callback => {
                             try {
@@ -292,7 +292,7 @@ class TrustChainClient {
                                 console.error('WebSocket callback error:', error);
                             }
                         });
-                        
+
                         // Call provided callback
                         if (onMessage) {
                             onMessage(message);
@@ -301,17 +301,17 @@ class TrustChainClient {
                         console.error('Failed to parse WebSocket message:', error);
                     }
                 };
-                
+
                 this.websocket.onerror = (error) => {
                     console.error('WebSocket error:', error);
                     reject(new TrustChainError('WebSocket connection failed', 'WEBSOCKET_ERROR'));
                 };
-                
+
                 this.websocket.onclose = () => {
                     console.log('WebSocket connection closed');
                     this.websocket = null;
                 };
-                
+
             } catch (error) {
                 reject(new TrustChainError(`Failed to create WebSocket: ${error.message}`, 'WEBSOCKET_ERROR'));
             }
@@ -376,19 +376,250 @@ class TrustChainClient {
 
             } catch (error) {
                 lastError = error;
-                
+
                 if (attempt < this.options.retries) {
                     // Exponential backoff
                     const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
                     await new Promise(resolve => setTimeout(resolve, delay));
                     continue;
                 }
-                
+
                 break;
             }
         }
 
         throw lastError;
+    }
+}
+
+/**
+ * TrustChainVerifier - Standalone signature verification without server.
+ * 
+ * Uses Web Crypto API (browser) or Node.js crypto for Ed25519 verification.
+ * 
+ * @example
+ * const verifier = new TrustChainVerifier({ publicKey: 'base64_ed25519_key' });
+ * const isValid = await verifier.verify(signedResponse);
+ */
+class TrustChainVerifier {
+    /**
+     * Create a standalone verifier.
+     * 
+     * @param {Object} options - Configuration
+     * @param {string} options.publicKey - Base64-encoded Ed25519 public key
+     * @param {string} options.publicKeyUrl - URL to fetch public key from
+     */
+    constructor(options = {}) {
+        this.publicKey = options.publicKey || null;
+        this.publicKeyUrl = options.publicKeyUrl || null;
+        this._cryptoKey = null;
+        this._isNodeJS = typeof window === 'undefined';
+    }
+
+    /**
+     * Initialize the verifier by loading the public key.
+     */
+    async initialize() {
+        if (!this.publicKey && this.publicKeyUrl) {
+            await this._fetchPublicKey();
+        }
+
+        if (this.publicKey) {
+            await this._importPublicKey();
+        }
+
+        return this;
+    }
+
+    /**
+     * Verify a signed response.
+     * 
+     * @param {SignedResponse|Object} signedResponse - Response to verify
+     * @returns {Promise<boolean>} True if signature is valid
+     */
+    async verify(signedResponse) {
+        if (!this._cryptoKey && !this.publicKey) {
+            throw new TrustChainError('Verifier not initialized. Call initialize() first or provide publicKey.');
+        }
+
+        if (!this._cryptoKey) {
+            await this._importPublicKey();
+        }
+
+        try {
+            // Recreate canonical data as Python does
+            const canonicalData = {
+                tool_id: signedResponse.tool_id,
+                data: signedResponse.data,
+                timestamp: signedResponse.timestamp,
+                nonce: signedResponse.nonce,
+                parent_signature: signedResponse.parent_signature || null
+            };
+
+            // Serialize with sorted keys (matching Python's sort_keys=True)
+            const jsonData = this._canonicalStringify(canonicalData);
+            const dataBytes = new TextEncoder().encode(jsonData);
+
+            // Decode signature from base64
+            const signatureBytes = this._base64ToArrayBuffer(signedResponse.signature);
+
+            // Verify signature
+            if (this._isNodeJS) {
+                return this._verifyNodeJS(dataBytes, signatureBytes);
+            } else {
+                return await this._verifyBrowser(dataBytes, signatureBytes);
+            }
+        } catch (error) {
+            console.warn('Verification failed:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Verify a chain of linked responses.
+     * 
+     * @param {Array<SignedResponse>} chain - Array of signed responses
+     * @returns {Promise<boolean>} True if all signatures valid and chain is unbroken
+     */
+    async verifyChain(chain) {
+        if (!chain || chain.length === 0) {
+            return true;
+        }
+
+        // Verify first response
+        if (!await this.verify(chain[0])) {
+            return false;
+        }
+
+        // Verify chain links
+        for (let i = 1; i < chain.length; i++) {
+            const current = chain[i];
+            const previous = chain[i - 1];
+
+            // Check chain link
+            if (current.parent_signature !== previous.signature) {
+                return false;
+            }
+
+            // Verify signature
+            if (!await this.verify(current)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Fetch public key from URL.
+     * @private
+     */
+    async _fetchPublicKey() {
+        try {
+            const response = await fetch(this.publicKeyUrl);
+            const data = await response.json();
+            this.publicKey = data.public_key || data.publicKey;
+        } catch (error) {
+            throw new TrustChainError(`Failed to fetch public key: ${error.message}`);
+        }
+    }
+
+    /**
+     * Import public key for crypto operations.
+     * @private
+     */
+    async _importPublicKey() {
+        const keyBytes = this._base64ToArrayBuffer(this.publicKey);
+
+        if (this._isNodeJS) {
+            // Node.js: Use crypto module
+            const crypto = require('crypto');
+            this._cryptoKey = crypto.createPublicKey({
+                key: Buffer.concat([
+                    // Ed25519 public key prefix for PKCS#8
+                    Buffer.from('302a300506032b6570032100', 'hex'),
+                    Buffer.from(keyBytes)
+                ]),
+                format: 'der',
+                type: 'spki'
+            });
+        } else {
+            // Browser: Use Web Crypto API
+            // Note: Ed25519 support in Web Crypto is limited, use SubtleCrypto if available
+            try {
+                this._cryptoKey = await crypto.subtle.importKey(
+                    'raw',
+                    keyBytes,
+                    { name: 'Ed25519' },
+                    false,
+                    ['verify']
+                );
+            } catch (error) {
+                // Fallback: Ed25519 not supported, store raw key for later
+                console.warn('Ed25519 not natively supported, using fallback');
+                this._cryptoKey = { raw: keyBytes, fallback: true };
+            }
+        }
+    }
+
+    /**
+     * Verify signature in Node.js.
+     * @private
+     */
+    _verifyNodeJS(dataBytes, signatureBytes) {
+        const crypto = require('crypto');
+        return crypto.verify(
+            null, // Ed25519 doesn't use digest algorithm
+            Buffer.from(dataBytes),
+            this._cryptoKey,
+            Buffer.from(signatureBytes)
+        );
+    }
+
+    /**
+     * Verify signature in browser using Web Crypto.
+     * @private
+     */
+    async _verifyBrowser(dataBytes, signatureBytes) {
+        if (this._cryptoKey.fallback) {
+            // Ed25519 not supported natively - would need external library
+            console.warn('Ed25519 verification requires native support or external library');
+            return false;
+        }
+
+        return await crypto.subtle.verify(
+            { name: 'Ed25519' },
+            this._cryptoKey,
+            signatureBytes,
+            dataBytes
+        );
+    }
+
+    /**
+     * Convert base64 string to ArrayBuffer.
+     * @private
+     */
+    _base64ToArrayBuffer(base64) {
+        if (this._isNodeJS) {
+            return Buffer.from(base64, 'base64');
+        } else {
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+    }
+
+    /**
+     * Canonical JSON stringify with sorted keys (matches Python).
+     * @private
+     */
+    _canonicalStringify(obj) {
+        return JSON.stringify(obj, Object.keys(obj).sort(), 0)
+            .replace(/,/g, ',')
+            .replace(/:/g, ':');
     }
 }
 
@@ -431,6 +662,7 @@ if (typeof module !== 'undefined' && module.exports) {
     // Node.js
     module.exports = {
         TrustChainClient,
+        TrustChainVerifier,
         SignedResponse,
         TrustChainError,
         VerificationError,
@@ -440,6 +672,7 @@ if (typeof module !== 'undefined' && module.exports) {
     // Browser
     window.TrustChain = {
         TrustChainClient,
+        TrustChainVerifier,
         SignedResponse,
         TrustChainError,
         VerificationError,

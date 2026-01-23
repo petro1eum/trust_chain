@@ -1,0 +1,30 @@
+{
+    "name": "trustchain-react",
+    "version": "1.0.0",
+    "description": "React hooks and components for TrustChain verification",
+    "main": "react.jsx",
+    "types": "react.d.ts",
+    "files": [
+        "react.jsx",
+        "react.d.ts",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "echo 'No build step needed'"
+    },
+    "keywords": [
+        "trustchain",
+        "react",
+        "hooks",
+        "verification",
+        "cryptography",
+        "ai",
+        "security"
+    ],
+    "author": "TrustChain Team",
+    "license": "MIT",
+    "peerDependencies": {
+        "react": ">=17.0.0"
+    },
+    "dependencies": {}
+}

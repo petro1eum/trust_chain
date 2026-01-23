@@ -71,9 +71,11 @@ jobs:
           python -c "
           import trustchain
           print(f'TrustChain v{trustchain.__version__}')
-          from trustchain import TrustChain, PolicyEngine, ExecutionGraph
+          from trustchain import TrustChain
           tc = TrustChain()
-          print('OK')
+          resp = tc._signer.sign('test', {'value': 1})
+          assert tc._signer.verify(resp)
+          print('OK - Core signing works')
           "
 
   publish-testpypi:

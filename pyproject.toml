@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trustchain"
-version = "2.1.0"
+version = "2.3.0"
 description = "Cryptographically signed AI tool responses for preventing hallucinations"
 readme = "README.md"
 authors = [
@@ -39,6 +39,29 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Framework integrations
+fastapi = [
+    "fastapi>=0.104.0",
+    "starlette>=0.27.0",
+]
+flask = [
+    "flask>=2.0.0",
+]
+django = [
+    "django>=4.0.0",
+]
+drf = [
+    "django>=4.0.0",
+    "djangorestframework>=3.14.0",
+]
+# All frameworks
+frameworks = [
+    "fastapi>=0.104.0",
+    "starlette>=0.27.0",
+    "flask>=2.0.0",
+    "django>=4.0.0",
+]
+# Other integrations
 kafka = [
     "kafka-python>=2.0.0",
     "aiokafka>=0.10.0",
@@ -74,6 +97,15 @@ mcp = [
     "mcp>=1.0.0",
 ]
 integrations = [
+    "langchain-core>=0.1.0",
+    "mcp>=1.0.0",
+]
+# All optional dependencies
+all = [
+    "fastapi>=0.104.0",
+    "starlette>=0.27.0",
+    "flask>=2.0.0",
+    "django>=4.0.0",
     "langchain-core>=0.1.0",
     "mcp>=1.0.0",
 ]

@@ -51,6 +51,16 @@ class TrustChainConfig:
     # Enterprise: Multi-tenancy
     tenant_id: Optional[str] = None  # Namespace for tenant isolation
 
+    # Timestamp Authority (TSA) - RFC 3161
+    tsa_url: Optional[str] = None  # e.g., "https://freetsa.org/tsr"
+    tsa_enabled: bool = False  # Enable TSA timestamps for all signatures
+    tsa_timeout: int = 10  # TSA request timeout in seconds
+
+    # Certificate (identity metadata for signed responses)
+    certificate: Optional[dict] = (
+        None  # {"owner": "...", "organization": "...", "tier": "community|pro|enterprise"}
+    )
+
     def __post_init__(self):
         """Validate configuration."""
         if self.algorithm not in ["ed25519", "rsa", "ecdsa"]:

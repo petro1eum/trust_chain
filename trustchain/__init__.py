@@ -1,15 +1,16 @@
 """
 TrustChain - Cryptographically signed AI tool responses.
 
+"SSL for AI Agents" - Prove tool outputs are real, not hallucinated.
+
 Author: Ed Cherednik (edcherednik@gmail.com)
 Telegram: @EdCher
 """
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 __author__ = "Ed Cherednik"
 
-# Re-export everything from v2
-# Exceptions
+# Core exports
 from trustchain.utils.exceptions import (
     KeyNotFoundError,
     NonceReplayError,
@@ -30,28 +31,42 @@ from trustchain.v2 import (
     get_metrics,
     setup_logging,
 )
-from trustchain.v2.graph import ExecutionGraph
-from trustchain.v2.policy import PolicyEngine, PolicyViolationError
+
+# Policy hooks (OSS) - for full PolicyEngine see TrustChain Pro
+from trustchain.v2.policy_hooks import (
+    PolicyHook,
+    PolicyHookRegistry,
+    get_policy_registry,
+    register_policy_hook,
+)
+
+# Reasoning (basic version - OSS)
+from trustchain.v2.reasoning import ReasoningChain
 
 __all__ = [
-    # Core
+    # Core - Cryptographic signing
     "TrustChain",
     "TrustChainConfig",
     "SignedResponse",
     "TrustChainVerifier",
     "VerificationResult",
-    # Enterprise
+    # Chain of Trust
+    "ReasoningChain",
+    # Policy hooks (extensibility)
+    "PolicyHook",
+    "PolicyHookRegistry",
+    "register_policy_hook",
+    "get_policy_registry",
+    # Multi-tenancy
     "TenantManager",
     "TenantInfo",
+    # Observability
     "get_metrics",
     "setup_logging",
     "get_logger",
+    # Storage
     "RedisNonceStorage",
     "create_trustchain",
-    # Governance (Phase 13-14)
-    "PolicyEngine",
-    "PolicyViolationError",
-    "ExecutionGraph",
     # Exceptions
     "TrustChainError",
     "SignatureVerificationError",

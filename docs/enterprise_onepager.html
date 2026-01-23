@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrustChain Enterprise - AI Verification for Regulated Industries</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            line-height: 1.5;
+            color: #1e293b;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px;
+            background: #fff;
+        }
+
+        @media print {
+            body {
+                padding: 20px;
+            }
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #6366f1;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: #6366f1;
+        }
+
+        .tagline {
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        /* Hero */
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #0f172a;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #475569;
+            margin-bottom: 30px;
+        }
+
+        /* Problem/Solution */
+        .problem-solution {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .box {
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .problem {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+        }
+
+        .solution {
+            background: #f0fdf4;
+            border-left: 4px solid #22c55e;
+        }
+
+        .box h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .problem h3 {
+            color: #dc2626;
+        }
+
+        .solution h3 {
+            color: #16a34a;
+        }
+
+        .box ul {
+            font-size: 13px;
+            padding-left: 18px;
+        }
+
+        .box li {
+            margin-bottom: 5px;
+        }
+
+        /* Features Grid */
+        .features {
+            margin-bottom: 30px;
+        }
+
+        .features h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #0f172a;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .feature {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .feature-icon {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .feature h4 {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .feature p {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        /* Use Cases */
+        .use-cases {
+            margin-bottom: 30px;
+        }
+
+        .use-cases h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .use-cases-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .use-case {
+            text-align: center;
+            padding: 15px 10px;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            border-radius: 8px;
+            color: white;
+        }
+
+        .use-case-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .use-case h4 {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        /* Stats */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+            padding: 20px 0;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #6366f1;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        /* Enterprise Features */
+        .enterprise {
+            background: #1e1b4b;
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+
+        .enterprise h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        .enterprise-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .enterprise-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .enterprise-item .check {
+            color: #22c55e;
+            font-weight: bold;
+        }
+
+        /* CTA */
+        .cta {
+            text-align: center;
+            padding: 25px;
+            background: #f8fafc;
+            border-radius: 12px;
+        }
+
+        .cta h2 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .cta p {
+            color: #64748b;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .contact-info {
+            margin-top: 15px;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div>
+            <div class="logo">TrustChain Enterprise</div>
+            <div class="tagline">Cryptographic Verification for AI Agents</div>
+        </div>
+        <div style="text-align: right; font-size: 12px; color: #64748b;">
+            github.com/petro1eum/trust_chain<br>
+            edcherednik@gmail.com
+        </div>
+    </div>
+
+    <h1>Black Box → Glass Box</h1>
+    <p class="subtitle">Cryptographic proof of WHAT your AI did and HOW it reasoned. Built for regulated industries.</p>
+
+    <div class="problem-solution">
+        <div class="box problem">
+            <h3>❌ The Problem</h3>
+            <ul>
+                <li>AI agents hallucinate tool outputs</li>
+                <li>No audit trail for AI decisions</li>
+                <li>Regulators demand explainability</li>
+                <li>Replay attacks on AI workflows</li>
+                <li>Can't prove AI actually called APIs</li>
+            </ul>
+        </div>
+        <div class="box solution">
+            <h3>✅ TrustChain Solution</h3>
+            <ul>
+                <li>Ed25519 signatures on every tool call</li>
+                <li>Immutable Chain of Trust</li>
+                <li>Signed reasoning steps (Glass Box)</li>
+                <li>Nonce-based replay protection</li>
+                <li>Forensic analysis & audit exports</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="features">
+        <h2>Enterprise Capabilities</h2>
+        <div class="features-grid">
+            <div class="feature">
+                <div class="feature-icon">→</div>
+                <h4>KMS / HSM Support</h4>
+                <p>External key management for maximum security</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">→</div>
+                <h4>Forensic Analysis</h4>
+                <p>Execution graphs, fork detection, anomaly alerts</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">→</div>
+                <h4>YAML Governance</h4>
+                <p>Policy engine with allow/deny/require rules</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">→</div>
+                <h4>Reasoning Verification</h4>
+                <p>Sign every step of AI's chain of thought</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">→</div>
+                <h4>Audit Dashboard</h4>
+                <p>Real-time monitoring & compliance reports</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">→</div>
+                <h4>Redis HA</h4>
+                <p>Sentinel/Cluster for production scale</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="use-cases">
+        <h2>Built for Regulated Industries</h2>
+        <div class="use-cases-grid">
+            <div class="use-case">
+                <div class="use-case-icon"></div>
+                <h4>Healthcare</h4>
+            </div>
+            <div class="use-case">
+                <div class="use-case-icon"></div>
+                <h4>FinTech</h4>
+            </div>
+            <div class="use-case">
+                <div class="use-case-icon"></div>
+                <h4>LegalTech</h4>
+            </div>
+            <div class="use-case">
+                <div class="use-case-icon"></div>
+                <h4>Autonomous</h4>
+            </div>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div class="stat">
+            <div class="stat-value">&lt;1ms</div>
+            <div class="stat-label">Sign + Verify Latency</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value">9K+</div>
+            <div class="stat-label">Operations/sec</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value">124B</div>
+            <div class="stat-label">Per-response overhead</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value">100%</div>
+            <div class="stat-label">Chain verification</div>
+        </div>
+    </div>
+
+    <div class="enterprise">
+        <h2>Enterprise Package Includes</h2>
+        <div class="enterprise-grid">
+            <div class="enterprise-item"><span class="check">✓</span> SOC2 / HIPAA / FDA compliance reports</div>
+            <div class="enterprise-item"><span class="check">✓</span> External KMS / HSM integration</div>
+            <div class="enterprise-item"><span class="check">✓</span> On-premise deployment option</div>
+            <div class="enterprise-item"><span class="check">✓</span> Reasoning analytics dashboard</div>
+            <div class="enterprise-item"><span class="check">✓</span> Redis HA (Sentinel/Cluster)</div>
+            <div class="enterprise-item"><span class="check">✓</span> Streaming reasoning events</div>
+            <div class="enterprise-item"><span class="check">✓</span> YAML Policy Engine</div>
+            <div class="enterprise-item"><span class="check">✓</span> 24/7 SLA + dedicated support</div>
+        </div>
+    </div>
+
+    <div class="cta">
+        <h2>Ready to Secure Your AI?</h2>
+        <p>Schedule a 30-minute demo to see TrustChain in action</p>
+        <a href="mailto:edcherednik@gmail.com?subject=TrustChain Enterprise Demo" class="cta-button">Request Demo</a>
+        <div class="contact-info">
+            Email: edcherednik@gmail.com &nbsp;&nbsp;|&nbsp;&nbsp; Web: github.com/petro1eum/trust_chain
+        </div>
+    </div>
+
+    <div class="footer">
+        <div>© 2026 TrustChain. MIT License (Core) + Commercial (Enterprise).</div>
+        <div>v2.1.0 | github.com/petro1eum/trust_chain</div>
+    </div>
+</body>
+
+</html>

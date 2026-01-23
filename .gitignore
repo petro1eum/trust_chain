@@ -217,3 +217,5 @@ public_key*
 ssh_keys/
 
 trust_chain.wiki
+ROADMAP.md
+roadmap_2.md

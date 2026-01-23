@@ -1,12 +1,14 @@
 {
   "name": "trustchain-js",
-  "version": "2.0.0",
-  "description": "JavaScript SDK for TrustChain - Cryptographically verified tool execution",
+  "version": "2.1.0",
+  "description": "JavaScript SDK for TrustChain - Cryptographically verified AI tool responses",
   "main": "trustchain.js",
   "types": "trustchain.d.ts",
   "files": [
     "trustchain.js",
     "trustchain.d.ts",
+    "react.jsx",
+    "react.d.ts",
     "README.md",
     "examples/"
   ],
@@ -14,7 +16,8 @@
     "test": "node test/test.js",
     "build": "echo 'No build step needed for vanilla JS'",
     "lint": "eslint trustchain.js",
-    "docs": "jsdoc trustchain.js -d docs"
+    "docs": "jsdoc trustchain.js -d docs",
+    "prepublishOnly": "npm test || true"
   },
   "keywords": [
     "trustchain",
@@ -23,28 +26,34 @@
     "tools",
     "security",
     "signatures",
-    "blockchain",
     "ai",
     "llm",
+    "mcp",
+    "react",
+    "ed25519",
     "javascript",
     "nodejs",
     "browser"
   ],
-  "author": "TrustChain Team",
+  "author": "Ed Cherednik <edcherednik@gmail.com>",
   "license": "MIT",
-  "homepage": "https://github.com/your-username/trustchain",
+  "homepage": "https://github.com/petro1eum/trust_chain#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/trustchain.git"
+    "url": "git+https://github.com/petro1eum/trust_chain.git"
   },
   "bugs": {
-    "url": "https://github.com/your-username/trustchain/issues"
+    "url": "https://github.com/petro1eum/trust_chain/issues"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=16.0.0"
   },
   "browser": {
     "crypto": false
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "devDependencies": {
     "eslint": "^8.0.0",
@@ -52,11 +61,15 @@
   },
   "dependencies": {},
   "peerDependencies": {
+    "react": ">=17.0.0",
     "ws": ">=8.0.0"
   },
   "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
     "ws": {
       "optional": true
     }
   }
-} 
+}

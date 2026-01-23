@@ -28,6 +28,10 @@ class SignedResponse:
     timestamp: float = field(default_factory=time.time)
     nonce: Optional[str] = None
     parent_signature: Optional[str] = None  # Chain of Trust: link to previous step
+    certificate: Optional[Dict[str, Any]] = None  # Identity metadata
+
+    # TSA (Timestamp Authority) proof - RFC 3161
+    tsa_proof: Optional[Dict[str, Any]] = None  # TSAResponse.to_dict()
 
     # Cache verification result
     _verified: Optional[bool] = field(default=None, init=False, repr=False)
@@ -41,7 +45,7 @@ class SignedResponse:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
-        return {
+        result = {
             "tool_id": self.tool_id,
             "data": self.data,
             "signature": self.signature,
@@ -50,6 +54,11 @@ class SignedResponse:
             "nonce": self.nonce,
             "parent_signature": self.parent_signature,
         }
+        if self.certificate:
+            result["certificate"] = self.certificate
+        if self.tsa_proof:
+            result["tsa_proof"] = self.tsa_proof
+        return result
 
 
 class Signer:

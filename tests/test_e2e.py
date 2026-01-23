@@ -204,6 +204,7 @@ class TestE2ECloudEventsWorkflow:
 class TestE2EAuditTrailWorkflow:
     """E2E test: Complete audit trail generation."""
 
+    @pytest.mark.skip(reason="ChainExplorer moved to TrustChain Pro")
     def test_audit_report_generation(self):
         from trustchain.ui.explorer import ChainExplorer
 

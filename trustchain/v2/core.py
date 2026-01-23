@@ -110,6 +110,62 @@ class TrustChain:
 
         return decorator
 
+    def sign(
+        self,
+        tool_id: str,
+        data: Any,
+        metadata: Optional[Dict[str, Any]] = None,
+        parent_signature: Optional[str] = None,
+    ) -> SignedResponse:
+        """Sign data directly without using a tool decorator.
+
+        Args:
+            tool_id: Identifier for this signed data
+            data: Data to sign
+            metadata: Optional metadata to include
+            parent_signature: Optional parent signature for chaining
+
+        Returns:
+            SignedResponse with cryptographic signature
+        """
+        # Generate nonce if enabled
+        nonce = None
+        if self.config.enable_nonce:
+            nonce = self._generate_nonce()
+
+        # Sign the response with certificate if configured
+        signed = self._signer.sign(tool_id, data, nonce, parent_signature)
+
+        # Add certificate from config if present
+        if self.config.certificate:
+            signed.certificate = self.config.certificate
+
+        return signed
+
+    def session(
+        self,
+        session_id: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        """Create a session for automatic chain building.
+
+        Args:
+            session_id: Unique identifier for this session
+            metadata: Optional metadata for all responses in session
+
+        Returns:
+            TrustChainSession context manager
+
+        Example:
+            async with tc.session("agent_123") as s:
+                s.sign("step1", {"query": "..."})
+                s.sign("step2", {"result": "..."})
+                chain = s.get_chain()
+        """
+        from .session import TrustChainSession
+
+        return TrustChainSession(self, session_id, metadata)
+
     def _execute_tool_sync(
         self, tool_id: str, func: Callable, args: tuple, kwargs: dict
     ) -> SignedResponse:
