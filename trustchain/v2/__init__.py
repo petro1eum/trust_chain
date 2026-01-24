@@ -4,6 +4,7 @@ TrustChain v2 - Cryptographically signed AI tool responses.
 Enterprise-ready: Redis, Prometheus, multi-tenancy, REST API, TSA.
 """
 
+from .async_core import AsyncTrustChain, AsyncTrustChainSession
 from .config import TrustChainConfig
 from .core import TrustChain
 from .logging import get_logger, setup_logging
@@ -21,6 +22,8 @@ __version__ = "2.3.0"
 __all__ = [
     # Core
     "TrustChain",
+    "AsyncTrustChain",
+    "AsyncTrustChainSession",
     "TrustChainConfig",
     "SignedResponse",
     "TrustChainVerifier",

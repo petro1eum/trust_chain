@@ -7,7 +7,7 @@ Author: Ed Cherednik (edcherednik@gmail.com)
 Telegram: @EdCher
 """
 
-__version__ = "2.2.0"
+__version__ = "2.3.1"
 __author__ = "Ed Cherednik"
 
 # Core exports
@@ -18,6 +18,8 @@ from trustchain.utils.exceptions import (
     TrustChainError,
 )
 from trustchain.v2 import (
+    AsyncTrustChain,
+    AsyncTrustChainSession,
     RedisNonceStorage,
     SignedResponse,
     TenantInfo,
@@ -46,6 +48,8 @@ from trustchain.v2.reasoning import ReasoningChain
 __all__ = [
     # Core - Cryptographic signing
     "TrustChain",
+    "AsyncTrustChain",
+    "AsyncTrustChainSession",
     "TrustChainConfig",
     "SignedResponse",
     "TrustChainVerifier",

@@ -708,7 +708,7 @@
         <section class="hero">
             <div class="badge">
                 <span class="badge-dot"></span>
-                v2.3.0 Now Available
+                v2.3.1 Now Available
             </div>
             <h1>Cryptographic <span class="highlight">Proof</span><br>for AI Agent Actions</h1>
             <p class="hero-subtitle">
@@ -939,7 +939,7 @@
         <section class="stats">
             <div class="stats-grid">
                 <div class="stat-item">
-                    <h3>185+</h3>
+                    <h3>200+</h3>
                     <p>Unit Tests</p>
                 </div>
                 <div class="stat-item">
@@ -962,7 +962,9 @@
             <div style="max-width: 1200px; margin: 0 auto;">
                 <div class="section-header">
                     <h2>Interactive Notebooks</h2>
-                    <p>Learn by doing with our comprehensive Jupyter tutorials</p>
+                    <p>Learn by doing — run <code
+                            style="background: var(--bg-card); padding: 0.2rem 0.5rem; border-radius: 4px;">!pip install trustchain</code>
+                        in the first cell</p>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
                     <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_tutorial.ipynb"
@@ -975,7 +977,7 @@
                             </svg>
                         </div>
                         <h3 style="color: var(--text-primary);">Getting Started</h3>
-                        <p>Basic signing, verification, and chain building</p>
+                        <p>Basic signing, chain of trust, multi-tenancy, tampering detection</p>
                         <span
                             style="display: inline-block; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #F9AB00; color: #000; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">Open
                             in Colab</span>
@@ -989,35 +991,7 @@
                             </svg>
                         </div>
                         <h3 style="color: var(--text-primary);">Advanced Features</h3>
-                        <p>Multi-tenant, key rotation, Merkle audit trails</p>
-                        <span
-                            style="display: inline-block; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #F9AB00; color: #000; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">Open
-                            in Colab</span>
-                    </a>
-                    <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_pro.ipynb"
-                        target="_blank" style="text-decoration: none;" class="feature-card">
-                        <div class="feature-icon" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                                <path
-                                    d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z" />
-                            </svg>
-                        </div>
-                        <h3 style="color: var(--text-primary);">Production Patterns</h3>
-                        <p>Real-world integrations, MCP servers, LangChain</p>
-                        <span
-                            style="display: inline-block; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #F9AB00; color: #000; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">Open
-                            in Colab</span>
-                    </a>
-                    <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_governance.ipynb"
-                        target="_blank" style="text-decoration: none;" class="feature-card">
-                        <div class="feature-icon" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                                <path
-                                    d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
-                            </svg>
-                        </div>
-                        <h3 style="color: var(--text-primary);">AI Governance</h3>
-                        <p>Policy Engine, Execution Graphs, compliance</p>
+                        <p>Key management, Merkle audit trails, ReasoningChain</p>
                         <span
                             style="display: inline-block; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #F9AB00; color: #000; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">Open
                             in Colab</span>
@@ -1031,7 +1005,21 @@
                             </svg>
                         </div>
                         <h3 style="color: var(--text-primary);">LLM Integration</h3>
-                        <p>OpenAI, OpenRouter, Claude, LangChain</p>
+                        <p>OpenAI, OpenRouter, Claude integration examples</p>
+                        <span
+                            style="display: inline-block; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #F9AB00; color: #000; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">Open
+                            in Colab</span>
+                    </a>
+                    <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_full_demo.ipynb"
+                        target="_blank" style="text-decoration: none;" class="feature-card">
+                        <div class="feature-icon" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                                <path
+                                    d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z" />
+                            </svg>
+                        </div>
+                        <h3 style="color: var(--text-primary);">Full Demo</h3>
+                        <p>Complete walkthrough with real-world examples</p>
                         <span
                             style="display: inline-block; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #F9AB00; color: #000; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">Open
                             in Colab</span>
@@ -1068,7 +1056,7 @@
             style="background: linear-gradient(180deg, var(--bg-primary) 0%, #0a0a12 100%);">
             <div class="section-header">
                 <h2>Pricing</h2>
-                <p>Choose the plan that fits your needs</p>
+                <p>Open Core model — core cryptography is free forever</p>
             </div>
             <div
                 style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; max-width: 1000px; margin: 0 auto;">
@@ -1078,43 +1066,59 @@
                     style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; text-align: center;">
                     <h3 style="color: var(--text-primary); margin-bottom: 0.5rem;">Open Source</h3>
                     <div style="font-size: 2.5rem; font-weight: 700; color: var(--accent); margin: 1rem 0;">Free</div>
-                    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Forever</p>
+                    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Forever, MIT License</p>
                     <ul style="text-align: left; list-style: none; margin-bottom: 2rem;">
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Cryptographic tool signing</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Hallucination detection hooks
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Ed25519 cryptographic signing
                         </li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Chain of Trust (tamper-proof)
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Chain of Trust (parent-child
+                            links)</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Nonce replay protection</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ <strong>AsyncTrustChain</strong>
+                            for FastAPI</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ <strong>Pydantic v2</strong>
+                            integration</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅
+                            <strong>LangChain/LangSmith</strong> callback
                         </li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Merkle proofs for RAG</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ LangChain + MCP integrations</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ <strong>OpenTelemetry</strong>
+                            instrumentation</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ <strong>pytest plugin</strong>
+                            with fixtures</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ FastAPI/Flask/Django middleware
+                        </li>
                         <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Basic ReasoningChain</li>
                         <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Community support</li>
                     </ul>
-                    <a href="https://pypi.org/project/trustchain" class="btn btn-secondary" style="width: 100%;">Install
-                        Now</a>
+                    <a href="https://pypi.org/project/trustchain" class="btn btn-secondary" style="width: 100%;">pip
+                        install trustchain</a>
                 </div>
 
                 <div
                     style="background: linear-gradient(135deg, #1e1e3f, #2a1a4a); border: 2px solid var(--accent); border-radius: 12px; padding: 2rem; text-align: center; position: relative;">
                     <div
                         style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--accent); color: white; padding: 0.25rem 1rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
-                        MOST POPULAR</div>
+                        COMING SOON</div>
                     <h3 style="color: var(--text-primary); margin-bottom: 0.5rem;">Pro</h3>
                     <div style="font-size: 2.5rem; font-weight: 700; color: var(--accent); margin: 1rem 0;">$99<span
                             style="font-size: 1rem; color: var(--text-muted);">/mo</span></div>
                     <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Per team (unlimited devs)</p>
                     <ul style="text-align: left; list-style: none; margin-bottom: 2rem;">
                         <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Everything in Open Source</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Full ReasoningChain API</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Execution Graph & forensic
-                            analysis</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ HTML / PDF audit exports</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Streaming reasoning events</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ YAML Policy Engine</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Priority email support</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🔐 <strong>PolicyEngine</strong> —
+                            YAML-based rules</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">📊 <strong>ExecutionGraph</strong>
+                            — DAG forensics</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🔄 <strong>Streaming
+                                ReasoningChain</strong></li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">📄 HTML/PDF audit exports</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🌳 <strong>Merkle audit
+                                trails</strong></li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🕐 <strong>RFC 3161 TSA</strong>
+                            timestamps</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">📧 Priority email support</li>
                     </ul>
-                    <a href="mailto:edcherednik@gmail.com?subject=TrustChain Pro" class="btn btn-primary"
-                        style="width: 100%;">Get Started</a>
+                    <a href="mailto:edcherednik@gmail.com?subject=TrustChain Pro Interest" class="btn btn-primary"
+                        style="width: 100%;">Join Waitlist</a>
                 </div>
 
                 <div
@@ -1124,14 +1128,15 @@
                     <p style="color: var(--text-muted); margin-bottom: 1.5rem;">For regulated industries</p>
                     <ul style="text-align: left; list-style: none; margin-bottom: 2rem;">
                         <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Everything in Pro</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ SOC2 / HIPAA / FDA compliance
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🏥 SOC2 / HIPAA / FDA compliance
                         </li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ External KMS / HSM support</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ On-premise deployment</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Reasoning analytics dashboard
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🔑 External KMS / HSM support</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🏢 On-premise deployment</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">📈 Analytics dashboard</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">⚡ Redis HA (Sentinel/Cluster)</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🛡️ Air-gapped deployments</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">📞 SLA + 24/7 dedicated support
                         </li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Redis HA (Sentinel/Cluster)</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ SLA + 24/7 dedicated support</li>
                     </ul>
                     <a href="mailto:edcherednik@gmail.com?subject=TrustChain Enterprise" class="btn btn-secondary"
                         style="width: 100%;">Contact Sales</a>
