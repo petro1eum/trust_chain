@@ -1,4 +1,4 @@
-# TrustChain v2.1
+# TrustChain v2.3.1
 
 **Cryptographic verification layer for AI agents - "SSL for AI"**
 
@@ -15,7 +15,7 @@ TrustChain adds **Ed25519 cryptographic signatures** to AI tool responses, enabl
 - **Replay attack protection** - nonce-based anti-replay
 - **Key rotation** - seamless key management with persistence
 - **Audit trails** - beautiful HTML reports for compliance
-- **Integrations** - OpenAI, Anthropic, LangChain, MCP (Claude Desktop)
+- **Integrations** - OpenAI, Anthropic, LangChain, MCP, FastAPI, Pydantic, OpenTelemetry
 
 ![TrustChain Architecture](docs/wiki/architecture_flow.png)
 
@@ -42,6 +42,7 @@ uv pip install trustchain[integrations]  # LangChain + MCP support
 uv pip install trustchain[ai]            # OpenAI + Anthropic + LangChain
 uv pip install trustchain[mcp]           # MCP Server only
 uv pip install trustchain[redis]         # Distributed nonce storage
+uv pip install trustchain[fastapi]       # FastAPI middleware
 uv pip install trustchain[all]           # Everything
 ```
 
@@ -154,6 +155,77 @@ lc_tools = to_langchain_tools(tc)
 # Use with LangChain AgentExecutor
 ```
 
+### LangChain Callback Handler (v2.3.1)
+
+Auto-sign all tool calls in LangChain agents:
+
+```python
+from trustchain.integrations.langsmith import TrustChainCallbackHandler
+
+handler = TrustChainCallbackHandler(sign_inputs=True, sign_outputs=True)
+result = agent.invoke("What's the weather?", config={"callbacks": [handler]})
+
+# Get signed chain of all tool calls
+for response in handler.get_signed_chain():
+    print(f"{response.tool_id}: {response.signature[:24]}...")
+```
+
+### AsyncTrustChain (v2.3.1)
+
+Native async/await support for FastAPI and other async frameworks:
+
+```python
+from trustchain.v2.async_core import AsyncTrustChain
+
+async with AsyncTrustChain() as atc:
+    response = await atc.sign_async("db_query", {"result": 42})
+    assert atc.verify(response)
+```
+
+### Pydantic v2 Integration (v2.3.1)
+
+Auto-signing Pydantic models:
+
+```python
+from trustchain.integrations.pydantic_v2 import TrustChainModel, SignedField
+
+class UserProfile(TrustChainModel):
+    user_id: str = SignedField(...)
+    balance: float = SignedField(0.0)
+
+user = UserProfile(user_id="U-123", balance=1000.0)
+assert user.verify()  # True
+
+user.balance = 999999  # Tampering!
+assert user.verify()  # False - detected!
+```
+
+### OpenTelemetry Integration (v2.3.1)
+
+Add TrustChain signatures to OTel spans:
+
+```python
+from trustchain.integrations.opentelemetry import TrustChainSpanProcessor
+from opentelemetry.sdk.trace import TracerProvider
+
+provider = TracerProvider()
+provider.add_span_processor(TrustChainSpanProcessor())
+# All spans now include trustchain.signature attribute
+```
+
+### pytest Plugin (v2.3.1)
+
+Built-in fixtures for testing:
+
+```python
+# In conftest.py: pytest will auto-discover fixtures
+from trustchain.pytest_plugin import tc, async_tc, signed_chain
+
+def test_my_tool(tc):
+    response = tc.sign("my_tool", {"result": 42})
+    assert tc.verify(response)
+```
+
 ### Merkle Trees for Large Documents
 
 ![Merkle Tree Verification](docs/wiki/merkle_tree_rag.png)
@@ -250,9 +322,9 @@ See the `examples/` directory:
 
 | Notebook | Description |
 |----------|-------------|
-| [trustchain_tutorial.ipynb](examples/trustchain_tutorial.ipynb) | Basic tutorial - 7 core use cases |
-| [trustchain_advanced.ipynb](examples/trustchain_advanced.ipynb) | Advanced - key persistence, multi-agent, Redis |
-| [trustchain_pro.ipynb](examples/trustchain_pro.ipynb) | Full API reference with all v2.1 capabilities |
+| [trustchain_tutorial.ipynb](examples/trustchain_tutorial.ipynb) | Basic tutorial + all v2.3.1 integrations |
+| [trustchain_advanced.ipynb](examples/trustchain_advanced.ipynb) | Key persistence, multi-agent, Redis |
+| [trustchain_llm.ipynb](examples/trustchain_llm.ipynb) | LLM integration examples |
 
 **Python examples:**
 - `mcp_claude_desktop.py` - MCP Server for Claude
@@ -275,10 +347,15 @@ trustchain/
     events.py       # CloudEvents format
     tenants.py      # Multi-tenant isolation
     nonce_storage.py # Memory/Redis nonce storage
+    async_core.py   # AsyncTrustChain
     server.py       # REST API
   integrations/
     langchain.py    # LangChain adapter
+    langsmith.py    # LangChain callback handler
+    pydantic_v2.py  # Pydantic integration
+    opentelemetry.py # OTel span processor
     mcp.py          # MCP Server
+  pytest_plugin/    # pytest fixtures
   ui/
     explorer.py     # HTML audit reports
 ```
@@ -327,4 +404,4 @@ Ed Cherednik
 
 ## Version
 
-2.1.0
+2.3.1
