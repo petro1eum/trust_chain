@@ -219,3 +219,16 @@ ssh_keys/
 trust_chain.wiki
 ROADMAP.md
 roadmap_2.md
+
+# Demo assets (keep locally, don't push)
+docs/demo*.png
+docs/demo*.webp
+docs/*_demo.png
+docs/*_demo.webp
+docs/demo*.py
+docs/demo.html
+docs/*_video.webp
+
+# PDFs
+*.pdf
+docs/*.pdf
