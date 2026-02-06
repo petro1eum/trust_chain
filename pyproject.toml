@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trustchain"
-version = "2.3.2"
+version = "2.3.3"
 description = "Cryptographically signed AI tool responses for preventing hallucinations"
 readme = "README.md"
 authors = [
