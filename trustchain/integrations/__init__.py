@@ -5,6 +5,9 @@ Available integrations:
 - Flask: TrustChainFlask, sign_response (flask)
 - Django: TrustChainMiddleware (django), sign_response (django)
 - LangChain: to_langchain_tool, to_langchain_tools
+- LangSmith: TrustChainCallbackHandler
+- Pydantic v2: TrustChainModel, SignedField, SignedDict
+- OpenTelemetry: TrustChainSpanProcessor, TrustChainInstrumentor
 - MCP: serve_mcp, create_mcp_server
 """
 
@@ -19,6 +22,52 @@ except ImportError:
     to_langchain_tool = None
     to_langchain_tools = None
     TrustChainLangChainTool = None
+
+# LangSmith (optional)
+try:
+    from .langsmith import TrustChainCallbackHandler
+except ImportError:
+    TrustChainCallbackHandler = None
+
+# Pydantic v2 (optional)
+try:
+    from .pydantic_v2 import SignedDict, SignedField, TrustChainModel
+except ImportError:
+    TrustChainModel = None
+    SignedField = None
+    SignedDict = None
+
+# OpenTelemetry (optional)
+try:
+    from .opentelemetry import (
+        ATTR_TRUSTCHAIN_CHAIN_ID,
+        ATTR_TRUSTCHAIN_NONCE,
+        ATTR_TRUSTCHAIN_PARENT_SIGNATURE,
+        ATTR_TRUSTCHAIN_SIGNATURE,
+        ATTR_TRUSTCHAIN_SIGNATURE_ID,
+        ATTR_TRUSTCHAIN_TIMESTAMP,
+        ATTR_TRUSTCHAIN_TOOL_ID,
+        ATTR_TRUSTCHAIN_VERIFIED,
+        TrustChainInstrumentor,
+        TrustChainSpanProcessor,
+        create_traced_trustchain,
+        instrument_span,
+        set_trustchain_span_attributes,
+    )
+except ImportError:
+    TrustChainSpanProcessor = None
+    TrustChainInstrumentor = None
+    instrument_span = None
+    create_traced_trustchain = None
+    set_trustchain_span_attributes = None
+    ATTR_TRUSTCHAIN_TOOL_ID = None
+    ATTR_TRUSTCHAIN_SIGNATURE = None
+    ATTR_TRUSTCHAIN_SIGNATURE_ID = None
+    ATTR_TRUSTCHAIN_VERIFIED = None
+    ATTR_TRUSTCHAIN_TIMESTAMP = None
+    ATTR_TRUSTCHAIN_NONCE = None
+    ATTR_TRUSTCHAIN_PARENT_SIGNATURE = None
+    ATTR_TRUSTCHAIN_CHAIN_ID = None
 
 # MCP (optional)
 try:
@@ -74,6 +123,26 @@ __all__ = [
     "to_langchain_tool",
     "to_langchain_tools",
     "TrustChainLangChainTool",
+    # LangSmith
+    "TrustChainCallbackHandler",
+    # Pydantic v2
+    "TrustChainModel",
+    "SignedField",
+    "SignedDict",
+    # OpenTelemetry
+    "TrustChainSpanProcessor",
+    "TrustChainInstrumentor",
+    "instrument_span",
+    "create_traced_trustchain",
+    "set_trustchain_span_attributes",
+    "ATTR_TRUSTCHAIN_TOOL_ID",
+    "ATTR_TRUSTCHAIN_SIGNATURE",
+    "ATTR_TRUSTCHAIN_SIGNATURE_ID",
+    "ATTR_TRUSTCHAIN_VERIFIED",
+    "ATTR_TRUSTCHAIN_TIMESTAMP",
+    "ATTR_TRUSTCHAIN_NONCE",
+    "ATTR_TRUSTCHAIN_PARENT_SIGNATURE",
+    "ATTR_TRUSTCHAIN_CHAIN_ID",
     # MCP
     "serve_mcp",
     "create_mcp_server",
