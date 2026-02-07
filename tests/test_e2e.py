@@ -201,50 +201,6 @@ class TestE2ECloudEventsWorkflow:
             assert len(json_str) > 0
 
 
-class TestE2EAuditTrailWorkflow:
-    """E2E test: Complete audit trail generation."""
-
-    @pytest.mark.skip(reason="ChainExplorer moved to TrustChain Pro")
-    def test_audit_report_generation(self):
-        from trustchain.ui.explorer import ChainExplorer
-
-        tc = TrustChain()
-        chain = []
-
-        # Simulate user session
-        operations = [
-            ("login", {"user": "admin", "ip": "192.168.1.1"}),
-            ("view_dashboard", {"page": "home"}),
-            ("export_data", {"format": "csv", "rows": 1000}),
-            ("download", {"file": "report.csv", "size_mb": 2.5}),
-            ("logout", {"duration_min": 15}),
-        ]
-
-        parent_sig = None
-        for tool_id, data in operations:
-            signed = tc._signer.sign(tool_id, data, parent_signature=parent_sig)
-            chain.append(signed)
-            parent_sig = signed.signature
-
-        # Verify chain
-        assert tc.verify_chain(chain) is True
-
-        # Generate audit report
-        with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as f:
-            explorer = ChainExplorer(chain, tc)
-            path = explorer.export_html(f.name)
-
-            # Verify file was created
-            assert Path(path).exists()
-
-            # Check content
-            content = Path(path).read_text()
-            assert "TrustChain" in content
-            assert "login" in content
-            assert "logout" in content
-            assert "VERIFIED" in content
-
-
 class TestE2EErrorRecovery:
     """E2E test: Error handling and recovery."""
 
