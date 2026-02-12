@@ -77,6 +77,12 @@ except ImportError:
     create_mcp_server = None
     TrustChainMCPServer = None
 
+# OnaiDocs bridge (optional)
+try:
+    from .onaidocs import OnaiDocsTrustClient
+except ImportError:
+    OnaiDocsTrustClient = None
+
 # FastAPI (optional)
 try:
     from .fastapi import TrustChainAPIRouter, TrustChainMiddleware, sign_response
@@ -147,4 +153,6 @@ __all__ = [
     "serve_mcp",
     "create_mcp_server",
     "TrustChainMCPServer",
+    # OnaiDocs
+    "OnaiDocsTrustClient",
 ]

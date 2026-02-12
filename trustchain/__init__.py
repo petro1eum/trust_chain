@@ -45,6 +45,11 @@ from trustchain.v2.policy_hooks import (
 # Reasoning (basic version - OSS)
 from trustchain.v2.reasoning import ReasoningChain
 
+try:
+    from trustchain.integrations.onaidocs import OnaiDocsTrustClient
+except Exception:  # optional integration
+    OnaiDocsTrustClient = None
+
 __all__ = [
     # Core - Cryptographic signing
     "TrustChain",
@@ -56,6 +61,7 @@ __all__ = [
     "VerificationResult",
     # Chain of Trust
     "ReasoningChain",
+    "OnaiDocsTrustClient",
     # Policy hooks (extensibility)
     "PolicyHook",
     "PolicyHookRegistry",
