@@ -123,6 +123,7 @@ dev = [
 
 [project.scripts]
 trustchain = "trustchain.cli:main"
+tc = "trustchain.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/petro1eum/trust_chain"

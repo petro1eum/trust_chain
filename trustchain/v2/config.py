@@ -37,9 +37,14 @@ class TrustChainConfig:
         ]
     )
 
-    # Storage backend
-    storage_backend: str = "memory"  # Options: memory, redis
+    # Storage backend (for response cache)
+    storage_backend: str = "memory"  # Options: memory, file, redis
     redis_url: Optional[str] = None
+
+    # Chain persistence (Git-like .trustchain/ directory)
+    enable_chain: bool = True  # Auto-record every sign() to ChainStore
+    chain_storage: str = "file"  # Options: memory, file, sqlite (Pro)
+    chain_dir: str = "~/.trustchain"  # Root dir for .trustchain/ structure
 
     # Key persistence
     key_file: Optional[str] = None  # Path to key file for persistence

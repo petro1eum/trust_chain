@@ -1,6 +1,6 @@
-# TrustChain v2.3.1
+# TrustChain v2.4.0
 
-**Cryptographic verification layer for AI agents - "SSL for AI"**
+**Cryptographic verification layer for AI agents — "Git for AI"**
 
 > 💡 **AI either hallucinates facts or gets them from tools. TrustChain signs every fact from real tools. Signature = trust.**
 
@@ -10,12 +10,15 @@
 
 TrustChain adds **Ed25519 cryptographic signatures** to AI tool responses, enabling:
 
-- **Proof of execution** - data came from a real tool, not hallucinated
-- **Chain of Trust** - cryptographically linked operation sequences
-- **Replay attack protection** - nonce-based anti-replay
-- **Key rotation** - seamless key management with persistence
-- **Audit trails** - beautiful HTML reports for compliance
-- **Integrations** - OpenAI, Anthropic, LangChain, MCP, FastAPI, Pydantic, OpenTelemetry
+- **Proof of execution** — data came from a real tool, not hallucinated
+- **Chain of Trust** — cryptographically linked operation sequences
+- **Persistent storage** — Git-like `.trustchain/` directory with auditable history
+- **CLI** — `tc log`, `tc verify`, `tc blame`, `tc status` commands
+- **Tool certificates (PKI)** — SSL-like certificates for AI tools, code tamper detection
+- **Replay attack protection** — nonce-based anti-replay
+- **Key rotation** — seamless key management with persistence
+- **Audit trails** — beautiful HTML reports for compliance
+- **Integrations** — OpenAI, Anthropic, LangChain, MCP, FastAPI, Pydantic, OpenTelemetry
 
 ![TrustChain Architecture](docs/wiki/architecture_flow.png)
 
@@ -85,6 +88,76 @@ step3 = tc._signer.sign("report", {"text": "Done"}, parent_signature=step2.signa
 
 # Verify the entire chain
 assert tc.verify_chain([step1, step2, step3]) == True
+```
+
+### Git-like Persistent Storage (v2.4.0)
+
+Every signed operation is stored in a `.trustchain/` directory — like Git for AI:
+
+```
+.trustchain/
+├── HEAD              # latest signature
+├── config.json       # chain metadata
+├── objects/          # one JSON file per signed operation
+│   ├── op_0001.json
+│   └── ...
+├── refs/sessions/    # per-session HEAD pointers
+└── certs/            # tool certificates (PKI)
+```
+
+```python
+from trustchain import TrustChain, TrustChainConfig
+
+tc = TrustChain(TrustChainConfig(
+    chain_storage="file",   # "memory" | "file" | "sqlite"
+    chain_dir=".trustchain"
+))
+
+tc.sign("bash_tool", {"command": "ls -la"})
+tc.sign("search",    {"query": "TrustChain"})
+
+# Git-like chain API
+tc.chain.log()          # list all operations
+tc.chain.verify()       # check chain integrity (fsck)
+tc.chain.blame("bash")  # find ops by tool
+tc.chain.status()       # health summary
+tc.chain.head()         # current HEAD signature
+```
+
+### CLI — `tc` command (v2.4.0)
+
+Git-like commands for incident investigation:
+
+```bash
+tc log                        # chain history (newest first)
+tc log --tool bash_tool       # filter by tool
+tc chain-verify               # verify chain integrity
+tc blame bash_tool            # forensics: all ops by this tool
+tc status                     # chain health summary
+tc show op_0003               # single commit detail
+tc diff op_0001 op_0005       # compare two operations
+tc export audit.json          # export full chain
+tc init                       # initialize .trustchain/
+tc info                       # key + version
+tc export-key --format=pem    # export public key
+```
+
+### Tool Certificates / PKI (v2.4.0)
+
+SSL-like certificates for AI tools — verify tool code hasn't been tampered with:
+
+```python
+from trustchain import ToolRegistry, trustchain_certified
+
+registry = ToolRegistry(registry_dir=".trustchain/certs")
+registry.certify(my_tool, owner="DevOps", organization="Acme")
+
+@trustchain_certified(registry)
+def my_tool(query: str) -> dict:
+    return {"result": query}
+
+# If anyone modifies my_tool's code → UntrustedToolError!
+registry.revoke(my_tool, reason="Security patch required")
 ```
 
 ### Key Management
@@ -340,24 +413,30 @@ See the `examples/` directory:
 ```
 trustchain/
   v2/
-    core.py         # Main TrustChain class
-    signer.py       # Ed25519 signatures
-    schemas.py      # OpenAI/Anthropic schema generation
-    merkle.py       # Merkle tree implementation
-    events.py       # CloudEvents format
-    tenants.py      # Multi-tenant isolation
+    core.py          # Main TrustChain class
+    signer.py        # Ed25519 signatures
+    chain_store.py   # Git-like ChainStore (v2.4)
+    storage.py       # FileStorage, MemoryStorage (v2.4)
+    certificate.py   # ToolCertificate, ToolRegistry, PKI (v2.4)
+    config.py        # TrustChainConfig
+    schemas.py       # OpenAI/Anthropic schema generation
+    merkle.py        # Merkle tree implementation
+    events.py        # CloudEvents format
+    tenants.py       # Multi-tenant isolation
     nonce_storage.py # Memory/Redis nonce storage
-    async_core.py   # AsyncTrustChain
-    server.py       # REST API
+    async_core.py    # AsyncTrustChain
+    session.py       # TrustChainSession
+    server.py        # REST API
   integrations/
-    langchain.py    # LangChain adapter
-    langsmith.py    # LangChain callback handler
-    pydantic_v2.py  # Pydantic integration
+    langchain.py     # LangChain adapter
+    langsmith.py     # LangChain callback handler
+    pydantic_v2.py   # Pydantic integration
     opentelemetry.py # OTel span processor
-    mcp.py          # MCP Server
-  pytest_plugin/    # pytest fixtures
+    mcp.py           # MCP Server
+  cli.py             # tc command (12 commands) (v2.4)
+  pytest_plugin/     # pytest fixtures
   ui/
-    explorer.py     # HTML audit reports
+    explorer.py      # HTML audit reports
 ```
 
 ---
@@ -404,4 +483,4 @@ Ed Cherednik
 
 ## Version
 
-2.3.1
+2.4.0

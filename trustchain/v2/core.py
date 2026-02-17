@@ -10,11 +10,16 @@ from typing import Any, Callable, Dict, Optional, Union
 
 from trustchain.utils.exceptions import NonceReplayError
 
+from .chain_store import ChainStore
 from .config import TrustChainConfig
 from .metrics import get_metrics
 from .nonce_storage import NonceStorage, create_nonce_storage
 from .signer import SignedResponse, Signer
-from .storage import MemoryStorage, Storage
+from .storage import FileStorage, MemoryStorage, Storage
+
+# Sentinel: distinguishes "auto-chain from HEAD" (default) from
+# "explicitly no parent" (None, e.g. first step in a session).
+_UNSET = object()
 
 
 class TrustChain:
@@ -26,6 +31,9 @@ class TrustChain:
         self._signer = self._load_or_create_signer()
         self._storage = self._create_storage()
         self._tools: Dict[str, Dict[str, Any]] = {}
+
+        # Git-like chain persistence
+        self.chain: ChainStore = self._create_chain_store()
 
         # Nonce tracking for replay protection
         if self.config.enable_nonce:
@@ -68,8 +76,37 @@ class TrustChain:
         """Create storage backend based on config."""
         if self.config.storage_backend == "memory":
             return MemoryStorage(self.config.max_cached_responses)
+        elif self.config.storage_backend == "file":
+            return FileStorage(self.config.chain_dir)
         else:
             raise ValueError(f"Unknown storage backend: {self.config.storage_backend}")
+
+    def _create_chain_store(self) -> ChainStore:
+        """Create the Git-like chain store for persistent audit trail."""
+        if not self.config.enable_chain:
+            # Disabled — use in-memory only, no persistence
+            return ChainStore(MemoryStorage(max_size=10000))
+
+        if self.config.chain_storage == "memory":
+            return ChainStore(MemoryStorage(max_size=10000))
+        elif self.config.chain_storage == "file":
+            chain_storage = FileStorage(self.config.chain_dir)
+            return ChainStore(chain_storage, root_dir=self.config.chain_dir)
+        elif self.config.chain_storage == "sqlite":
+            # Pro feature — import dynamically
+            try:
+                from trustchain_pro.enterprise.sqlite_store import SQLiteChainStore
+
+                return ChainStore(
+                    SQLiteChainStore(db_path=f"{self.config.chain_dir}/chain.db"),
+                    root_dir=self.config.chain_dir,
+                )
+            except ImportError:
+                # Fallback to file if Pro not available
+                chain_storage = FileStorage(self.config.chain_dir)
+                return ChainStore(chain_storage, root_dir=self.config.chain_dir)
+        else:
+            raise ValueError(f"Unknown chain_storage: {self.config.chain_storage}")
 
     def tool(self, tool_id: str, **options) -> Callable:
         """
@@ -115,19 +152,38 @@ class TrustChain:
         tool_id: str,
         data: Any,
         metadata: Optional[Dict[str, Any]] = None,
-        parent_signature: Optional[str] = None,
+        parent_signature=_UNSET,
+        latency_ms: float = 0,
+        session_id: Optional[str] = None,
     ) -> SignedResponse:
         """Sign data directly without using a tool decorator.
+
+        Automatically commits to the chain if enable_chain is True.
+
+        parent_signature behaviour:
+          - _UNSET (default): auto-chain from chain HEAD
+          - None: explicitly no parent (first step in a session)
+          - str: use this exact parent signature
 
         Args:
             tool_id: Identifier for this signed data
             data: Data to sign
             metadata: Optional metadata to include
-            parent_signature: Optional parent signature for chaining
+            parent_signature: Parent signature for chaining. Omit for
+                auto-chaining, pass None for no parent.
+            latency_ms: Tool execution latency (for analytics)
+            session_id: Session ID for ref tracking
 
         Returns:
             SignedResponse with cryptographic signature
         """
+        # Auto-chain: use chain HEAD only if parent was not specified at all
+        if parent_signature is _UNSET:
+            if self.config.enable_chain:
+                parent_signature = self.chain.parent_signature()
+            else:
+                parent_signature = None
+
         # Generate nonce if enabled
         nonce = None
         if self.config.enable_nonce:
@@ -139,6 +195,22 @@ class TrustChain:
         # Add certificate from config if present
         if self.config.certificate:
             signed.certificate = self.config.certificate
+
+        # Auto-commit to chain (like `git commit -a`)
+        if self.config.enable_chain:
+            self.chain.commit(
+                tool=tool_id,
+                data=data if isinstance(data, dict) else {"value": data},
+                signature=signed.signature,
+                signature_id=signed.signature_id,
+                nonce=signed.nonce,
+                parent_signature=signed.parent_signature,
+                key_id=self._signer.get_key_id(),
+                algorithm=self.config.algorithm,
+                latency_ms=latency_ms,
+                session_id=session_id,
+                metadata=metadata,
+            )
 
         return signed
 

@@ -156,8 +156,10 @@ class TestInit:
             assert result.exit_code == 0
             assert "initialized" in result.stdout.lower()
 
-            # Check directory structure
+            # Check new Git-like directory structure
             trustchain_dir = Path(tmpdir) / ".trustchain"
             assert trustchain_dir.exists()
-            assert (trustchain_dir / "keys").exists()
-            assert (trustchain_dir / "config.yaml").exists()
+            assert (trustchain_dir / "objects").exists()
+            assert (trustchain_dir / "refs" / "sessions").exists()
+            assert (trustchain_dir / "HEAD").exists()
+            assert (trustchain_dir / "config.json").exists()

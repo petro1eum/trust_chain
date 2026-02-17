@@ -5,6 +5,14 @@ Enterprise-ready: Redis, Prometheus, multi-tenancy, REST API, TSA.
 """
 
 from .async_core import AsyncTrustChain, AsyncTrustChainSession
+from .certificate import (
+    ToolCertificate,
+    ToolRegistry,
+    UntrustedToolError,
+    compute_code_hash,
+    trustchain_certified,
+)
+from .chain_store import ChainStore
 from .config import TrustChainConfig
 from .core import TrustChain
 from .logging import get_logger, setup_logging
@@ -12,7 +20,7 @@ from .metrics import TrustChainMetrics, get_metrics
 from .nonce_storage import MemoryNonceStorage, NonceStorage, RedisNonceStorage
 from .session import TrustChainSession, create_session
 from .signer import SignedResponse
-from .storage import MemoryStorage, Storage
+from .storage import FileStorage, MemoryStorage, Storage
 from .tenants import TenantInfo, TenantManager
 from .tsa import TSAClient, TSAError, TSAResponse, TSAVerifyResult, get_tsa_client
 from .verifier import TrustChainVerifier, VerificationResult
@@ -31,6 +39,15 @@ __all__ = [
     # Session
     "TrustChainSession",
     "create_session",
+    # Chain persistence
+    "ChainStore",
+    "FileStorage",
+    # Tool Certificates (PKI)
+    "ToolCertificate",
+    "ToolRegistry",
+    "UntrustedToolError",
+    "trustchain_certified",
+    "compute_code_hash",
     # TSA (Timestamp Authority)
     "TSAClient",
     "TSAResponse",
