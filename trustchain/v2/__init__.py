@@ -25,6 +25,7 @@ from .tenants import TenantInfo, TenantManager
 from .tsa import TSAClient, TSAError, TSAResponse, TSAVerifyResult, get_tsa_client
 from .verifiable_log import InclusionProof, VerifiableChainStore
 from .verifier import TrustChainVerifier, VerificationResult
+from .x509_pki import AgentCertificate, CertVerifyResult, TrustChainCA
 
 __version__ = "2.4.0"
 
@@ -65,6 +66,10 @@ __all__ = [
     "setup_logging",
     "get_logger",
     "RedisNonceStorage",
+    # X.509 PKI for AI Agents
+    "TrustChainCA",
+    "AgentCertificate",
+    "CertVerifyResult",
 ]
 
 
