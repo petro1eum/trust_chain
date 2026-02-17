@@ -16,6 +16,7 @@ from .metrics import get_metrics
 from .nonce_storage import NonceStorage, create_nonce_storage
 from .signer import SignedResponse, Signer
 from .storage import FileStorage, MemoryStorage, Storage
+from .verifiable_log import VerifiableChainStore
 
 # Sentinel: distinguishes "auto-chain from HEAD" (default) from
 # "explicitly no parent" (None, e.g. first step in a session).
@@ -87,7 +88,15 @@ class TrustChain:
             # Disabled — use in-memory only, no persistence
             return ChainStore(MemoryStorage(max_size=10000))
 
-        if self.config.chain_storage == "memory":
+        if self.config.chain_storage == "verifiable":
+            # Certificate Transparency-style: chain.log + Merkle tree + SQLite index
+            vlog = VerifiableChainStore(self.config.chain_dir)
+            return ChainStore(
+                MemoryStorage(max_size=10000),
+                root_dir=self.config.chain_dir,
+                verifiable_log=vlog,
+            )
+        elif self.config.chain_storage == "memory":
             return ChainStore(MemoryStorage(max_size=10000))
         elif self.config.chain_storage == "file":
             chain_storage = FileStorage(self.config.chain_dir)

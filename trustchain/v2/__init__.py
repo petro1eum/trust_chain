@@ -23,9 +23,10 @@ from .signer import SignedResponse
 from .storage import FileStorage, MemoryStorage, Storage
 from .tenants import TenantInfo, TenantManager
 from .tsa import TSAClient, TSAError, TSAResponse, TSAVerifyResult, get_tsa_client
+from .verifiable_log import InclusionProof, VerifiableChainStore
 from .verifier import TrustChainVerifier, VerificationResult
 
-__version__ = "2.3.0"
+__version__ = "2.4.0"
 
 __all__ = [
     # Core
@@ -42,6 +43,9 @@ __all__ = [
     # Chain persistence
     "ChainStore",
     "FileStorage",
+    # Verifiable Append-Only Log (Certificate Transparency)
+    "VerifiableChainStore",
+    "InclusionProof",
     # Tool Certificates (PKI)
     "ToolCertificate",
     "ToolRegistry",

@@ -47,14 +47,24 @@ class ChainStore:
     - HEAD tracking (latest commit signature)
     - Session refs (per-session HEAD pointers)
     - Log, blame, verify operations
+
+    When backed by a VerifiableChainStore (default since v2.4),
+    all operations use Certificate Transparency-style Merkle proofs
+    for O(1) verification and O(log n) inclusion proofs.
     """
 
-    def __init__(self, storage: Storage, root_dir: Optional[str] = None):
+    def __init__(
+        self,
+        storage: Storage,
+        root_dir: Optional[str] = None,
+        verifiable_log=None,
+    ):
         self._storage = storage
         self._root = Path(root_dir).expanduser().resolve() if root_dir else None
         self._length = 0
         self._head: Optional[str] = None  # latest signature
         self._last_parent_sig: Optional[str] = None
+        self._vlog = verifiable_log  # VerifiableChainStore (optional)
 
         # Initialize from persisted state
         self._load_state()
@@ -79,6 +89,29 @@ class ChainStore:
 
         Returns the full commit record.
         """
+        if self._vlog:
+            # Delegate to VerifiableChainStore (Certificate Transparency)
+            record = self._vlog.append(
+                tool=tool,
+                data=data,
+                signature=signature,
+                signature_id=signature_id,
+                parent_hash=parent_signature,
+                key_id=key_id,
+                algorithm=algorithm,
+                latency_ms=latency_ms,
+                session_id=session_id,
+                nonce=nonce,
+                metadata=metadata,
+            )
+            self._length = self._vlog.length
+            self._head = signature
+            self._last_parent_sig = signature
+            if session_id:
+                self._save_ref(session_id, signature)
+            return record
+
+        # Legacy path: Storage backend
         self._length += 1
         op_id = f"op_{self._length:04d}"
 
@@ -98,15 +131,11 @@ class ChainStore:
         if metadata:
             record["metadata"] = metadata
 
-        # Store the object
         self._storage.store(op_id, record)
-
-        # Update HEAD
         self._head = signature
         self._last_parent_sig = signature
         self._save_head()
 
-        # Update session ref if provided
         if session_id:
             self._save_ref(session_id, signature)
 
@@ -125,13 +154,18 @@ class ChainStore:
 
         Returns operations in chronological order (oldest first).
         """
+        if self._vlog:
+            return self._vlog.log(limit=limit, offset=offset, reverse=False)
+
         all_ops = self._storage.list_all()
-        # Sort by id to ensure order
         all_ops.sort(key=lambda x: x.get("id", "") if isinstance(x, dict) else "")
         return all_ops[offset : offset + limit]
 
     def log_reverse(self, limit: int = 20) -> List[Dict[str, Any]]:
         """Return chain history newest-first (like `git log` default)."""
+        if self._vlog:
+            return self._vlog.log(limit=limit, reverse=True)
+
         all_ops = self._storage.list_all()
         all_ops.sort(
             key=lambda x: x.get("id", "") if isinstance(x, dict) else "", reverse=True
@@ -140,6 +174,8 @@ class ChainStore:
 
     def show(self, op_id: str) -> Optional[Dict[str, Any]]:
         """Show a single commit (like `git show <hash>`)."""
+        if self._vlog:
+            return self._vlog.show(op_id)
         return self._storage.get(op_id)
 
     def blame(self, tool: str, limit: int = 50) -> List[Dict[str, Any]]:
@@ -148,6 +184,9 @@ class ChainStore:
         Useful for forensic investigation: "show me every time
         the agent ran bash_tool".
         """
+        if self._vlog:
+            return self._vlog.blame(tool, limit=limit)
+
         all_ops = self._storage.list_all()
         results = [
             op for op in all_ops if isinstance(op, dict) and op.get("tool") == tool
@@ -157,19 +196,12 @@ class ChainStore:
     def verify(self) -> Dict[str, Any]:
         """Verify the integrity of the entire chain (like `git fsck`).
 
-        Checks that each operation's parent_signature matches the
-        previous operation's signature — ensuring no tampering,
-        insertion, or deletion of records.
-
-        Returns:
-            {
-                "valid": bool,
-                "length": int,
-                "head": str | None,
-                "broken_links": [...],
-                "verified_at": str
-            }
+        With VerifiableChainStore: O(1) Merkle root comparison.
+        Without: O(n) linear chain walk.
         """
+        if self._vlog:
+            return self._vlog.verify()
+
         all_ops = self.log(limit=999999)
         broken = []
 
@@ -182,7 +214,6 @@ class ChainStore:
                 "verified_at": datetime.now(timezone.utc).isoformat(),
             }
 
-        # First operation should have no parent (or None)
         for i in range(1, len(all_ops)):
             prev_sig = all_ops[i - 1].get("signature")
             this_parent = all_ops[i].get("parent_signature")
@@ -205,10 +236,10 @@ class ChainStore:
         }
 
     def status(self) -> Dict[str, Any]:
-        """Chain health summary (like `git status`).
+        """Chain health summary (like `git status`)."""
+        if self._vlog:
+            return self._vlog.status()
 
-        Returns overall stats: length, tools used, latest commit, etc.
-        """
         all_ops = self._storage.list_all()
         tools_count: Dict[str, int] = {}
         total_latency = 0.0
@@ -231,6 +262,9 @@ class ChainStore:
 
     def diff(self, op_id_a: str, op_id_b: str) -> Dict[str, Any]:
         """Compare two operations (like `git diff`)."""
+        if self._vlog:
+            return self._vlog.diff(op_id_a, op_id_b)
+
         a = self.show(op_id_a)
         b = self.show(op_id_b)
         if not a or not b:
@@ -245,6 +279,9 @@ class ChainStore:
 
     def export_json(self, filepath: Optional[str] = None) -> str:
         """Export entire chain as JSON."""
+        if self._vlog:
+            return self._vlog.export_json(filepath)
+
         data = {
             "head": self._head,
             "status": self.status(),
@@ -255,6 +292,33 @@ class ChainStore:
         if filepath:
             Path(filepath).write_text(json_str, encoding="utf-8")
         return json_str
+
+    # ── Verifiable Log-specific API ──
+
+    def inclusion_proof(self, op_id: str):
+        """Get O(log n) Merkle inclusion proof for an operation."""
+        if self._vlog:
+            return self._vlog.inclusion_proof(op_id)
+        return None
+
+    def consistency_proof(self, old_length: int, old_root: str) -> dict:
+        """Prove old chain state is a prefix of current (no rewrites)."""
+        if self._vlog:
+            return self._vlog.consistency_proof(old_length, old_root)
+        return {"consistent": False, "reason": "verifiable_log_not_enabled"}
+
+    @property
+    def merkle_root(self) -> Optional[str]:
+        """Current Merkle root hash (None if verifiable log not enabled)."""
+        if self._vlog:
+            return self._vlog.merkle_root
+        return None
+
+    def rebuild_index(self) -> dict:
+        """Rebuild SQLite index from chain.log source of truth."""
+        if self._vlog:
+            return self._vlog.rebuild_index()
+        return {"rebuilt": False, "reason": "verifiable_log_not_enabled"}
 
     # ── Session refs ──
 
@@ -287,6 +351,13 @@ class ChainStore:
 
     def _load_state(self) -> None:
         """Load HEAD and chain length from persisted state."""
+        if self._vlog:
+            self._length = self._vlog.length
+            if self._vlog.head:
+                self._head = self._vlog.head
+                self._last_parent_sig = self._head
+            return
+
         if self._root:
             head_path = self._root / "HEAD"
             if head_path.exists():

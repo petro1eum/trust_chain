@@ -43,7 +43,7 @@ class TrustChainConfig:
 
     # Chain persistence (Git-like .trustchain/ directory)
     enable_chain: bool = True  # Auto-record every sign() to ChainStore
-    chain_storage: str = "file"  # Options: memory, file, sqlite (Pro)
+    chain_storage: str = "verifiable"  # Options: verifiable, memory, file (legacy)
     chain_dir: str = "~/.trustchain"  # Root dir for .trustchain/ structure
 
     # Key persistence
