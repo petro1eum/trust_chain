@@ -66,6 +66,12 @@ class TrustChainConfig:
         None  # {"owner": "...", "organization": "...", "tier": "community|pro|enterprise"}
     )
 
+    # X.509 PKI for AI Agents
+    enable_pki: bool = True  # Auto-bootstrap Root CA + issue agent cert
+    pki_agent_id: str = ""  # Agent CN (auto-generated if empty)
+    pki_validity_hours: int = 1  # Short-lived agent cert validity
+    pki_organization: str = "TrustChain"  # X.509 Organization name
+
     def __post_init__(self):
         """Validate configuration."""
         if self.algorithm not in ["ed25519", "rsa", "ecdsa"]:

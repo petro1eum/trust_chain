@@ -17,6 +17,7 @@ from .nonce_storage import NonceStorage, create_nonce_storage
 from .signer import SignedResponse, Signer
 from .storage import FileStorage, MemoryStorage, Storage
 from .verifiable_log import VerifiableChainStore
+from .x509_pki import AgentCertificate, TrustChainCA
 
 # Sentinel: distinguishes "auto-chain from HEAD" (default) from
 # "explicitly no parent" (None, e.g. first step in a session).
@@ -35,6 +36,13 @@ class TrustChain:
 
         # Git-like chain persistence
         self.chain: ChainStore = self._create_chain_store()
+
+        # X.509 PKI: bootstrap CA hierarchy + issue agent cert
+        self._root_ca: Optional[TrustChainCA] = None
+        self._intermediate_ca: Optional[TrustChainCA] = None
+        self._agent_cert: Optional[AgentCertificate] = None
+        if self.config.enable_pki:
+            self._bootstrap_pki()
 
         # Nonce tracking for replay protection
         if self.config.enable_nonce:
@@ -116,6 +124,175 @@ class TrustChain:
                 return ChainStore(chain_storage, root_dir=self.config.chain_dir)
         else:
             raise ValueError(f"Unknown chain_storage: {self.config.chain_storage}")
+
+    # ── X.509 PKI ──
+
+    def _bootstrap_pki(self) -> None:
+        """Bootstrap X.509 PKI hierarchy.
+
+        On first run:
+          1. Creates Root CA → saves to ~/.trustchain/pki/
+          2. Creates Intermediate CA → saves to ~/.trustchain/pki/
+
+        On every run:
+          3. Loads Root + Intermediate from disk
+          4. Issues a short-lived agent cert (1hr default)
+
+        This gives every TrustChain instance a verifiable X.509 identity.
+        """
+        import uuid
+        from pathlib import Path
+
+        pki_dir = Path(self.config.chain_dir).expanduser().resolve() / "pki"
+        pki_dir.mkdir(parents=True, exist_ok=True)
+
+        root_cert_path = pki_dir / "trustchain_root_ca.crt"
+        root_key_path = pki_dir / "trustchain_root_ca.key"
+        int_cert_path = pki_dir / "trustchain_platform_ca.crt"
+        int_key_path = pki_dir / "trustchain_platform_ca.key"
+
+        org = self.config.pki_organization
+
+        # 1. Root CA — create or load
+        if root_cert_path.exists() and root_key_path.exists():
+            self._root_ca = TrustChainCA.load(str(pki_dir), "TrustChain Root CA")
+        else:
+            self._root_ca = TrustChainCA.create_root_ca(
+                name="TrustChain Root CA",
+                organization=org,
+            )
+            self._root_ca.save(str(pki_dir))
+
+        # 2. Intermediate CA — create or load
+        if int_cert_path.exists() and int_key_path.exists():
+            self._intermediate_ca = TrustChainCA.load(
+                str(pki_dir), "TrustChain Platform CA"
+            )
+        else:
+            self._intermediate_ca = self._root_ca.issue_intermediate_ca(
+                name="TrustChain Platform CA",
+                organization=org,
+            )
+            self._intermediate_ca.save(str(pki_dir))
+
+        # 3. Issue short-lived agent cert for this session
+        agent_id = self.config.pki_agent_id or f"agent-{uuid.uuid4().hex[:8]}"
+        self._agent_cert = self._intermediate_ca.issue_agent_cert(
+            agent_id=agent_id,
+            model_hash="",  # User can set via config
+            prompt_hash="",
+            validity_hours=self.config.pki_validity_hours,
+            organization=org,
+        )
+
+    @property
+    def agent_cert(self) -> Optional[AgentCertificate]:
+        """X.509 certificate for this agent instance (short-lived)."""
+        return self._agent_cert
+
+    @property
+    def pki_root_ca(self) -> Optional[TrustChainCA]:
+        """Root CA of the PKI hierarchy."""
+        return self._root_ca
+
+    @property
+    def pki_intermediate_ca(self) -> Optional[TrustChainCA]:
+        """Intermediate CA that issues agent certificates."""
+        return self._intermediate_ca
+
+    def issue_agent_cert(
+        self,
+        agent_id: str,
+        model_hash: str = "",
+        prompt_hash: str = "",
+        tool_versions: Optional[Dict[str, str]] = None,
+        capabilities: Optional[list] = None,
+        validity_hours: Optional[int] = None,
+    ) -> AgentCertificate:
+        """Issue a new agent certificate from the Intermediate CA.
+
+        Use this to issue certs for other agents or services.
+
+        Args:
+            agent_id: Unique identifier (becomes X.509 CN)
+            model_hash: SHA-256 of the AI model
+            prompt_hash: SHA-256 of the system prompt
+            tool_versions: Dict of tool name -> version
+            capabilities: List of allowed capabilities
+            validity_hours: Cert validity (default from config)
+
+        Returns:
+            AgentCertificate with private key for signing
+        """
+        if not self._intermediate_ca:
+            raise RuntimeError(
+                "PKI not enabled. Set enable_pki=True in TrustChainConfig."
+            )
+        return self._intermediate_ca.issue_agent_cert(
+            agent_id=agent_id,
+            model_hash=model_hash,
+            prompt_hash=prompt_hash,
+            tool_versions=tool_versions,
+            capabilities=capabilities,
+            validity_hours=validity_hours or self.config.pki_validity_hours,
+            organization=self.config.pki_organization,
+        )
+
+    def spawn_sub_agent(
+        self,
+        agent_id: str,
+        model_hash: str = "",
+        prompt_hash: str = "",
+        tool_versions: Optional[Dict[str, str]] = None,
+        capabilities: Optional[list] = None,
+        validity_hours: Optional[int] = None,
+    ) -> AgentCertificate:
+        """Spawn a sub-agent with B+ delegated trust.
+
+        The Platform CA issues a cert for the sub-agent with
+        parent_cert_serial OID pointing to this agent's cert.
+        The main agent NEVER gets CA=TRUE — only the Platform CA
+        can issue certificates (SPIFFE-style).
+
+        Cascading revocation: if this agent is revoked, all sub-agents
+        automatically fail verification (PARENT_REVOKED).
+
+        Args:
+            agent_id: Sub-agent identifier
+            model_hash: Hash of sub-agent's model
+            prompt_hash: Hash of sub-agent's prompt
+            tool_versions: Sub-agent's tools
+            capabilities: Sub-agent's allowed capabilities
+            validity_hours: Cert validity (default from config)
+
+        Returns:
+            AgentCertificate for the sub-agent
+        """
+        if not self._intermediate_ca:
+            raise RuntimeError("PKI not enabled.")
+        if not self._agent_cert:
+            raise RuntimeError("No agent cert — cannot spawn sub-agent.")
+
+        return self._intermediate_ca.issue_agent_cert(
+            agent_id=agent_id,
+            model_hash=model_hash,
+            prompt_hash=prompt_hash,
+            tool_versions=tool_versions,
+            capabilities=capabilities,
+            validity_hours=validity_hours or self.config.pki_validity_hours,
+            organization=self.config.pki_organization,
+            parent_serial=self._agent_cert.serial_number,
+        )
+
+    def revoke_agent(self, cert: AgentCertificate, reason: str = "revoked") -> None:
+        """Revoke an agent certificate (red button).
+
+        After revocation, the agent cert will fail verification.
+        B+ cascading: all sub-agents of this agent also become invalid.
+        """
+        if not self._intermediate_ca:
+            raise RuntimeError("PKI not enabled.")
+        self._intermediate_ca.revoke(cert.serial_number, reason)
 
     def tool(self, tool_id: str, **options) -> Callable:
         """

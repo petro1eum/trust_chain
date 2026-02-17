@@ -58,6 +58,7 @@ OID_MODEL_HASH = x509.ObjectIdentifier(f"{AI_OID_BASE}.1")
 OID_PROMPT_HASH = x509.ObjectIdentifier(f"{AI_OID_BASE}.2")
 OID_TOOL_VERSIONS = x509.ObjectIdentifier(f"{AI_OID_BASE}.3")
 OID_AGENT_CAPABILITIES = x509.ObjectIdentifier(f"{AI_OID_BASE}.4")
+OID_PARENT_AGENT_SERIAL = x509.ObjectIdentifier(f"{AI_OID_BASE}.5")
 
 
 class TrustChainCA:
@@ -225,17 +226,24 @@ class TrustChainCA:
         capabilities: Optional[List[str]] = None,
         validity_hours: int = 1,
         organization: str = "TrustChain",
+        parent_serial: Optional[int] = None,
     ) -> "AgentCertificate":
         """Issue a short-lived X.509 certificate for an AI agent.
 
         Agent certificates are leaf certs — they cannot sign other certs.
         Default validity is 1 hour (short-lived for security).
 
+        B+ Pattern (SPIFFE-style): If parent_serial is provided, this
+        creates a sub-agent cert linked to its parent. The Platform CA
+        remains the sole issuer — agents NEVER get CA=TRUE. Cascading
+        revocation works by checking parent's CRL status during verify.
+
         Custom OIDs embed AI-specific metadata directly in the cert:
         - model_hash: SHA-256 of model weights/version
         - prompt_hash: SHA-256 of system prompt
         - tool_versions: registered tool versions
         - capabilities: what this agent is allowed to do
+        - parent_cert_serial: serial of parent agent (for sub-agents)
 
         Args:
             agent_id: Unique agent identifier (becomes CN)
@@ -245,6 +253,7 @@ class TrustChainCA:
             capabilities: List of capabilities
             validity_hours: How long cert is valid (default 1hr)
             organization: Organization name
+            parent_serial: Serial number of parent agent cert (sub-agent)
 
         Returns:
             AgentCertificate wrapping the X.509 cert
@@ -335,6 +344,15 @@ class TrustChainCA:
                 critical=False,
             )
 
+        if parent_serial is not None:
+            builder = builder.add_extension(
+                x509.UnrecognizedExtension(
+                    OID_PARENT_AGENT_SERIAL,
+                    str(parent_serial).encode("utf-8"),
+                ),
+                critical=False,
+            )
+
         cert = builder.sign(self._private_key, algorithm=None)
 
         return AgentCertificate(
@@ -401,6 +419,8 @@ class TrustChainCA:
         1. Signature is valid (signed by this CA's key)
         2. Certificate is not expired
         3. Certificate is not revoked (by serial number)
+        4. B+ cascading: if cert has parent_cert_serial OID,
+           verify that the parent is NOT revoked either
         """
         errors = []
 
@@ -420,9 +440,18 @@ class TrustChainCA:
         if now > cert.not_valid_after_utc:
             errors.append("EXPIRED")
 
-        # 3. Revocation check
+        # 3. Revocation check (direct)
         if self.is_revoked(cert.serial_number):
             errors.append("REVOKED")
+
+        # 4. B+ cascading revocation: check parent agent
+        try:
+            parent_ext = cert.extensions.get_extension_for_oid(OID_PARENT_AGENT_SERIAL)
+            parent_serial = int(parent_ext.value.value.decode("utf-8"))
+            if self.is_revoked(parent_serial):
+                errors.append("PARENT_REVOKED")
+        except x509.ExtensionNotFound:
+            pass  # Not a sub-agent, no parent to check
 
         return CertVerifyResult(
             valid=len(errors) == 0,
@@ -612,6 +641,24 @@ class AgentCertificate:
             return json.loads(raw.decode("utf-8"))
         return []
 
+    @property
+    def parent_serial(self) -> Optional[int]:
+        """Serial number of parent agent (None if top-level).
+
+        B+ pattern: sub-agents have their parent's serial embedded
+        via OID_PARENT_AGENT_SERIAL. The Platform CA checks this
+        during verification for cascading revocation.
+        """
+        raw = self._get_custom_oid_bytes(OID_PARENT_AGENT_SERIAL)
+        if raw:
+            return int(raw.decode("utf-8"))
+        return None
+
+    @property
+    def is_sub_agent(self) -> bool:
+        """True if this agent was spawned by another agent."""
+        return self.parent_serial is not None
+
     # ── Validity ──
 
     @property
@@ -728,6 +775,8 @@ class AgentCertificate:
             "prompt_hash": self.prompt_hash,
             "tool_versions": self.tool_versions,
             "capabilities": self.capabilities,
+            "parent_serial": self.parent_serial,
+            "is_sub_agent": self.is_sub_agent,
             "is_valid": self.is_valid,
             "is_short_lived": self.is_short_lived,
             "not_before": self.not_before.isoformat(),

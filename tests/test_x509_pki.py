@@ -497,3 +497,189 @@ class TestCertVerifyResult:
         assert d["valid"] is True
         assert d["subject"] == "agent-01"
         assert d["serial"] == 12345
+
+
+class TestSubAgentDelegation:
+    """B+ (SPIFFE-style) sub-agent delegation.
+
+    Platform CA remains sole issuer. Agents NEVER get CA=TRUE.
+    Sub-agents are linked via parent_cert_serial OID.
+    Revoking parent cascades to all sub-agents (PARENT_REVOKED).
+    """
+
+    def test_sub_agent_has_parent_serial(self):
+        """Sub-agent cert contains parent_cert_serial OID."""
+        root = TrustChainCA.create_root_ca()
+        intermediate = root.issue_intermediate_ca()
+
+        parent = intermediate.issue_agent_cert("main-agent")
+        child = intermediate.issue_agent_cert(
+            "sub-agent-1",
+            parent_serial=parent.serial_number,
+        )
+
+        assert child.parent_serial == parent.serial_number
+        assert child.is_sub_agent is True
+        assert parent.is_sub_agent is False
+        assert parent.parent_serial is None
+
+    def test_sub_agent_valid_without_parent_revocation(self):
+        """Sub-agent verifies OK when parent is not revoked."""
+        root = TrustChainCA.create_root_ca()
+        intermediate = root.issue_intermediate_ca()
+
+        parent = intermediate.issue_agent_cert("main-agent")
+        child = intermediate.issue_agent_cert(
+            "sub-agent",
+            parent_serial=parent.serial_number,
+        )
+
+        result = intermediate.verify_cert(child.certificate)
+        assert result.valid is True
+        assert result.errors == []
+
+    def test_cascading_revocation(self):
+        """Revoking parent makes sub-agent fail with PARENT_REVOKED."""
+        root = TrustChainCA.create_root_ca()
+        intermediate = root.issue_intermediate_ca()
+
+        parent = intermediate.issue_agent_cert("main-agent")
+        child1 = intermediate.issue_agent_cert(
+            "sub-agent-1", parent_serial=parent.serial_number
+        )
+        child2 = intermediate.issue_agent_cert(
+            "sub-agent-2", parent_serial=parent.serial_number
+        )
+
+        # Before revocation — all valid
+        assert intermediate.verify_cert(parent.certificate).valid is True
+        assert intermediate.verify_cert(child1.certificate).valid is True
+        assert intermediate.verify_cert(child2.certificate).valid is True
+
+        # Revoke the PARENT only
+        intermediate.revoke(parent.serial_number, "Prompt injection")
+
+        # Parent is directly REVOKED
+        parent_result = intermediate.verify_cert(parent.certificate)
+        assert parent_result.valid is False
+        assert "REVOKED" in parent_result.errors
+
+        # Both children fail with PARENT_REVOKED (cascade!)
+        child1_result = intermediate.verify_cert(child1.certificate)
+        assert child1_result.valid is False
+        assert "PARENT_REVOKED" in child1_result.errors
+
+        child2_result = intermediate.verify_cert(child2.certificate)
+        assert child2_result.valid is False
+        assert "PARENT_REVOKED" in child2_result.errors
+
+    def test_revoke_child_only(self):
+        """Revoking one child doesn't affect parent or siblings."""
+        root = TrustChainCA.create_root_ca()
+        intermediate = root.issue_intermediate_ca()
+
+        parent = intermediate.issue_agent_cert("main-agent")
+        child1 = intermediate.issue_agent_cert(
+            "sub-1", parent_serial=parent.serial_number
+        )
+        child2 = intermediate.issue_agent_cert(
+            "sub-2", parent_serial=parent.serial_number
+        )
+
+        # Revoke only child1
+        intermediate.revoke(child1.serial_number, "compromised")
+
+        # Parent still valid
+        assert intermediate.verify_cert(parent.certificate).valid is True
+        # Child1 revoked
+        assert intermediate.verify_cert(child1.certificate).valid is False
+        # Child2 still valid
+        assert intermediate.verify_cert(child2.certificate).valid is True
+
+    def test_sub_agent_not_ca(self):
+        """Sub-agents never get CA=TRUE (B+ security)."""
+        root = TrustChainCA.create_root_ca()
+        intermediate = root.issue_intermediate_ca()
+
+        parent = intermediate.issue_agent_cert("main")
+        child = intermediate.issue_agent_cert("sub", parent_serial=parent.serial_number)
+
+        from cryptography.x509 import BasicConstraints
+
+        bc = child.certificate.extensions.get_extension_for_class(BasicConstraints)
+        assert bc.value.ca is False
+
+    def test_parent_serial_pem_roundtrip(self):
+        """Parent serial OID survives PEM export/import."""
+        root = TrustChainCA.create_root_ca()
+        intermediate = root.issue_intermediate_ca()
+
+        parent = intermediate.issue_agent_cert("main")
+        child = intermediate.issue_agent_cert("sub", parent_serial=parent.serial_number)
+
+        restored = AgentCertificate.from_pem(child.to_pem())
+        assert restored.parent_serial == parent.serial_number
+        assert restored.is_sub_agent is True
+
+    def test_to_dict_includes_parent(self):
+        """to_dict() includes parent_serial and is_sub_agent."""
+        root = TrustChainCA.create_root_ca()
+        intermediate = root.issue_intermediate_ca()
+
+        parent = intermediate.issue_agent_cert("main")
+        child = intermediate.issue_agent_cert("sub", parent_serial=parent.serial_number)
+
+        d = child.to_dict()
+        assert d["parent_serial"] == parent.serial_number
+        assert d["is_sub_agent"] is True
+
+        pd = parent.to_dict()
+        assert pd["parent_serial"] is None
+        assert pd["is_sub_agent"] is False
+
+    def test_chain_verify_sub_agent(self):
+        """Sub-agent verifies through full chain."""
+        root = TrustChainCA.create_root_ca()
+        intermediate = root.issue_intermediate_ca()
+
+        parent = intermediate.issue_agent_cert("main")
+        child = intermediate.issue_agent_cert("sub", parent_serial=parent.serial_number)
+
+        # Sub-agent chain: same as any agent (Platform CA → Root)
+        assert child.verify_chain([intermediate, root]) is True
+
+    def test_spawn_sub_agent_via_trustchain(self, tmp_path):
+        """TrustChain.spawn_sub_agent() creates B+ linked sub-agent."""
+        from trustchain.v2 import TrustChain, TrustChainConfig
+
+        config = TrustChainConfig(
+            chain_dir=str(tmp_path / ".trustchain"),
+            enable_pki=True,
+            pki_agent_id="main-orchestrator",
+        )
+        tc = TrustChain(config)
+
+        # Main agent exists
+        assert tc.agent_cert is not None
+        assert tc.agent_cert.agent_id == "main-orchestrator"
+
+        # Spawn sub-agent
+        sub = tc.spawn_sub_agent(
+            agent_id="price-comparator",
+            model_hash="sha256:model_v2",
+            capabilities=["read", "search"],
+        )
+
+        assert sub.agent_id == "price-comparator"
+        assert sub.is_sub_agent is True
+        assert sub.parent_serial == tc.agent_cert.serial_number
+        assert sub.model_hash == "sha256:model_v2"
+
+        # Sub-agent verifies through full chain
+        assert sub.verify_chain([tc.pki_intermediate_ca, tc.pki_root_ca]) is True
+
+        # Revoke main agent → sub-agent becomes invalid
+        tc.revoke_agent(tc.agent_cert, "test revocation")
+        result = sub.verify_against(tc.pki_intermediate_ca)
+        assert result.valid is False
+        assert "PARENT_REVOKED" in result.errors
