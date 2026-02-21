@@ -7,11 +7,13 @@ NOTE: This feature requires TrustChain Pro license.
 Get a license at https://trustchain.dev/pro
 """
 
+from typing import Any
+
 
 class _ProFeatureStub:
     """Stub class that raises import error on instantiation."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         raise ImportError(
             "TSA Integration requires TrustChain Pro. "
             "Upgrade at https://trustchain.dev/pro\n\n"
@@ -28,7 +30,7 @@ TSAVerifyResult = _ProFeatureStub
 TSAError = ImportError
 
 
-def get_tsa_client(*args, **kwargs):
+def get_tsa_client(*args: Any, **kwargs: Any) -> Any:
     """Get a TSA client - requires TrustChain Pro."""
     raise ImportError(
         "TSA Integration requires TrustChain Pro. "

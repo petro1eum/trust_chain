@@ -72,7 +72,7 @@ class TrustChainConfig:
     pki_validity_hours: int = 1  # Short-lived agent cert validity
     pki_organization: str = "TrustChain"  # X.509 Organization name
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate configuration."""
         if self.algorithm not in ["ed25519", "rsa", "ecdsa"]:
             raise ValueError(f"Unsupported algorithm: {self.algorithm}")

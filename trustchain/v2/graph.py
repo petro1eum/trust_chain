@@ -7,11 +7,13 @@ NOTE: This feature requires TrustChain Pro license.
 Get a license at https://trustchain.dev/pro
 """
 
+from typing import Any
+
 
 class _ProFeatureStub:
     """Stub class that raises import error on instantiation."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         raise ImportError(
             "Execution Graph requires TrustChain Pro. "
             "Upgrade at https://trustchain.dev/pro\n\n"
@@ -21,7 +23,7 @@ class _ProFeatureStub:
         )
 
     @classmethod
-    def from_chain(cls, *args, **kwargs):
+    def from_chain(cls, *args: Any, **kwargs: Any) -> Any:
         raise ImportError(
             "Execution Graph requires TrustChain Pro. "
             "Upgrade at https://trustchain.dev/pro"

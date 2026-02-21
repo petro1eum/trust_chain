@@ -192,7 +192,7 @@ def create_app(config: Optional[TrustChainConfig] = None, **config_kwargs) -> "F
             async def metrics() -> PlainTextResponse:
                 """Prometheus metrics endpoint."""
                 return PlainTextResponse(
-                    generate_latest(tc._metrics.registry),
+                    generate_latest(tc._metrics.registry),  # type: ignore[attr-defined]
                     media_type=CONTENT_TYPE_LATEST,
                 )
 

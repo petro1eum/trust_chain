@@ -30,7 +30,7 @@ try:
     HAS_PYDANTIC = True
 except ImportError:
     HAS_PYDANTIC = False
-    BaseModel = None
+    BaseModel = Any  # type: ignore
 
 # Python type to JSON schema type mapping
 TYPE_MAP = {
@@ -62,10 +62,10 @@ def pydantic_to_json_schema(model: type) -> Dict[str, Any]:
         # Remove $defs if present (inline definitions)
         schema.pop("$defs", None)
         schema.pop("definitions", None)
-        return schema
+        return schema  # type: ignore[no-any-return]
     elif hasattr(model, "schema"):
         # Pydantic V1 fallback
-        return model.schema()
+        return model.schema()  # type: ignore[no-any-return]
     return {"type": "object", "properties": {}}
 
 

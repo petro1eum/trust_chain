@@ -10,7 +10,7 @@ Usage:
 
 import time
 from contextlib import contextmanager
-from typing import Optional
+from typing import Any, Optional
 
 try:
     from prometheus_client import Counter, Histogram
@@ -43,7 +43,7 @@ class TrustChainMetrics:
         )
 
     @contextmanager
-    def track_sign(self, tool_id: str):
+    def track_sign(self, tool_id: str) -> Any:
         """Track sign operation latency and success/error count."""
         if not self.enabled:
             yield
@@ -61,7 +61,7 @@ class TrustChainMetrics:
             )
 
     @contextmanager
-    def track_verify(self):
+    def track_verify(self) -> Any:
         """Track verify operation count."""
         if not self.enabled:
             yield
@@ -73,7 +73,7 @@ class TrustChainMetrics:
             self.verifies_total.labels(status="error").inc()
             raise
 
-    def record_nonce_reject(self):
+    def record_nonce_reject(self) -> None:
         """Record a nonce rejection (blocked replay attack)."""
         if self.enabled:
             self.nonce_rejects.inc()

@@ -8,7 +8,7 @@ Provides multiple storage options for nonce tracking:
 import time
 from abc import ABC, abstractmethod
 from collections import deque
-from typing import Optional
+from typing import Any, Optional
 
 
 class NonceStorage(ABC):
@@ -79,7 +79,10 @@ class MemoryNonceStorage(NonceStorage):
         self._timestamps[nonce] = time.time() + ttl
 
         # Handle deque overflow (LRU eviction)
-        while len(self._nonce_set) > self._nonces.maxlen:
+        while (
+            self._nonces.maxlen is not None
+            and len(self._nonce_set) > self._nonces.maxlen
+        ):
             old = self._nonces.popleft()
             self._nonce_set.discard(old)
             self._timestamps.pop(old, None)
@@ -164,7 +167,7 @@ class RedisNonceStorage(NonceStorage):
 
     def contains(self, nonce: str) -> bool:
         """Check if nonce exists in Redis."""
-        return self._client.exists(self._key(nonce)) > 0
+        return bool(self._client.exists(self._key(nonce)) > 0)
 
     def clear(self) -> None:
         """Clear all nonces for this prefix/tenant.
@@ -187,7 +190,7 @@ class RedisNonceStorage(NonceStorage):
     def ping(self) -> bool:
         """Check Redis connectivity."""
         try:
-            return self._client.ping()
+            return bool(self._client.ping())
         except Exception:
             return False
 
@@ -196,7 +199,7 @@ def create_nonce_storage(
     backend: str = "memory",
     redis_url: Optional[str] = None,
     tenant_id: Optional[str] = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> NonceStorage:
     """Factory function to create nonce storage.
 

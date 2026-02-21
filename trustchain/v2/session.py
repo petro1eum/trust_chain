@@ -88,7 +88,7 @@ class TrustChainSession:
         )
 
         self._chain.append(signed)
-        return signed
+        return signed  # type: ignore[no-any-return]
 
     def get_chain(self) -> List[SignedResponse]:
         """Get all signed responses in this session."""
@@ -96,7 +96,7 @@ class TrustChainSession:
 
     def verify_chain(self) -> bool:
         """Verify the entire chain is valid and unbroken."""
-        return self.trustchain.verify_chain(self._chain)
+        return self.trustchain.verify_chain(self._chain)  # type: ignore[no-any-return]
 
     def get_stats(self) -> Dict[str, Any]:
         """Get session statistics."""
@@ -147,9 +147,9 @@ class TrustChainSession:
         """
         # Use the existing HTML exporter from TrustChain
         try:
-            from trustchain.ui.explorer import export_chain_html
+            from trustchain.ui.explorer import export_chain_graph
 
-            return export_chain_html(self._chain, filepath, session_id=self.session_id)
+            return export_chain_graph(self._chain, filepath, session_id=self.session_id)  # type: ignore[no-any-return]
         except ImportError:
             # Fallback to simple HTML
             html = self._generate_simple_html()

@@ -45,17 +45,16 @@ class TrustChain:
             self._bootstrap_pki()
 
         # Nonce tracking for replay protection
+        self._nonce_storage: Optional[NonceStorage] = None
         if self.config.enable_nonce:
             self._nonce_storage = create_nonce_storage(
                 backend=self.config.nonce_backend,
                 redis_url=self.config.redis_url,
                 tenant_id=self.config.tenant_id,
             )
-        else:
-            self._nonce_storage: Optional[NonceStorage] = None
-
         # Enterprise: Prometheus metrics
         self._metrics = get_metrics(self.config.enable_metrics)
+        self._used_nonces: list[str] = []
 
     def _load_or_create_signer(self) -> Signer:
         """Load signer from persistence or create new one."""
@@ -710,7 +709,9 @@ class TrustChain:
 
     # === Marketing-Friendly Class Decorator ===
 
-    def dehallucinate(self, cls: type = None, *, exclude: list = None):
+    def dehallucinate(
+        self, cls: Optional[type] = None, *, exclude: Optional[list] = None
+    ) -> Any:
         """
         Decorator to make an entire class 'hallucination-proof'.
 

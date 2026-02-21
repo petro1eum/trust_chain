@@ -21,7 +21,7 @@ Example:
 """
 
 import functools
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 try:
     from flask import Flask, Response, jsonify, request
@@ -44,7 +44,7 @@ class TrustChainFlask:
     def __init__(
         self,
         app: Optional["Flask"] = None,
-        trustchain=None,
+        trustchain: Any = None,
         sign_all: bool = False,
         skip_paths: Optional[list] = None,
     ):
@@ -55,7 +55,7 @@ class TrustChainFlask:
         if app is not None:
             self.init_app(app)
 
-    def init_app(self, app: "Flask"):
+    def init_app(self, app: "Flask") -> None:
         """Initialize Flask extension.
 
         Args:
@@ -102,7 +102,9 @@ class TrustChainFlask:
             return response
 
 
-def sign_response(trustchain, tool_id: str):
+def sign_response(
+    trustchain: Any, tool_id: str
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to sign individual endpoint responses.
 
     Args:
@@ -140,7 +142,7 @@ def sign_response(trustchain, tool_id: str):
     return decorator
 
 
-def get_public_key_endpoint(trustchain):
+def get_public_key_endpoint(trustchain: Any) -> Callable[[], Any]:
     """Create a Flask endpoint that returns the public key.
 
     Example:

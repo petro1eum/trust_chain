@@ -48,7 +48,7 @@ from trustchain.v2.reasoning import ReasoningChain
 try:
     from trustchain.integrations.onaidocs import OnaiDocsTrustClient
 except Exception:  # optional integration
-    OnaiDocsTrustClient = None
+    OnaiDocsTrustClient = None  # type: ignore
 
 __all__ = [
     # Core - Cryptographic signing

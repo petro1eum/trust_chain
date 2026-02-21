@@ -472,7 +472,7 @@ class VerifiableChainStore:
             f.write(RECORD_SEPARATOR)
             f.flush()
 
-    def _iter_log_records(self):
+    def _iter_log_records(self) -> Any:
         """Iterate over all records in chain.log."""
         if not self._log_path.exists():
             return

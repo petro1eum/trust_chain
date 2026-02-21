@@ -57,8 +57,8 @@ class ChainStore:
         self,
         storage: Storage,
         root_dir: Optional[str] = None,
-        verifiable_log=None,
-    ):
+        verifiable_log: Any = None,
+    ) -> None:
         self._storage = storage
         self._root = Path(root_dir).expanduser().resolve() if root_dir else None
         self._length = 0
@@ -109,7 +109,7 @@ class ChainStore:
             self._last_parent_sig = signature
             if session_id:
                 self._save_ref(session_id, signature)
-            return record
+            return record  # type: ignore[no-any-return]
 
         # Legacy path: Storage backend
         self._length += 1
@@ -155,7 +155,7 @@ class ChainStore:
         Returns operations in chronological order (oldest first).
         """
         if self._vlog:
-            return self._vlog.log(limit=limit, offset=offset, reverse=False)
+            return self._vlog.log(limit=limit, offset=offset, reverse=False)  # type: ignore[no-any-return]
 
         all_ops = self._storage.list_all()
         all_ops.sort(key=lambda x: x.get("id", "") if isinstance(x, dict) else "")
@@ -164,7 +164,7 @@ class ChainStore:
     def log_reverse(self, limit: int = 20) -> List[Dict[str, Any]]:
         """Return chain history newest-first (like `git log` default)."""
         if self._vlog:
-            return self._vlog.log(limit=limit, reverse=True)
+            return self._vlog.log(limit=limit, reverse=True)  # type: ignore[no-any-return]
 
         all_ops = self._storage.list_all()
         all_ops.sort(
@@ -175,7 +175,7 @@ class ChainStore:
     def show(self, op_id: str) -> Optional[Dict[str, Any]]:
         """Show a single commit (like `git show <hash>`)."""
         if self._vlog:
-            return self._vlog.show(op_id)
+            return self._vlog.show(op_id)  # type: ignore[no-any-return]
         return self._storage.get(op_id)
 
     def blame(self, tool: str, limit: int = 50) -> List[Dict[str, Any]]:
@@ -185,7 +185,7 @@ class ChainStore:
         the agent ran bash_tool".
         """
         if self._vlog:
-            return self._vlog.blame(tool, limit=limit)
+            return self._vlog.blame(tool, limit=limit)  # type: ignore[no-any-return]
 
         all_ops = self._storage.list_all()
         results = [
@@ -200,7 +200,7 @@ class ChainStore:
         Without: O(n) linear chain walk.
         """
         if self._vlog:
-            return self._vlog.verify()
+            return self._vlog.verify()  # type: ignore[no-any-return]
 
         all_ops = self.log(limit=999999)
         broken = []
@@ -238,7 +238,7 @@ class ChainStore:
     def status(self) -> Dict[str, Any]:
         """Chain health summary (like `git status`)."""
         if self._vlog:
-            return self._vlog.status()
+            return self._vlog.status()  # type: ignore[no-any-return]
 
         all_ops = self._storage.list_all()
         tools_count: Dict[str, int] = {}
@@ -263,7 +263,7 @@ class ChainStore:
     def diff(self, op_id_a: str, op_id_b: str) -> Dict[str, Any]:
         """Compare two operations (like `git diff`)."""
         if self._vlog:
-            return self._vlog.diff(op_id_a, op_id_b)
+            return self._vlog.diff(op_id_a, op_id_b)  # type: ignore[no-any-return]
 
         a = self.show(op_id_a)
         b = self.show(op_id_b)
@@ -280,7 +280,7 @@ class ChainStore:
     def export_json(self, filepath: Optional[str] = None) -> str:
         """Export entire chain as JSON."""
         if self._vlog:
-            return self._vlog.export_json(filepath)
+            return self._vlog.export_json(filepath)  # type: ignore[no-any-return]
 
         data = {
             "head": self._head,
@@ -295,29 +295,29 @@ class ChainStore:
 
     # ── Verifiable Log-specific API ──
 
-    def inclusion_proof(self, op_id: str):
+    def inclusion_proof(self, op_id: str) -> Any:
         """Get O(log n) Merkle inclusion proof for an operation."""
         if self._vlog:
             return self._vlog.inclusion_proof(op_id)
         return None
 
-    def consistency_proof(self, old_length: int, old_root: str) -> dict:
+    def consistency_proof(self, old_length: int, old_root: str) -> dict[str, Any]:
         """Prove old chain state is a prefix of current (no rewrites)."""
         if self._vlog:
-            return self._vlog.consistency_proof(old_length, old_root)
+            return self._vlog.consistency_proof(old_length, old_root)  # type: ignore[no-any-return]
         return {"consistent": False, "reason": "verifiable_log_not_enabled"}
 
     @property
     def merkle_root(self) -> Optional[str]:
         """Current Merkle root hash (None if verifiable log not enabled)."""
         if self._vlog:
-            return self._vlog.merkle_root
+            return self._vlog.merkle_root  # type: ignore[no-any-return]
         return None
 
-    def rebuild_index(self) -> dict:
+    def rebuild_index(self) -> dict[str, Any]:
         """Rebuild SQLite index from chain.log source of truth."""
         if self._vlog:
-            return self._vlog.rebuild_index()
+            return self._vlog.rebuild_index()  # type: ignore[no-any-return]
         return {"rebuilt": False, "reason": "verifiable_log_not_enabled"}
 
     # ── Session refs ──

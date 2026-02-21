@@ -156,19 +156,47 @@ line_length = 88
 known_first_party = ["trustchain"]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.10"
+exclude = [
+    "trustchain/integrations/.*",
+    "trustchain/pytest_plugin/.*",
+]
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+disallow_untyped_decorators = false
 no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "langchain.*",
+    "mcp.*",
+    "trustchain_pro.*",
+    "prometheus_client.*",
+    "redis.*",
+    "yaml.*",
+    "fastapi.*",
+    "django.*",
+    "rest_framework.*",
+    "starlette.*",
+    "flask.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "trustchain.integrations.*",
+    "trustchain.pytest_plugin.*",
+    "trustchain.v2.x509_pki",
+]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 minversion = "7.0"

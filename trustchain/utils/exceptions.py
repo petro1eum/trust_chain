@@ -31,7 +31,7 @@ class SignatureVerificationError(TrustChainError):
         message: str = "Signature verification failed",
         signature_id: Optional[str] = None,
         tool_id: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         details = kwargs.get("details", {})
         if signature_id:
@@ -49,7 +49,9 @@ class SignatureVerificationError(TrustChainError):
 class NonceReplayError(TrustChainError):
     """Raised when a nonce is reused (replay attack detected)."""
 
-    def __init__(self, nonce: str, message: str = "Nonce replay detected", **kwargs):
+    def __init__(
+        self, nonce: str, message: str = "Nonce replay detected", **kwargs: Any
+    ) -> None:
         details = kwargs.get("details", {})
         details["nonce"] = nonce
 
@@ -60,7 +62,9 @@ class NonceReplayError(TrustChainError):
 class KeyNotFoundError(TrustChainError):
     """Raised when a cryptographic key is not found in the registry."""
 
-    def __init__(self, key_id: str, message: Optional[str] = None, **kwargs):
+    def __init__(
+        self, key_id: str, message: Optional[str] = None, **kwargs: Any
+    ) -> None:
         if message is None:
             message = f"Key not found: {key_id}"
 
@@ -79,7 +83,7 @@ class ChainIntegrityError(TrustChainError):
         chain_id: str,
         step_number: Optional[int] = None,
         message: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         if message is None:
             if step_number is not None:
@@ -107,8 +111,8 @@ class RegistryError(TrustChainError):
         message: str,
         registry_type: Optional[str] = None,
         operation: Optional[str] = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         details = kwargs.get("details", {})
         if registry_type:
             details["registry_type"] = registry_type
@@ -123,7 +127,9 @@ class RegistryError(TrustChainError):
 class ConfigurationError(TrustChainError):
     """Raised when configuration is invalid or missing."""
 
-    def __init__(self, message: str, config_key: Optional[str] = None, **kwargs):
+    def __init__(
+        self, message: str, config_key: Optional[str] = None, **kwargs: Any
+    ) -> None:
         details = kwargs.get("details", {})
         if config_key:
             details["config_key"] = config_key
@@ -140,8 +146,8 @@ class CryptoError(TrustChainError):
         message: str,
         algorithm: Optional[str] = None,
         operation: Optional[str] = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         details = kwargs.get("details", {})
         if algorithm:
             details["algorithm"] = algorithm
@@ -161,7 +167,7 @@ class ToolExecutionError(TrustChainError):
         tool_id: str,
         message: str,
         original_error: Optional[Exception] = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         details = kwargs.get("details", {})
         details["tool_id"] = tool_id
@@ -182,7 +188,7 @@ class NetworkError(TrustChainError):
         message: str,
         endpoint: Optional[str] = None,
         status_code: Optional[int] = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         details = kwargs.get("details", {})
         if endpoint:
@@ -196,26 +202,26 @@ class NetworkError(TrustChainError):
 
 
 # Convenience functions for creating exceptions with context
-def signature_error(message: str, **context) -> SignatureVerificationError:
+def signature_error(message: str, **context: Any) -> SignatureVerificationError:
     """Create a SignatureVerificationError with context."""
     return SignatureVerificationError(message, **context)
 
 
-def nonce_replay_error(nonce: str, **context) -> NonceReplayError:
+def nonce_replay_error(nonce: str, **context: Any) -> NonceReplayError:
     """Create a NonceReplayError with context."""
     return NonceReplayError(nonce, **context)
 
 
-def key_not_found_error(key_id: str, **context) -> KeyNotFoundError:
+def key_not_found_error(key_id: str, **context: Any) -> KeyNotFoundError:
     """Create a KeyNotFoundError with context."""
     return KeyNotFoundError(key_id, **context)
 
 
-def chain_integrity_error(chain_id: str, **context) -> ChainIntegrityError:
+def chain_integrity_error(chain_id: str, **context: Any) -> ChainIntegrityError:
     """Create a ChainIntegrityError with context."""
     return ChainIntegrityError(chain_id, **context)
 
 
-def config_error(message: str, **context) -> ConfigurationError:
+def config_error(message: str, **context: Any) -> ConfigurationError:
     """Create a ConfigurationError with context."""
     return ConfigurationError(message, **context)
