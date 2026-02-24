@@ -51,6 +51,39 @@ uv pip install trustchain[all]           # Everything
 
 ---
 
+## 🛡️ Enterprise Trust & Public Registry
+
+While `trust_chain` lets you generate and verify signatures locally, how do external parties know they can trust *your* agent's public key?
+
+**[TrustChain Platform](https://app.trust-chain.ai)** acts as a Root Certificate Authority (CA) for AI agents. Every registered agent receives a verifiable **X.509 Certificate** — the same model used by TLS/HTTPS, Apple App Store, and Let's Encrypt.
+
+External developers can verify your agent's signatures with **Zero Trust** — no API keys, no data sent to our servers:
+
+```python
+import httpx
+from cryptography.x509 import load_pem_x509_certificate, load_pem_x509_crl
+
+BASE = "https://app.trust-chain.ai/api/pub"
+
+# 1. Download agent cert + CA cert (cache the CA)
+agent_cert = load_pem_x509_certificate(
+    httpx.get(f"{BASE}/agents/my-agent/cert").text.encode()
+)
+ca_cert = load_pem_x509_certificate(httpx.get(f"{BASE}/ca").text.encode())
+crl     = load_pem_x509_crl(httpx.get(f"{BASE}/crl").text.encode())
+
+# 2. Verify chain locally (trust math, not our API)
+ca_cert.public_key().verify(agent_cert.signature, agent_cert.tbs_certificate_bytes)
+assert crl.get_revoked_certificate_by_serial_number(agent_cert.serial_number) is None
+
+# 3. Extract public key and verify signature — fully offline
+agent_cert.public_key().verify(signature_bytes, data_bytes)
+```
+
+👉 **[Full verification guide →](docs/public-registry.md)**
+
+---
+
 ## Quick Start
 
 ```python
