@@ -65,12 +65,10 @@ from cryptography.x509 import load_pem_x509_certificate, load_pem_x509_crl
 
 BASE = "https://app.trust-chain.ai/api/pub"
 
-# 1. Download agent cert + CA cert (cache the CA)
-agent_cert = load_pem_x509_certificate(
-    httpx.get(f"{BASE}/agents/my-agent/cert").text.encode()
-)
-ca_cert = load_pem_x509_certificate(httpx.get(f"{BASE}/ca").text.encode())
-crl     = load_pem_x509_crl(httpx.get(f"{BASE}/crl").text.encode())
+# 1. Download agent cert + CA cert (.content = raw bytes, no encode needed)
+agent_cert = load_pem_x509_certificate(httpx.get(f"{BASE}/agents/my-agent/cert").content)
+ca_cert    = load_pem_x509_certificate(httpx.get(f"{BASE}/ca").content)
+crl        = load_pem_x509_crl(httpx.get(f"{BASE}/crl").content)
 
 # 2. Verify chain locally (trust math, not our API)
 ca_cert.public_key().verify(agent_cert.signature, agent_cert.tbs_certificate_bytes)
@@ -240,7 +238,7 @@ schema = tc.get_tools_schema()
 schema = tc.get_tools_schema(format="anthropic")
 ```
 
-### MCP Server (Claude Desktop)
+### 🔌 MCP Server — **Model Context Protocol** *(trending 🔥)*
 
 ```python
 from trustchain.integrations.mcp import serve_mcp
