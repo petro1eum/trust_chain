@@ -177,6 +177,9 @@ config/secrets.yml
 credentials.json
 service-account*.json
 
+# 📦 PyPI
+.pypirc
+
 # 🔐 AUTH & TOKENS
 .token
 *.token
