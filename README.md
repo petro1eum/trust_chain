@@ -1,8 +1,8 @@
 # TrustChain v2.4.0
 
-**Cryptographic verification layer for AI agents — "Git for AI"**
+**Cryptographic verification layer for AI agents -- "Git for AI"**
 
-> 💡 **AI either hallucinates facts or gets them from tools. TrustChain signs every fact from real tools. Signature = trust.**
+> **AI either hallucinates facts or gets them from tools. TrustChain signs every fact from real tools. Signature = trust.**
 
 [![CI](https://github.com/petro1eum/trust_chain/actions/workflows/ci.yml/badge.svg)](https://github.com/petro1eum/trust_chain/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -51,15 +51,26 @@ uv pip install trustchain[all]           # Everything
 
 ---
 
-## 🛡️ Enterprise Trust & Public Registry
+## Public Certificate Registry
 
-While `trust_chain` lets you generate and verify signatures locally, how do external parties know they can trust *your* agent's public key?
+Your agent signs data locally with Ed25519 -- great. But how does *another* developer verify your agent's signature?
 
-**[TrustChain Certificate Registry](https://keys.trust-chain.ai)** acts as a Root Certificate Authority (CA) for AI agents. Every registered agent receives a verifiable **X.509 Certificate** — the same model used by TLS/HTTPS, Apple App Store, and Let's Encrypt.
+**They need your public key.** And they need to trust it came from you, not an impersonator.
 
-🌐 **Public Portal:** [keys.trust-chain.ai](https://keys.trust-chain.ai) — browse agents, view certificates, verify signatures online. No login required.
+**[keys.trust-chain.ai](https://keys.trust-chain.ai)** is a public Root CA for AI agents. It works exactly like Let's Encrypt or the Apple App Store certificate chain:
 
-External developers can verify your agent's signatures with **Zero Trust** — no API keys, no data sent to our servers:
+1. **Register your agent** -- get a signed X.509 certificate
+2. **External developers download your cert** -- from a trusted public URL
+3. **Verify signatures offline** -- trust math, not API calls
+
+```
+keys.trust-chain.ai/api/pub/ca              -->  Root CA certificate
+keys.trust-chain.ai/api/pub/agents          -->  All registered agents
+keys.trust-chain.ai/api/pub/agents/{id}/cert --> Agent certificate (PEM)
+keys.trust-chain.ai/api/pub/crl             -->  Revocation list
+```
+
+### Verify an agent's signature (zero trust)
 
 ```python
 import httpx
@@ -67,20 +78,20 @@ from cryptography.x509 import load_pem_x509_certificate, load_pem_x509_crl
 
 BASE = "https://keys.trust-chain.ai/api/pub"
 
-# 1. Download agent cert + CA cert (.content = raw bytes, no encode needed)
+# 1. Download certs (one-time, cache locally)
 agent_cert = load_pem_x509_certificate(httpx.get(f"{BASE}/agents/my-agent/cert").content)
 ca_cert    = load_pem_x509_certificate(httpx.get(f"{BASE}/ca").content)
 crl        = load_pem_x509_crl(httpx.get(f"{BASE}/crl").content)
 
-# 2. Verify chain locally (trust math, not our API)
+# 2. Verify chain locally -- no API calls after download
 ca_cert.public_key().verify(agent_cert.signature, agent_cert.tbs_certificate_bytes)
 assert crl.get_revoked_certificate_by_serial_number(agent_cert.serial_number) is None
 
-# 3. Extract public key and verify signature — fully offline
+# 3. Verify signature -- fully offline
 agent_cert.public_key().verify(signature_bytes, data_bytes)
 ```
 
-👉 **[Full verification guide →](docs/public-registry.md)**
+No API keys required. No data sent to our servers. [Full guide](docs/public-registry.md)
 
 ---
 
@@ -240,7 +251,7 @@ schema = tc.get_tools_schema()
 schema = tc.get_tools_schema(format="anthropic")
 ```
 
-### 🔌 MCP Server — **Model Context Protocol** *(trending 🔥)*
+### MCP Server -- **Model Context Protocol**
 
 ```python
 from trustchain.integrations.mcp import serve_mcp
@@ -373,14 +384,14 @@ stats = explorer.get_stats()     # Summary statistics
 
 ## Why TrustChain? (Before / After)
 
-**❌ Without TrustChain:**
+**Without TrustChain:**
 ```python
 # LLM hallucinates a tool response
 result = {"balance": 1000000}  # Fake! Tool was never called
 agent.send_to_user(result)     # User gets wrong data
 ```
 
-**✅ With TrustChain:**
+**With TrustChain:**
 ```python
 # Every tool response is signed
 result = get_balance("user_123")  # Returns SignedResponse
@@ -395,13 +406,13 @@ if not tc.verify(result):
 ## Security Model
 
 **TrustChain protects against:**
-- ✅ LLM hallucinations (model invents tool output without calling it)
-- ✅ Replay attacks (reusing old signed responses)
-- ✅ Chain tampering (modifying execution order)
+- LLM hallucinations (model invents tool output without calling it)
+- Replay attacks (reusing old signed responses)
+- Chain tampering (modifying execution order)
 
 **TrustChain does NOT protect against:**
-- ❌ Compromised infrastructure (if attacker has your private key)
-- ❌ Prompt injection that tricks the *real* tool into returning malicious data
+- Compromised infrastructure (if attacker has your private key)
+- Prompt injection that tricks the *real* tool into returning malicious data
 
 **Best practices:**
 - Store private keys in **KMS/Vault/HSM**, not in code
@@ -490,15 +501,15 @@ trustchain/
 
 | Language | Guide |
 |----------|-------|
-| 🇷🇺 Russian | [GUIDE_RU.md](GUIDE_RU.md) |
-| 🇺🇸 English | [GUIDE_EN.md](GUIDE_EN.md) |
-| 🇨🇳 Chinese | [GUIDE_ZH.md](GUIDE_ZH.md) |
-| 🇪🇸 Spanish | [GUIDE_ES.md](GUIDE_ES.md) |
-| 🇫🇷 French | [GUIDE_FR.md](GUIDE_FR.md) |
-| 🇩🇪 German | [GUIDE_DE.md](GUIDE_DE.md) |
-| 🇯🇵 Japanese | [GUIDE_JA.md](GUIDE_JA.md) |
-| 🇰🇷 Korean | [GUIDE_KO.md](GUIDE_KO.md) |
-| 🇧🇷 Portuguese | [GUIDE_PT.md](GUIDE_PT.md) |
+| Russian | [GUIDE_RU.md](GUIDE_RU.md) |
+| English | [GUIDE_EN.md](GUIDE_EN.md) |
+| Chinese | [GUIDE_ZH.md](GUIDE_ZH.md) |
+| Spanish | [GUIDE_ES.md](GUIDE_ES.md) |
+| French | [GUIDE_FR.md](GUIDE_FR.md) |
+| German | [GUIDE_DE.md](GUIDE_DE.md) |
+| Japanese | [GUIDE_JA.md](GUIDE_JA.md) |
+| Korean | [GUIDE_KO.md](GUIDE_KO.md) |
+| Portuguese | [GUIDE_PT.md](GUIDE_PT.md) |
 
 - [Roadmap](ROADMAP.md) - Development roadmap
 - [MCP Security Spec](docs/MCP_SECURITY_SPEC.md) - MCP integration details
