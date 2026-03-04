@@ -91,7 +91,7 @@ assert crl.get_revoked_certificate_by_serial_number(agent_cert.serial_number) is
 agent_cert.public_key().verify(signature_bytes, data_bytes)
 ```
 
-No API keys required. No data sent to our servers. [Full guide](docs/public-registry.md)
+No API keys required. No data sent to our servers. See [keys.trust-chain.ai](https://keys.trust-chain.ai) for the interactive portal.
 
 ---
 
