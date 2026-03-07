@@ -40,7 +40,8 @@ uv pip install trustchain[integrations]  # LangChain + MCP
 uv pip install trustchain[ai]            # OpenAI + Anthropic + LangChain
 uv pip install trustchain[mcp]           # MCPサーバーのみ
 uv pip install trustchain[redis]         # 分散ノンスストレージ
-uv pip install trustchain[all]           # すべて
+uv pip install trustchain[fastapi]       # FastAPIミドルウェア
+uv pip install trustchain[all]           # 上記すべて
 ```
 
 ---

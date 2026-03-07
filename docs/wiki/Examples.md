@@ -368,5 +368,5 @@ public_key = tc.export_public_key()
 |----------|-------------|
 | [trustchain_tutorial.ipynb](../examples/trustchain_tutorial.ipynb) | Basic tutorial - 7 core use cases |
 | [trustchain_advanced.ipynb](../examples/trustchain_advanced.ipynb) | Advanced - key persistence, multi-agent, Redis |
-| [trustchain_pro.ipynb](../examples/trustchain_pro.ipynb) | Full API reference with all v2.1 capabilities |
+| [trustchain_full_demo.ipynb](../examples/trustchain_full_demo.ipynb) | Full end-to-end demo for the current v2.4.0 release |
 

@@ -42,7 +42,8 @@ uv pip install trustchain[integrations]  # LangChain + MCP
 uv pip install trustchain[ai]            # OpenAI + Anthropic + LangChain
 uv pip install trustchain[mcp]           # Solo servidor MCP
 uv pip install trustchain[redis]         # Almacenamiento distribuido de nonce
-uv pip install trustchain[all]           # Todo
+uv pip install trustchain[fastapi]       # Middleware para FastAPI
+uv pip install trustchain[all]           # Todo lo anterior
 ```
 
 ---

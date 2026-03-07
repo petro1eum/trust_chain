@@ -42,7 +42,8 @@ uv pip install trustchain[integrations]  # LangChain + MCP
 uv pip install trustchain[ai]            # OpenAI + Anthropic + LangChain
 uv pip install trustchain[mcp]           # 仅 MCP 服务器
 uv pip install trustchain[redis]         # 分布式随机数存储
-uv pip install trustchain[all]           # 全部功能
+uv pip install trustchain[fastapi]       # FastAPI 中间件
+uv pip install trustchain[all]           # 上述全部
 ```
 
 ---

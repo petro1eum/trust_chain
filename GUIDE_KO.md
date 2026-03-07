@@ -40,7 +40,8 @@ uv pip install trustchain[integrations]  # LangChain + MCP
 uv pip install trustchain[ai]            # OpenAI + Anthropic + LangChain
 uv pip install trustchain[mcp]           # MCP 서버만
 uv pip install trustchain[redis]         # 분산 논스 저장소
-uv pip install trustchain[all]           # 모두
+uv pip install trustchain[fastapi]       # FastAPI 미들웨어
+uv pip install trustchain[all]           # 위에 나열한 항목 전체
 ```
 
 ---
