@@ -2,13 +2,18 @@
 
 **Cryptographic verification layer for AI agents -- "Git for AI"**
 
-> **AI either hallucinates facts or gets them from tools. TrustChain signs every fact from real tools. Signature = trust.**
+> **AI either hallucinates facts or gets them from tools. TrustChain signs facts from real tool execution. Signature = trust.**
 
 [![CI](https://github.com/petro1eum/trust_chain/actions/workflows/ci.yml/badge.svg)](https://github.com/petro1eum/trust_chain/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-TrustChain adds **Ed25519 cryptographic signatures** to AI tool responses, enabling:
+TrustChain is a Python library that adds **Ed25519 cryptographic signatures** to AI tool responses. It helps you prove that a value came from a real tool execution, not from hallucination, tampering, or replay.
+
+**Use TrustChain locally with your own keys.**
+**Use the TrustChain Registry only when third parties need publicly trusted, offline verification of your signatures.**
+
+TrustChain gives you:
 
 - **Proof of execution** — data came from a real tool, not hallucinated
 - **Chain of Trust** — cryptographically linked operation sequences
@@ -20,7 +25,75 @@ TrustChain adds **Ed25519 cryptographic signatures** to AI tool responses, enabl
 - **Audit trails** — beautiful HTML reports for compliance
 - **Integrations** — OpenAI, Anthropic, LangChain, MCP, FastAPI, Pydantic, OpenTelemetry
 
-![TrustChain Architecture](docs/wiki/architecture_flow.png)
+## Trust Model In 30 Seconds
+
+```text
+Your tool runs
+   ↓
+TrustChain signs the result locally with your key
+   ↓
+You or your customer verify the signature locally
+   ↓
+Optional: if third parties need a public trust anchor,
+the TrustChain Registry distributes your certificate and CRL
+```
+
+TrustChain itself is a library. The hosted registry is an **optional certificate distribution layer**, not a requirement for signing or local verification.
+
+## Documentation
+
+**Canonical docs live in the [GitHub Wiki](https://github.com/petro1eum/trust_chain/wiki).**
+
+- [Wiki Home](https://github.com/petro1eum/trust_chain/wiki)
+- [Getting Started](https://github.com/petro1eum/trust_chain/wiki/Getting-Started)
+- [API Reference](https://github.com/petro1eum/trust_chain/wiki/API-Reference)
+- [Architecture](https://github.com/petro1eum/trust_chain/wiki/Architecture)
+- [Examples](https://github.com/petro1eum/trust_chain/wiki/Examples)
+- [FAQ](https://github.com/petro1eum/trust_chain/wiki/FAQ)
+
+Repository docs are supplementary reference material and local snapshots. The wiki is the source of truth for public documentation.
+
+---
+
+## Why Teams Use TrustChain
+
+Without TrustChain, an agent can claim a tool returned something and you have no cryptographic way to distinguish:
+
+- real tool output
+- hallucinated output
+- modified output
+- replayed output
+
+With TrustChain, every tool response carries a signed execution proof that can be verified locally.
+
+This is especially useful when you need:
+
+- auditable agent actions
+- zero-trust verification between teams or companies
+- replay protection for high-risk tool calls
+- provenance for compliance, incident review, or customer-facing trust
+
+---
+
+## Quick Answers For Security Teams
+
+- **Does the library require SaaS?** No. Signing and verification work locally with your own keys.
+- **Do we need to upload tool payloads for verification?** No. Verification can be done locally.
+- **Do private keys leave our environment?** No. Private keys stay with the operator.
+- **What is the registry for?** Certificate issuance, distribution, and revocation for third-party trust.
+- **Can we avoid the public registry?** Yes. You can operate with your own trust distribution model.
+- **What does TrustChain not solve?** Compromised tools, compromised infrastructure, or malicious data returned by a real tool.
+
+---
+
+## Do I Need Registry?
+
+| Scenario | Need TrustChain Registry? | Why |
+|----------|---------------------------|-----|
+| Local development / internal tools | **No** | TrustChain works with local keys out of the box |
+| Private deployment inside one company | **No** | You can distribute public keys or certificates inside your own trust domain |
+| Third-party offline verification across organizations | **Yes** | External verifiers need a public, trusted certificate distribution point |
+| Publicly discoverable agent certificates and revocation | **Yes** | The registry provides X.509 certificates and CRL for zero-trust verification |
 
 ---
 
@@ -46,28 +119,45 @@ uv pip install trustchain[ai]            # OpenAI + Anthropic + LangChain
 uv pip install trustchain[mcp]           # MCP Server only
 uv pip install trustchain[redis]         # Distributed nonce storage
 uv pip install trustchain[fastapi]       # FastAPI middleware
-uv pip install trustchain[all]           # Everything
+uv pip install trustchain[all]           # Everything listed above
 ```
 
 ---
 
 ## Public Certificate Registry
 
-Your agent signs data locally with Ed25519 -- great. But how does *another* developer verify your agent's signature?
+Your agent can sign data locally with Ed25519 without talking to any TrustChain service. But how does *another* developer verify your agent's signature without manually exchanging keys?
 
-**They need your public key.** And they need to trust it came from you, not an impersonator.
+**They need your public key.** And they need to trust that it really belongs to your agent, not to an impersonator.
 
-**[keys.trust-chain.ai](https://keys.trust-chain.ai)** is a public Root CA for AI agents. It works exactly like Let's Encrypt or the Apple App Store certificate chain:
+**[keys.trust-chain.ai](https://keys.trust-chain.ai)** is the public portal for the TrustChain Registry. The public verification API is served from `https://app.trust-chain.ai/api/pub` and works like a certificate distribution service for AI agents:
 
-1. **Register your agent** -- get a signed X.509 certificate
-2. **External developers download your cert** -- from a trusted public URL
-3. **Verify signatures offline** -- trust math, not API calls
+1. **You register an agent** and receive an X.509 certificate
+2. **External developers download the certificate and CRL**
+3. **They verify signatures offline** using the certificate chain
+
+**Registration is only required for certificate issuance.**
+**Verification endpoints are public and do not require API keys.**
+**Verification of signatures is offline after certificate download.**
+
+### What the registry does
+
+- issues X.509 certificates for registered agents
+- exposes the TrustChain CA certificate
+- exposes the current revocation list (`CRL`)
+- gives third parties a stable trust anchor for offline verification
+
+### What the registry does not do
+
+- it does **not** sign tool results on your behalf
+- it does **not** require sending payload data for verification
+- it does **not** replace local cryptographic verification
+- it is **not** required for internal or private deployments
 
 ```
-keys.trust-chain.ai/api/pub/ca              -->  Root CA certificate
-keys.trust-chain.ai/api/pub/agents          -->  All registered agents
-keys.trust-chain.ai/api/pub/agents/{id}/cert --> Agent certificate (PEM)
-keys.trust-chain.ai/api/pub/crl             -->  Revocation list
+app.trust-chain.ai/api/pub/ca               -->  Root CA certificate
+app.trust-chain.ai/api/pub/agents/{id}/cert -->  Agent certificate (PEM)
+app.trust-chain.ai/api/pub/crl              -->  Revocation list
 ```
 
 ### Verify an agent's signature (zero trust)
@@ -76,7 +166,7 @@ keys.trust-chain.ai/api/pub/crl             -->  Revocation list
 import httpx
 from cryptography.x509 import load_pem_x509_certificate, load_pem_x509_crl
 
-BASE = "https://keys.trust-chain.ai/api/pub"
+BASE = "https://app.trust-chain.ai/api/pub"
 
 # 1. Download certs (one-time, cache locally)
 agent_cert = load_pem_x509_certificate(httpx.get(f"{BASE}/agents/my-agent/cert").content)
@@ -91,7 +181,18 @@ assert crl.get_revoked_certificate_by_serial_number(agent_cert.serial_number) is
 agent_cert.public_key().verify(signature_bytes, data_bytes)
 ```
 
-No API keys required. No data sent to our servers. See [keys.trust-chain.ai](https://keys.trust-chain.ai) for the interactive portal.
+No API keys required. No payload data needs to be sent to our servers. Use [keys.trust-chain.ai](https://keys.trust-chain.ai) for the public portal and `app.trust-chain.ai/api/pub` for programmatic certificate discovery.
+
+### Why a registry matters
+
+Without a registry, teams often exchange public keys manually through email, config files, or private documentation. That works internally, but breaks down when:
+
+- customers need to verify your agent independently
+- security teams need revocation and key provenance
+- multiple organizations need the same trust anchor
+- auditors ask how a verifier knows a public key belongs to your agent
+
+The registry solves certificate distribution and revocation. TrustChain still performs signature verification locally.
 
 ---
 
@@ -123,7 +224,7 @@ assert tc.verify(result) == True
 
 Link operations cryptographically to prove execution order:
 
-![Chain of Trust](docs/wiki/chain_of_trust.png)
+[Chain of Trust walkthrough](https://github.com/petro1eum/trust_chain/wiki/Architecture#chain-of-trust).
 
 ```python
 step1 = tc._signer.sign("search", {"query": "balance"})
@@ -272,7 +373,7 @@ lc_tools = to_langchain_tools(tc)
 # Use with LangChain AgentExecutor
 ```
 
-### LangChain Callback Handler (v2.3.1)
+### LangChain Callback Handler (v2.4.0)
 
 Auto-sign all tool calls in LangChain agents:
 
@@ -287,7 +388,7 @@ for response in handler.get_signed_chain():
     print(f"{response.tool_id}: {response.signature[:24]}...")
 ```
 
-### AsyncTrustChain (v2.3.1)
+### AsyncTrustChain (v2.4.0)
 
 Native async/await support for FastAPI and other async frameworks:
 
@@ -299,7 +400,7 @@ async with AsyncTrustChain() as atc:
     assert atc.verify(response)
 ```
 
-### Pydantic v2 Integration (v2.3.1)
+### Pydantic v2 Integration (v2.4.0)
 
 Auto-signing Pydantic models:
 
@@ -317,7 +418,7 @@ user.balance = 999999  # Tampering!
 assert user.verify()  # False - detected!
 ```
 
-### OpenTelemetry Integration (v2.3.1)
+### OpenTelemetry Integration (v2.4.0)
 
 Add TrustChain signatures to OTel spans:
 
@@ -330,7 +431,7 @@ provider.add_span_processor(TrustChainSpanProcessor())
 # All spans now include trustchain.signature attribute
 ```
 
-### pytest Plugin (v2.3.1)
+### pytest Plugin (v2.4.0)
 
 Built-in fixtures for testing:
 
@@ -345,7 +446,7 @@ def test_my_tool(tc):
 
 ### Merkle Trees for Large Documents
 
-![Merkle Tree Verification](docs/wiki/merkle_tree_rag.png)
+[Merkle verification notes](https://github.com/petro1eum/trust_chain/wiki/Architecture#merkle-trees).
 
 ```python
 from trustchain.v2.merkle import MerkleTree, verify_proof
@@ -439,8 +540,9 @@ See the `examples/` directory:
 
 | Notebook | Description |
 |----------|-------------|
-| [trustchain_tutorial.ipynb](examples/trustchain_tutorial.ipynb) | Basic tutorial + all v2.3.1 integrations |
+| [trustchain_tutorial.ipynb](examples/trustchain_tutorial.ipynb) | Basic tutorial + current core integrations |
 | [trustchain_advanced.ipynb](examples/trustchain_advanced.ipynb) | Key persistence, multi-agent, Redis |
+| [trustchain_full_demo.ipynb](examples/trustchain_full_demo.ipynb) | Full walkthrough across core features |
 | [trustchain_llm.ipynb](examples/trustchain_llm.ipynb) | LLM integration examples |
 
 **Python examples:**
@@ -511,9 +613,11 @@ trustchain/
 | Korean | [GUIDE_KO.md](GUIDE_KO.md) |
 | Portuguese | [GUIDE_PT.md](GUIDE_PT.md) |
 
-- [Roadmap](ROADMAP.md) - Development roadmap
+- [Feature Matrix](docs/FEATURES.md) - OSS, Pro, and Enterprise capabilities
+- [Public Registry](docs/public-registry.md) - Offline verification flow and API endpoints
 - [MCP Security Spec](docs/MCP_SECURITY_SPEC.md) - MCP integration details
-- [GitHub Wiki](https://github.com/petro1eum/trust_chain/wiki) - Full API reference
+- [GitHub Wiki](https://github.com/petro1eum/trust_chain/wiki) - Canonical documentation
+- [Local Wiki Snapshot](docs/wiki/Home.md) - Repo copy for local browsing
 
 ---
 

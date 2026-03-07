@@ -354,7 +354,7 @@ tc = TrustChain(config)
 |----------|-------------|
 | trustchain_tutorial.ipynb | Tutoriel de base |
 | trustchain_advanced.ipynb | Avancé |
-| trustchain_pro.ipynb | Référence API complète |
+| trustchain_full_demo.ipynb | Parcours complet des fonctionnalités principales |
 
 ### Scripts Python
 
@@ -392,4 +392,4 @@ Ed Cherednik
 
 ## Version
 
-2.1.0 (19 janvier 2026)
+2.4.0

@@ -10,7 +10,7 @@ TrustChain 为每个响应添加：
 - 时间戳
 - 可选：与上一步的链接（信任链）
 
-![TrustChain Architecture](docs/wiki/architecture_flow.png)
+[架构说明](docs/wiki/Architecture.md) 与 [wiki 首页](docs/wiki/Home.md)。
 
 ---
 
@@ -503,7 +503,7 @@ trustchain/
 |----------|------|
 | [trustchain_tutorial.ipynb](examples/trustchain_tutorial.ipynb) | 基本教程 — 7 个关键场景 |
 | [trustchain_advanced.ipynb](examples/trustchain_advanced.ipynb) | 高级 — 密钥持久化、多代理、Redis |
-| [trustchain_pro.ipynb](examples/trustchain_pro.ipynb) | 完整 API 参考 v2.1 |
+| [trustchain_full_demo.ipynb](examples/trustchain_full_demo.ipynb) | 核心功能完整演示 |
 
 ### Python 脚本
 
@@ -546,4 +546,4 @@ Ed Cherednik
 
 ## 版本
 
-2.1.0（2026 年 1 月 19 日）
+2.4.0

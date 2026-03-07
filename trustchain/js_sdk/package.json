@@ -1,6 +1,6 @@
 {
   "name": "trustchain-js",
-  "version": "2.1.0",
+  "version": "2.4.0",
   "description": "JavaScript SDK for TrustChain - Cryptographically verified AI tool responses",
   "main": "trustchain.js",
   "types": "trustchain.d.ts",

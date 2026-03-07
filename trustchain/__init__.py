@@ -7,7 +7,7 @@ Author: Ed Cherednik (edcherednik@gmail.com)
 Telegram: @EdCher
 """
 
-__version__ = "2.3.1"
+__version__ = "2.4.0"
 __author__ = "Ed Cherednik"
 
 # Core exports

@@ -3,7 +3,7 @@
  * 
  * Provides cryptographically verified tool execution for JavaScript/Node.js applications.
  * 
- * @version 2.1.0
+ * @version 2.4.0
  * @author TrustChain Team
  */
 

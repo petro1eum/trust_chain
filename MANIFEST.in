@@ -1,7 +1,5 @@
 include README.md
-include QUICKSTART.md
 include LICENSE
-include requirements.txt
 include pyproject.toml
 recursive-include trustchain *.py
 recursive-include examples *.py

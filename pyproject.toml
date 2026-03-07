@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trustchain"
-version = "2.3.3"
+version = "2.4.0"
 description = "Cryptographically signed AI tool responses for preventing hallucinations"
 readme = "README.md"
 authors = [
@@ -73,7 +73,7 @@ redis = [
 ]
 blockchain = [
     "web3>=6.0.0",
-    "ipfshttpclient>=0.8.0",
+    "ipfshttpclient>=0.8.0a2",
 ]
 web = [
     "fastapi>=0.104.0",
@@ -104,10 +104,13 @@ integrations = [
 all = [
     "fastapi>=0.104.0",
     "starlette>=0.27.0",
-    "flask>=2.0.0",
-    "django>=4.0.0",
+    "langchain>=0.1.0",
     "langchain-core>=0.1.0",
+    "openai>=1.0.0",
+    "anthropic>=0.8.0",
     "mcp>=1.0.0",
+    "redis>=5.0.0",
+    "aioredis>=2.0.0",
 ]
 dev = [
     "pytest>=7.0.0",
@@ -127,7 +130,7 @@ tc = "trustchain.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/petro1eum/trust_chain"
-Documentation = "https://trustchain.readthedocs.io/"
+Documentation = "https://github.com/petro1eum/trust_chain/wiki"
 Repository = "https://github.com/petro1eum/trust_chain.git"
 "Bug Tracker" = "https://github.com/petro1eum/trust_chain/issues"
 

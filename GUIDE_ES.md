@@ -10,7 +10,7 @@ TrustChain añade a cada respuesta:
 - Marca de tiempo
 - Opcionalmente: enlace al paso anterior (Cadena de Confianza)
 
-![TrustChain Architecture](docs/wiki/architecture_flow.png) (Cadena de Confianza)
+[Arquitectura](docs/wiki/Architecture.md) y [portada de la wiki](docs/wiki/Home.md).
 
 ---
 
@@ -395,7 +395,7 @@ tc = TrustChain(config)
 |----------|-------------|
 | trustchain_tutorial.ipynb | Tutorial básico |
 | trustchain_advanced.ipynb | Avanzado |
-| trustchain_pro.ipynb | Referencia API completa |
+| trustchain_full_demo.ipynb | Recorrido completo por las funciones principales |
 
 ### Scripts Python
 
@@ -433,4 +433,4 @@ Ed Cherednik
 
 ## Versión
 
-2.1.0 (19 de enero de 2026)
+2.4.0

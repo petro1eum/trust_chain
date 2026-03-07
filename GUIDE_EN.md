@@ -10,7 +10,7 @@ TrustChain adds to every response:
 - Timestamp
 - Optionally: link to previous step (Chain of Trust)
 
-![TrustChain Architecture](docs/wiki/architecture_flow.png)
+[Architecture overview](docs/wiki/Architecture.md) and [wiki home](docs/wiki/Home.md).
 
 ---
 
@@ -137,7 +137,7 @@ tc.verify(result)  # NonceReplayError -- nonce already used
 
 ## Chain of Trust
 
-![Chain of Trust](docs/wiki/chain_of_trust.png)
+[Chain of Trust walkthrough](docs/wiki/Architecture.md#chain-of-trust).
 
 Allows cryptographically linking multiple operations.
 
@@ -349,7 +349,7 @@ For Claude Desktop add to `claude_desktop_config.json`:
 
 ## Merkle Trees
 
-![Merkle Tree Verification](docs/wiki/merkle_tree_rag.png)
+[Merkle verification notes](docs/wiki/Architecture.md#merkle-trees).
 
 For verifying large documents without loading entire content.
 
@@ -507,7 +507,7 @@ trustchain/
 |----------|-------------|
 | [trustchain_tutorial.ipynb](examples/trustchain_tutorial.ipynb) | Basic tutorial — 7 key scenarios |
 | [trustchain_advanced.ipynb](examples/trustchain_advanced.ipynb) | Advanced — key persistence, multi-agent, Redis |
-| [trustchain_pro.ipynb](examples/trustchain_pro.ipynb) | Complete API reference v2.1 |
+| [trustchain_full_demo.ipynb](examples/trustchain_full_demo.ipynb) | Full walkthrough across core features |
 
 ### Python Scripts
 
@@ -550,4 +550,4 @@ Ed Cherednik
 
 ## Version
 
-2.1.0 (January 19, 2026)
+2.4.0

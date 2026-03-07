@@ -65,11 +65,11 @@ print(tc.verify(result)) # True
 |----------|-------------|
 | [trustchain_tutorial.ipynb](../examples/trustchain_tutorial.ipynb) | Basic tutorial - 7 core use cases |
 | [trustchain_advanced.ipynb](../examples/trustchain_advanced.ipynb) | Advanced - key persistence, multi-agent |
-| [trustchain_pro.ipynb](../examples/trustchain_pro.ipynb) | Full API reference |
+| [trustchain_full_demo.ipynb](../examples/trustchain_full_demo.ipynb) | Full walkthrough across core features |
 
 ## Version
 
-Current version: 2.1.0
+Current version: 2.4.0
 
 ## License
 

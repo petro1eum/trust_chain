@@ -354,7 +354,7 @@ tc = TrustChain(config)
 |----------|------|
 | trustchain_tutorial.ipynb | 기본 튜토리얼 |
 | trustchain_advanced.ipynb | 고급 |
-| trustchain_pro.ipynb | 전체 API 참조 |
+| trustchain_full_demo.ipynb | 핵심 기능 전체 데모 |
 
 ### Python 스크립트
 
@@ -392,4 +392,4 @@ Ed Cherednik
 
 ## 버전
 
-2.1.0 (2026년 1월 19일)
+2.4.0

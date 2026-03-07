@@ -10,7 +10,7 @@ TrustChain добавляет к каждому ответу:
 - Временную метку
 - Опционально: связь с предыдущим шагом (Chain of Trust)
 
-![TrustChain Architecture](docs/wiki/architecture_flow.png)
+[Обзор архитектуры](docs/wiki/Architecture.md) и [главная страница wiki](docs/wiki/Home.md).
 
 ---
 
@@ -137,7 +137,7 @@ tc.verify(result)  # NonceReplayError -- nonce уже использован
 
 ## Chain of Trust (Цепочка доверия)
 
-![Chain of Trust](docs/wiki/chain_of_trust.png)
+[Разбор Chain of Trust](docs/wiki/Architecture.md#chain-of-trust).
 
 Позволяет связывать несколько операций криптографически.
 
@@ -349,7 +349,7 @@ serve_mcp(tc)
 
 ## Merkle Trees
 
-![Merkle Tree Verification](docs/wiki/merkle_tree_rag.png)
+[Заметки по Merkle-верификации](docs/wiki/Architecture.md#merkle-trees).
 
 Для верификации больших документов без загрузки всего содержимого.
 
@@ -507,7 +507,7 @@ trustchain/
 |----------|----------|
 | [trustchain_tutorial.ipynb](examples/trustchain_tutorial.ipynb) | Базовый туториал — 7 ключевых сценариев |
 | [trustchain_advanced.ipynb](examples/trustchain_advanced.ipynb) | Продвинутое — key persistence, multi-agent, Redis |
-| [trustchain_pro.ipynb](examples/trustchain_pro.ipynb) | Полный справочник API v2.1 |
+| [trustchain_full_demo.ipynb](examples/trustchain_full_demo.ipynb) | Полный walkthrough по ключевым возможностям |
 
 ### Python скрипты
 
@@ -550,4 +550,4 @@ Ed Cherednik
 
 ## Версия
 
-2.1.0 (19 января 2026)
+2.4.0

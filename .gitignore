@@ -237,4 +237,5 @@ docs/*_video.webp
 docs/*.pdf
 
 # Internal docs — not for public repo
-docs/
+private_docs/
+docs/internal/

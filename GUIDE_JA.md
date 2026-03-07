@@ -354,7 +354,7 @@ tc = TrustChain(config)
 |----------|------|
 | trustchain_tutorial.ipynb | 基本チュートリアル |
 | trustchain_advanced.ipynb | 上級 |
-| trustchain_pro.ipynb | 完全なAPI参照 |
+| trustchain_full_demo.ipynb | 主要機能を通しで確認できる完全デモ |
 
 ### Pythonスクリプト
 
@@ -392,4 +392,4 @@ Ed Cherednik
 
 ## バージョン
 
-2.1.0（2026年1月19日）
+2.4.0

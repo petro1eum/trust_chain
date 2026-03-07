@@ -537,9 +537,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-- 📖 [Documentation](https://trustchain.readthedocs.io)
-- 🐛 [Issue Tracker](https://github.com/your-username/trustchain/issues)
-- 💬 [Discussions](https://github.com/your-username/trustchain/discussions)
+- 📖 [Documentation](https://github.com/petro1eum/trust_chain/wiki)
+- 🐛 [Issue Tracker](https://github.com/petro1eum/trust_chain/issues)
+- 💬 [Discussions](https://github.com/petro1eum/trust_chain/discussions)
 
 ---
 
