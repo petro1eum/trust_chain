@@ -207,6 +207,35 @@ class TestAgentCertificate:
         assert "not_before" in d
         assert "not_after" in d
 
+    def test_issue_agent_cert_with_external_public_key(self):
+        """CA can issue a cert for an externally generated Ed25519 public key."""
+        import base64
+
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+        root = TrustChainCA.create_root_ca()
+        intermediate = root.issue_intermediate_ca()
+        external_key = Ed25519PrivateKey.generate()
+        public_key_b64 = base64.b64encode(
+            external_key.public_key().public_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PublicFormat.Raw,
+            )
+        ).decode("ascii")
+
+        agent = intermediate.issue_agent_cert(
+            "external-key-agent",
+            public_key_b64=public_key_b64,
+        )
+
+        payload = b"external ownership proof"
+        signature = external_key.sign(payload)
+
+        assert agent.verify_signature(payload, signature) is True
+        with pytest.raises(ValueError):
+            agent.sign_data(payload)
+
 
 class TestChainVerification:
     """Full chain verification: Agent → Intermediate → Root."""
@@ -479,6 +508,21 @@ class TestCAPersistence:
         result = loaded.verify_cert(intermediate.certificate)
         assert result.valid is True
 
+    def test_revocation_survives_reload(self, tmp_path):
+        """Persisted CRL must remain effective after reload."""
+        root = TrustChainCA.create_root_ca("Persistent Root")
+        intermediate = root.issue_intermediate_ca("Persistent Intermediate")
+        agent = intermediate.issue_agent_cert("revoked-agent")
+
+        intermediate.revoke(agent.serial_number, "compromised")
+        intermediate.save(str(tmp_path / "ca"))
+
+        loaded = TrustChainCA.load(str(tmp_path / "ca"), "Persistent Intermediate")
+        result = loaded.verify_cert(agent.certificate)
+
+        assert result.valid is False
+        assert "REVOKED" in result.errors
+
 
 class TestCertVerifyResult:
     """CertVerifyResult serialization."""
@@ -608,6 +652,22 @@ class TestSubAgentDelegation:
 
         bc = child.certificate.extensions.get_extension_for_class(BasicConstraints)
         assert bc.value.ca is False
+
+    def test_leaf_certificate_cannot_be_used_as_intermediate(self):
+        """A leaf agent certificate must never validate as a CA in the chain."""
+        root = TrustChainCA.create_root_ca()
+        intermediate = root.issue_intermediate_ca()
+
+        rogue_leaf = intermediate.issue_agent_cert("rogue-leaf")
+        victim = intermediate.issue_agent_cert("victim")
+        rogue_ca = TrustChainCA(
+            name="Rogue Leaf",
+            private_key=rogue_leaf._private_key,  # simulate malicious reuse of leaf key
+            certificate=rogue_leaf.certificate,
+        )
+
+        assert victim.verify_chain([intermediate, root]) is True
+        assert victim.verify_chain([rogue_ca, root]) is False
 
     def test_parent_serial_pem_roundtrip(self):
         """Parent serial OID survives PEM export/import."""

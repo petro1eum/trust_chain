@@ -26,6 +26,13 @@ def test_basic_tool_creation():
     assert response.is_verified is True
 
 
+def test_signed_response_is_not_implicitly_verified():
+    """A manually constructed response must not appear verified."""
+    response = SignedResponse(tool_id="x", data={"ok": True}, signature="junk")
+
+    assert response.is_verified is False
+
+
 def test_tool_verification():
     """Test signature verification."""
     # Disable nonce to test pure signature verification

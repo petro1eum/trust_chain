@@ -1,5 +1,7 @@
 """Tests for trustchain/v2/verifier.py - External verification."""
 
+import time
+
 import pytest
 
 from trustchain import TrustChain, TrustChainVerifier, VerificationResult
@@ -59,6 +61,29 @@ class TestTrustChainVerifier:
 
         # Replace with invalid signature
         signed.signature = "invalid_signature_base64"
+
+        result = verifier.verify(signed)
+
+        assert result.valid is False
+
+    def test_verify_rejects_stale_response(self, tc):
+        """External verifier should reject stale signed responses by default."""
+        signed = tc._signer.sign("test", {"value": 42})
+        signed.timestamp = time.time() - 301
+
+        verifier = TrustChainVerifier(tc.export_public_key())
+        result = verifier.verify(signed)
+
+        assert result.valid is False
+
+    def test_verify_certificate_metadata_is_covered(self, tc, verifier):
+        """External verifier must fail if signed trust metadata is tampered."""
+        signed = tc._signer.sign(
+            "test",
+            {"value": 42},
+            certificate={"owner": "Trusted", "tier": "enterprise"},
+        )
+        signed.certificate["owner"] = "Mallory"
 
         result = verifier.verify(signed)
 

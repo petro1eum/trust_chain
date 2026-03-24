@@ -26,6 +26,7 @@ TrustChain is a cryptographic verification layer for AI agent tool calls. It add
 - [API Reference](API-Reference)
 - [Examples](Examples)
 - [Architecture](Architecture)
+- [Security](Security)
 - [FAQ](FAQ)
 
 ## Installation

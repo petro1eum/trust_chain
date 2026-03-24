@@ -17,7 +17,13 @@ from .config import TrustChainConfig
 from .core import TrustChain
 from .logging import get_logger, setup_logging
 from .metrics import TrustChainMetrics, get_metrics
-from .nonce_storage import MemoryNonceStorage, NonceStorage, RedisNonceStorage
+from .nonce_storage import (
+    AdapterNonceStorage,
+    MemoryNonceStorage,
+    NonceStorage,
+    RedisNonceStorage,
+    adapt_nonce_storage,
+)
 from .session import TrustChainSession, create_session
 from .signer import SignedResponse
 from .storage import FileStorage, MemoryStorage, Storage
@@ -66,6 +72,8 @@ __all__ = [
     "setup_logging",
     "get_logger",
     "RedisNonceStorage",
+    "AdapterNonceStorage",
+    "adapt_nonce_storage",
     # X.509 PKI for AI Agents
     "TrustChainCA",
     "AgentCertificate",

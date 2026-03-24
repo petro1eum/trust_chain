@@ -195,10 +195,59 @@ class RedisNonceStorage(NonceStorage):
             return False
 
 
+class AdapterNonceStorage(NonceStorage):
+    """Adapter for foreign nonce backends.
+
+    Supports two common contracts:
+    - native TrustChain-style: `check_and_add(nonce, ttl=...)`
+    - simple storage-style: `add(nonce)` + `contains(nonce)`
+    """
+
+    def __init__(self, storage: Any):
+        self._storage = storage
+
+    def check_and_add(self, nonce: str, ttl: int = 300) -> bool:
+        if hasattr(self._storage, "check_and_add"):
+            try:
+                return bool(self._storage.check_and_add(nonce, ttl))
+            except TypeError:
+                return bool(self._storage.check_and_add(nonce))
+
+        if hasattr(self._storage, "add"):
+            return bool(self._storage.add(nonce))
+
+        raise TypeError(
+            "Explicit nonce_storage must provide check_and_add(nonce[, ttl]) "
+            "or add(nonce)."
+        )
+
+    def contains(self, nonce: str) -> bool:
+        if not hasattr(self._storage, "contains"):
+            raise TypeError("Explicit nonce_storage must provide contains(nonce).")
+        return bool(self._storage.contains(nonce))
+
+    def clear(self) -> None:
+        if not hasattr(self._storage, "clear"):
+            raise TypeError("Explicit nonce_storage must provide clear().")
+        self._storage.clear()
+
+    def close(self) -> None:
+        if hasattr(self._storage, "close"):
+            self._storage.close()
+
+
+def adapt_nonce_storage(storage: Any) -> NonceStorage:
+    """Normalize foreign nonce storage backends to the TrustChain interface."""
+    if isinstance(storage, NonceStorage):
+        return storage
+    return AdapterNonceStorage(storage)
+
+
 def create_nonce_storage(
     backend: str = "memory",
     redis_url: Optional[str] = None,
     tenant_id: Optional[str] = None,
+    storage: Optional[Any] = None,
     **kwargs: Any,
 ) -> NonceStorage:
     """Factory function to create nonce storage.
@@ -212,6 +261,9 @@ def create_nonce_storage(
     Returns:
         NonceStorage instance
     """
+    if storage is not None:
+        return adapt_nonce_storage(storage)
+
     if backend == "memory":
         return MemoryNonceStorage(**kwargs)
     elif backend == "redis":

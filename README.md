@@ -615,6 +615,7 @@ trustchain/
 
 - [Feature Matrix](docs/FEATURES.md) - OSS, Pro, and Enterprise capabilities
 - [Public Registry](docs/public-registry.md) - Offline verification flow and API endpoints
+- [Security Model & SOC2 Notes](docs/wiki/Security.md) - Threat model, guarantees, and honest gaps
 - [MCP Security Spec](docs/MCP_SECURITY_SPEC.md) - MCP integration details
 - [GitHub Wiki](https://github.com/petro1eum/trust_chain/wiki) - Canonical documentation
 - [Local Wiki Snapshot](docs/wiki/Home.md) - Repo copy for local browsing

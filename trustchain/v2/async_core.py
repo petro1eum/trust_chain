@@ -49,7 +49,12 @@ class AsyncTrustChain:
         # Nonce storage for replay protection
         self._nonce_storage: Optional[NonceStorage] = None
         if self.config.enable_nonce:
-            self._nonce_storage = create_nonce_storage(self.config.nonce_backend)
+            self._nonce_storage = create_nonce_storage(
+                storage=self.config.nonce_storage,
+                backend=self.config.nonce_backend,
+                redis_url=self.config.redis_url,
+                tenant_id=self.config.tenant_id,
+            )
 
     async def __aenter__(self) -> "AsyncTrustChain":
         """Async context manager entry."""
@@ -111,6 +116,7 @@ class AsyncTrustChain:
         tool_id: str,
         result: Any,
         parent_signature: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> SignedResponse:
         """Sign a result with optional parent chain link."""
         async with self._lock:
@@ -123,6 +129,8 @@ class AsyncTrustChain:
                 data=result,
                 nonce=nonce,
                 parent_signature=parent_signature,
+                metadata=metadata,
+                certificate=self.config.certificate,
             )
 
             # Store for verification
@@ -150,10 +158,7 @@ class AsyncTrustChain:
         Returns:
             SignedResponse with cryptographic signature
         """
-        if metadata:
-            data = {"data": data, "metadata": metadata}
-
-        return await self._sign_result(tool_id, data, parent_signature)
+        return await self._sign_result(tool_id, data, parent_signature, metadata)
 
     async def verify(self, response: Union[SignedResponse, Dict[str, Any]]) -> bool:
         """Verify a signed response.
@@ -170,11 +175,20 @@ class AsyncTrustChain:
         if isinstance(response, dict):
             response = SignedResponse(**response)
 
+        now = time.time()
+        if self.config.enable_nonce and response.timestamp:
+            if response.timestamp > now + 30:
+                return False
+            if now - response.timestamp > self.config.nonce_ttl:
+                return False
+
         # Check nonce for replay protection
         if self.config.enable_nonce and self._nonce_storage and response.nonce:
             async with self._lock:
                 is_new = await asyncio.to_thread(
-                    self._nonce_storage.check_and_add, response.nonce
+                    self._nonce_storage.check_and_add,
+                    response.nonce,
+                    self.config.nonce_ttl,
                 )
                 if not is_new:
                     from trustchain.utils.exceptions import NonceReplayError

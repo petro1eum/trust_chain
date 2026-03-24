@@ -28,6 +28,7 @@ class SignedResponse:
     timestamp: float = field(default_factory=time.time)
     nonce: Optional[str] = None
     parent_signature: Optional[str] = None  # Chain of Trust: link to previous step
+    metadata: Optional[Dict[str, Any]] = None  # Signed contextual metadata
     certificate: Optional[Dict[str, Any]] = None  # Identity metadata
 
     # TSA (Timestamp Authority) proof - RFC 3161
@@ -39,9 +40,7 @@ class SignedResponse:
     @property
     def is_verified(self) -> bool:
         """Check if response is verified (cached)."""
-        if self._verified is None:
-            self._verified = bool(self.signature)
-        return self._verified
+        return self._verified is True
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -54,11 +53,42 @@ class SignedResponse:
             "nonce": self.nonce,
             "parent_signature": self.parent_signature,
         }
-        if self.certificate:
+        if self.metadata is not None:
+            result["metadata"] = self.metadata
+        if self.certificate is not None:
             result["certificate"] = self.certificate
-        if self.tsa_proof:
+        if self.tsa_proof is not None:
             result["tsa_proof"] = self.tsa_proof
         return result
+
+
+def _build_canonical_data(
+    tool_id: str,
+    data: Any,
+    timestamp: float,
+    nonce: Optional[str],
+    parent_signature: Optional[str],
+    metadata: Optional[Dict[str, Any]] = None,
+    certificate: Optional[Dict[str, Any]] = None,
+    tsa_proof: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Build the canonical payload covered by the signature."""
+    canonical_data: Dict[str, Any] = {
+        "tool_id": tool_id,
+        "data": data,
+        "timestamp": timestamp,
+        "nonce": nonce,
+        "parent_signature": parent_signature,
+    }
+
+    if metadata is not None:
+        canonical_data["metadata"] = metadata
+    if certificate is not None:
+        canonical_data["certificate"] = certificate
+    if tsa_proof is not None:
+        canonical_data["tsa_proof"] = tsa_proof
+
+    return canonical_data
 
 
 class Signer:
@@ -70,13 +100,12 @@ class Signer:
 
         if algorithm == "ed25519":
             if not HAS_CRYPTOGRAPHY:
-                # Fallback to simple hash-based "signature" for demo
-                self._use_fallback = True
-                self._secret = str(uuid.uuid4())
-            else:
-                self._use_fallback = False
-                self._private_key = ed25519.Ed25519PrivateKey.generate()
-                self._public_key = self._private_key.public_key()
+                raise RuntimeError(
+                    "TrustChain requires the 'cryptography' package for Ed25519 signing."
+                )
+            self._use_fallback = False
+            self._private_key = ed25519.Ed25519PrivateKey.generate()
+            self._public_key = self._private_key.public_key()
         else:
             raise ValueError(f"Unsupported algorithm: {algorithm}")
 
@@ -86,16 +115,25 @@ class Signer:
         data: Any,
         nonce: Optional[str] = None,
         parent_signature: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        certificate: Optional[Dict[str, Any]] = None,
+        tsa_proof: Optional[Dict[str, Any]] = None,
     ) -> SignedResponse:
         """Sign data and return SignedResponse."""
+        timestamp = time.time()
+        resolved_nonce = nonce or str(uuid.uuid4())
+
         # Create canonical representation
-        canonical_data = {
-            "tool_id": tool_id,
-            "data": data,
-            "timestamp": time.time(),
-            "nonce": nonce or str(uuid.uuid4()),
-            "parent_signature": parent_signature,
-        }
+        canonical_data = _build_canonical_data(
+            tool_id=tool_id,
+            data=data,
+            timestamp=timestamp,
+            nonce=resolved_nonce,
+            parent_signature=parent_signature,
+            metadata=metadata,
+            certificate=certificate,
+            tsa_proof=tsa_proof,
+        )
 
         # Serialize to JSON
         json_data = json.dumps(canonical_data, sort_keys=True, separators=(",", ":"))
@@ -109,26 +147,34 @@ class Signer:
             signature_bytes = self._private_key.sign(json_data.encode("utf-8"))
             signature = base64.b64encode(signature_bytes).decode("ascii")
 
-        return SignedResponse(
+        response = SignedResponse(
             tool_id=tool_id,
             data=data,
             signature=signature,
-            timestamp=canonical_data["timestamp"],
-            nonce=canonical_data["nonce"],
+            timestamp=timestamp,
+            nonce=resolved_nonce,
             parent_signature=parent_signature,
+            metadata=metadata,
+            certificate=certificate,
+            tsa_proof=tsa_proof,
         )
+        response._verified = True
+        return response
 
     def verify(self, response: SignedResponse) -> bool:
         """Verify a signed response."""
         try:
             # Recreate canonical data
-            canonical_data = {
-                "tool_id": response.tool_id,
-                "data": response.data,
-                "timestamp": response.timestamp,
-                "nonce": response.nonce,
-                "parent_signature": response.parent_signature,
-            }
+            canonical_data = _build_canonical_data(
+                tool_id=response.tool_id,
+                data=response.data,
+                timestamp=response.timestamp,
+                nonce=response.nonce,
+                parent_signature=response.parent_signature,
+                metadata=response.metadata,
+                certificate=response.certificate,
+                tsa_proof=response.tsa_proof,
+            )
 
             # Serialize to JSON
             json_data = json.dumps(
@@ -156,14 +202,11 @@ class Signer:
 
     def get_public_key(self) -> str:
         """Get the public key in base64 format."""
-        if self._use_fallback:
-            return self._secret  # In fallback mode, return secret hash
-        else:
-            public_bytes = self._public_key.public_bytes(
-                encoding=serialization.Encoding.Raw,
-                format=serialization.PublicFormat.Raw,
-            )
-            return base64.b64encode(public_bytes).decode("ascii")
+        public_bytes = self._public_key.public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        return base64.b64encode(public_bytes).decode("ascii")
 
     def get_key_id(self) -> str:
         """Get the key identifier."""
@@ -175,26 +218,18 @@ class Signer:
         Returns:
             dict with type, key_id, and key material (base64 encoded)
         """
-        if self._use_fallback:
-            return {
-                "type": "fallback",
-                "key_id": self.key_id,
-                "secret": self._secret,
-                "algorithm": self.algorithm,
-            }
-        else:
-            # Export private key in raw format
-            private_bytes = self._private_key.private_bytes(
-                encoding=serialization.Encoding.Raw,
-                format=serialization.PrivateFormat.Raw,
-                encryption_algorithm=serialization.NoEncryption(),
-            )
-            return {
-                "type": "ed25519",
-                "key_id": self.key_id,
-                "private_key": base64.b64encode(private_bytes).decode("ascii"),
-                "algorithm": self.algorithm,
-            }
+        # Export private key in raw format
+        private_bytes = self._private_key.private_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PrivateFormat.Raw,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+        return {
+            "type": "ed25519",
+            "key_id": self.key_id,
+            "private_key": base64.b64encode(private_bytes).decode("ascii"),
+            "algorithm": self.algorithm,
+        }
 
     @classmethod
     def from_keys(cls, key_data: dict) -> "Signer":
@@ -211,8 +246,9 @@ class Signer:
         signer.key_id = key_data["key_id"]
 
         if key_data["type"] == "fallback":
-            signer._use_fallback = True
-            signer._secret = key_data["secret"]
+            raise ValueError(
+                "Legacy fallback keys are no longer supported for security reasons."
+            )
         elif key_data["type"] == "ed25519":
             if not HAS_CRYPTOGRAPHY:
                 raise ValueError("cryptography library required for Ed25519")

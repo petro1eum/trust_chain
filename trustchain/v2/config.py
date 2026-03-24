@@ -1,7 +1,7 @@
 """Configuration for TrustChain v2."""
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Any, List, Optional
 
 
 @dataclass
@@ -52,6 +52,7 @@ class TrustChainConfig:
 
     # Enterprise: Nonce storage backend
     nonce_backend: str = "memory"  # Options: memory, redis
+    nonce_storage: Optional[Any] = None  # Explicit nonce storage adapter/backend
 
     # Enterprise: Multi-tenancy
     tenant_id: Optional[str] = None  # Namespace for tenant isolation
@@ -82,3 +83,6 @@ class TrustChainConfig:
 
         if self.max_cached_responses <= 0:
             raise ValueError("max_cached_responses must be positive")
+
+        if self.nonce_ttl <= 0:
+            raise ValueError("nonce_ttl must be positive")

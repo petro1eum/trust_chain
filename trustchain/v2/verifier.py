@@ -6,6 +6,7 @@ who want to verify signed responses without signing capability.
 
 import base64
 import json
+import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Union
 
@@ -16,7 +17,7 @@ try:
 except ImportError:
     HAS_CRYPTOGRAPHY = False
 
-from .signer import SignedResponse
+from .signer import SignedResponse, _build_canonical_data
 
 
 @dataclass
@@ -52,18 +53,28 @@ class TrustChainVerifier:
             print("Response is authentic!")
     """
 
-    def __init__(self, public_key: str, key_id: Optional[str] = None):
+    def __init__(
+        self,
+        public_key: str,
+        key_id: Optional[str] = None,
+        max_age_seconds: Optional[int] = 300,
+        max_future_skew_seconds: int = 30,
+    ):
         """Initialize verifier with public key.
 
         Args:
             public_key: Base64-encoded Ed25519 public key
             key_id: Optional key identifier for logging
+            max_age_seconds: Reject responses older than this age. Use None to disable.
+            max_future_skew_seconds: Allowed future clock skew for timestamps.
         """
         if not HAS_CRYPTOGRAPHY:
             raise ValueError("cryptography library required for verification")
 
         self._public_key_b64 = public_key
         self._key_id = key_id
+        self._max_age_seconds = max_age_seconds
+        self._max_future_skew_seconds = max_future_skew_seconds
 
         try:
             public_bytes = base64.b64decode(public_key)
@@ -95,14 +106,24 @@ class TrustChainVerifier:
                 )
 
         try:
+            now = time.time()
+            if self._max_age_seconds is not None:
+                if response.timestamp > now + self._max_future_skew_seconds:
+                    raise ValueError("Response timestamp is in the future")
+                if now - response.timestamp > self._max_age_seconds:
+                    raise ValueError("Response timestamp is too old")
+
             # Recreate canonical data (must match signer.py format exactly)
-            canonical_data = {
-                "tool_id": response.tool_id,
-                "data": response.data,
-                "timestamp": response.timestamp,
-                "nonce": response.nonce,
-                "parent_signature": response.parent_signature,
-            }
+            canonical_data = _build_canonical_data(
+                tool_id=response.tool_id,
+                data=response.data,
+                timestamp=response.timestamp,
+                nonce=response.nonce,
+                parent_signature=response.parent_signature,
+                metadata=response.metadata,
+                certificate=response.certificate,
+                tsa_proof=response.tsa_proof,
+            )
 
             # Serialize to JSON (same format as signer)
             json_data = json.dumps(

@@ -48,6 +48,7 @@ class TrustChain:
         self._nonce_storage: Optional[NonceStorage] = None
         if self.config.enable_nonce:
             self._nonce_storage = create_nonce_storage(
+                storage=self.config.nonce_storage,
                 backend=self.config.nonce_backend,
                 redis_url=self.config.redis_url,
                 tenant_id=self.config.tenant_id,
@@ -374,12 +375,15 @@ class TrustChain:
         if self.config.enable_nonce:
             nonce = self._generate_nonce()
 
-        # Sign the response with certificate if configured
-        signed = self._signer.sign(tool_id, data, nonce, parent_signature)
-
-        # Add certificate from config if present
-        if self.config.certificate:
-            signed.certificate = self.config.certificate
+        # Sign the response including trust metadata covered by the signature.
+        signed = self._signer.sign(
+            tool_id=tool_id,
+            data=data,
+            nonce=nonce,
+            parent_signature=parent_signature,
+            metadata=metadata,
+            certificate=self.config.certificate,
+        )
 
         # Auto-commit to chain (like `git commit -a`)
         if self.config.enable_chain:
@@ -436,13 +440,13 @@ class TrustChain:
             result = func(*args, **kwargs)
             execution_time = time.time() - start_time
 
-            # Generate nonce if enabled
-            nonce = None
-            if self.config.enable_nonce:
-                nonce = self._generate_nonce()
-
-            # Sign the response
-            signed_response = self._signer.sign(tool_id, result, nonce)
+            # Use the primary signing path so tool calls get the same
+            # chain, nonce, and signed metadata semantics as direct sign().
+            signed_response = self.sign(
+                tool_id,
+                result,
+                latency_ms=execution_time * 1000,
+            )
 
             # Store in cache if enabled
             if self.config.enable_cache:
@@ -475,13 +479,13 @@ class TrustChain:
             result = await func(*args, **kwargs)
             execution_time = time.time() - start_time
 
-            # Generate nonce if enabled
-            nonce = None
-            if self.config.enable_nonce:
-                nonce = self._generate_nonce()
-
-            # Sign the response
-            signed_response = self._signer.sign(tool_id, result, nonce)
+            # Use the primary signing path so async tool calls get the same
+            # security guarantees as direct sign().
+            signed_response = self.sign(
+                tool_id,
+                result,
+                latency_ms=execution_time * 1000,
+            )
 
             # Store in cache if enabled
             if self.config.enable_cache:
@@ -510,6 +514,16 @@ class TrustChain:
         # Convert dict to SignedResponse if needed
         if isinstance(response, dict):
             response = SignedResponse(**response)
+
+        # Freshness check: signed timestamps must remain within the replay window.
+        if self.config.enable_nonce and response.timestamp:
+            now = time.time()
+            if response.timestamp > now + 30:
+                response._verified = False
+                return False
+            if now - response.timestamp > self.config.nonce_ttl:
+                response._verified = False
+                return False
 
         # Check nonce for replay protection (if enabled)
         if self._nonce_storage and response.nonce:

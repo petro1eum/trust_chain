@@ -2,7 +2,7 @@
 
 > **Zero-trust, offline-verifiable signatures for AI agents.**
 
-The Public Registry exposes three read-only, unauthenticated endpoints so **any external developer** can verify that a signature was produced by a registered TrustChain agent — without trusting our API blindly and without sending data to our servers.
+The Public Registry exposes read-only, unauthenticated endpoints so **any external developer** can verify that a signature was produced by a registered TrustChain agent — without trusting our API blindly and without sending data to our servers.
 
 ---
 
@@ -14,10 +14,11 @@ Every registered agent receives an **X.509 certificate** signed by the TrustChai
 To verify an agent's signature:
 
 1. Download the agent's **X.509 certificate** from the registry
-2. Verify the certificate against the **TrustChain Platform CA** (local, offline)
-3. Check the certificate is not on the **CRL** (Certificate Revocation List)
-4. Extract the **Ed25519 public key** from the verified certificate
-5. Verify the signature locally — **no server call needed**
+2. Download the **Root CA** trust anchor and the **TrustChain Platform CA** intermediate
+3. Verify the certificate chain locally: `Root CA -> Platform CA -> Agent`
+4. Check the certificate is not on the **CRL** (Certificate Revocation List)
+5. Extract the **Ed25519 public key** from the verified certificate
+6. Verify the signature locally — **no server call needed**
 
 ---
 
@@ -41,11 +42,20 @@ MIIBxTCCAW...
 
 ### `GET /api/pub/ca`
 
-Returns the PEM-encoded TrustChain Platform CA certificate.  
-Cache this — it rarely changes.
+Returns the PEM-encoded TrustChain Platform CA **intermediate** certificate.  
+Use this together with `GET /api/pub/root-ca`.
 
 ```bash
 curl https://app.trust-chain.ai/api/pub/ca
+```
+
+### `GET /api/pub/root-ca`
+
+Returns the PEM-encoded TrustChain Root CA certificate.  
+This is the trust anchor you should pin in high-security deployments.
+
+```bash
+curl https://app.trust-chain.ai/api/pub/root-ca
 ```
 
 ### `GET /api/pub/crl`
@@ -69,31 +79,39 @@ from cryptography.x509.ocsp import OCSPCertStatus
 
 BASE = "https://app.trust-chain.ai/api/pub"
 
-# 1. Download certificates (cache ca_pem and crl_pem in production)
+# 1. Download certificates (cache root_ca_pem, ca_pem, and crl_pem in production)
 agent_cert_pem = httpx.get(f"{BASE}/agents/my-agent/cert").text
+root_ca_pem    = httpx.get(f"{BASE}/root-ca").text
 ca_pem         = httpx.get(f"{BASE}/ca").text
 crl_pem        = httpx.get(f"{BASE}/crl").text
 
 # 2. Parse
 agent_cert = load_pem_x509_certificate(agent_cert_pem.encode())
+root_ca    = load_pem_x509_certificate(root_ca_pem.encode())
 ca_cert    = load_pem_x509_certificate(ca_pem.encode())
 crl        = load_pem_x509_crl(crl_pem.encode())
 
-# 3. Verify certificate was signed by TrustChain Platform CA
+# 3. Verify Platform CA was signed by Root CA
+root_ca.public_key().verify(
+    ca_cert.signature,
+    ca_cert.tbs_certificate_bytes,
+)
+
+# 4. Verify agent certificate was signed by TrustChain Platform CA
 ca_cert.public_key().verify(
     agent_cert.signature,
     agent_cert.tbs_certificate_bytes,
     # Ed25519 has no extra params
 )
 
-# 4. Check revocation
+# 5. Check revocation
 assert crl.get_revoked_certificate_by_serial_number(agent_cert.serial_number) is None, \
     "Agent certificate has been revoked!"
 
-# 5. Extract public key from the trusted certificate
+# 6. Extract public key from the trusted certificate
 public_key: Ed25519PublicKey = agent_cert.public_key()  # type: ignore
 
-# 6. Verify the signature locally — no network call
+# 7. Verify the signature locally — no network call
 public_key.verify(signature_bytes, data_bytes)
 # Raises cryptography.exceptions.InvalidSignature if tampered
 ```
@@ -107,15 +125,20 @@ import { X509Certificate } from 'crypto'; // Node 15+
 
 const BASE = 'https://app.trust-chain.ai/api/pub';
 
-const [agentCertPem, caPem] = await Promise.all([
+const [agentCertPem, rootCaPem, caPem] = await Promise.all([
   fetch(`${BASE}/agents/my-agent/cert`).then(r => r.text()),
+  fetch(`${BASE}/root-ca`).then(r => r.text()),
   fetch(`${BASE}/ca`).then(r => r.text()),
 ]);
 
 const agentCert = new X509Certificate(agentCertPem);
+const rootCa    = new X509Certificate(rootCaPem);
 const caCert    = new X509Certificate(caPem);
 
 // Verify chain
+if (!caCert.verify(rootCa.publicKey)) {
+  throw new Error('Platform CA is not anchored to the pinned Root CA');
+}
 const chainValid = agentCert.verify(caCert.publicKey);
 if (!chainValid) throw new Error('Certificate chain invalid');
 
@@ -135,8 +158,8 @@ TrustChain Root CA  (self-signed, pinneable)
                     └── Ed25519 Public Key  (extracted locally)
 ```
 
-**You trust the Platform CA, not our API responses.**  
-Pin the CA certificate in your application and rotate it only when we announce a CA rotation.
+**You trust the Root CA, not our API responses.**  
+Pin the Root CA certificate in your application and rotate it only when we announce a CA rotation.
 
 ---
 
@@ -155,4 +178,4 @@ This is the same model used by:
 
 - **No server-side verification:** Do not send your data or signatures to our servers. Verify locally.
 - **CRL freshness:** A revoked agent's certificate is added to the CRL immediately. Check CRL on every session, not every request.
-- **CA pinning:** For high-security deployments, pin the CA certificate hash and alert on changes.
+- **CA pinning:** For high-security deployments, pin the Root CA certificate hash and alert on changes.

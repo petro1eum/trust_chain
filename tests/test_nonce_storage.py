@@ -4,7 +4,32 @@ import time
 
 import pytest
 
-from trustchain.v2.nonce_storage import MemoryNonceStorage, create_nonce_storage
+from trustchain.utils.exceptions import NonceReplayError
+from trustchain.v2 import TrustChain, TrustChainConfig
+from trustchain.v2.nonce_storage import (
+    AdapterNonceStorage,
+    MemoryNonceStorage,
+    create_nonce_storage,
+)
+
+
+class SimpleAdapterStorage:
+    """Minimal foreign storage to validate adapter behavior."""
+
+    def __init__(self):
+        self._nonces = set()
+
+    def add(self, nonce: str) -> bool:
+        if nonce in self._nonces:
+            return False
+        self._nonces.add(nonce)
+        return True
+
+    def contains(self, nonce: str) -> bool:
+        return nonce in self._nonces
+
+    def clear(self) -> None:
+        self._nonces.clear()
 
 
 class TestMemoryNonceStorage:
@@ -111,3 +136,30 @@ class TestCreateNonceStorage:
     def test_create_unknown_backend_raises(self):
         with pytest.raises(ValueError):
             create_nonce_storage("unknown")
+
+    def test_create_explicit_adapter_storage(self):
+        storage = create_nonce_storage(storage=SimpleAdapterStorage())
+        assert isinstance(storage, AdapterNonceStorage)
+        assert storage.check_and_add("nonce-1") is True
+        assert storage.check_and_add("nonce-1") is False
+
+
+class TestTrustChainNonceAdapter:
+    """TrustChain should accept explicit adapter-compatible nonce storage."""
+
+    def test_config_accepts_custom_nonce_storage(self):
+        storage = SimpleAdapterStorage()
+        tc = TrustChain(
+            TrustChainConfig(
+                nonce_storage=storage,
+                nonce_ttl=60,
+            )
+        )
+
+        signed = tc.sign("adapter_tool", {"ok": True})
+        assert signed.nonce is not None
+        assert storage.contains(signed.nonce) is False
+        assert tc.verify(signed) is True
+        assert storage.contains(signed.nonce) is True
+        with pytest.raises(NonceReplayError):
+            tc.verify(signed)

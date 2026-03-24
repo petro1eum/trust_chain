@@ -38,7 +38,9 @@ Usage:
     intermediate.revoke(agent_cert.serial_number, "Prompt injection detected")
 """
 
+import base64
 import json
+import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -46,7 +48,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
 from cryptography.x509.oid import NameOID
 
 # ── Custom OIDs for AI Agent metadata ──
@@ -59,6 +64,32 @@ OID_PROMPT_HASH = x509.ObjectIdentifier(f"{AI_OID_BASE}.2")
 OID_TOOL_VERSIONS = x509.ObjectIdentifier(f"{AI_OID_BASE}.3")
 OID_AGENT_CAPABILITIES = x509.ObjectIdentifier(f"{AI_OID_BASE}.4")
 OID_PARENT_AGENT_SERIAL = x509.ObjectIdentifier(f"{AI_OID_BASE}.5")
+
+
+def _is_ca_certificate(cert: x509.Certificate) -> bool:
+    """Return True when a certificate is allowed to issue child certs."""
+    try:
+        basic_constraints = cert.extensions.get_extension_for_class(
+            x509.BasicConstraints
+        ).value
+        key_usage = cert.extensions.get_extension_for_class(x509.KeyUsage).value
+    except x509.ExtensionNotFound:
+        return False
+
+    return bool(basic_constraints.ca and key_usage.key_cert_sign and key_usage.crl_sign)
+
+
+def _is_leaf_certificate(cert: x509.Certificate) -> bool:
+    """Return True when a certificate has leaf-only key usage."""
+    try:
+        basic_constraints = cert.extensions.get_extension_for_class(
+            x509.BasicConstraints
+        ).value
+        key_usage = cert.extensions.get_extension_for_class(x509.KeyUsage).value
+    except x509.ExtensionNotFound:
+        return False
+
+    return bool(not basic_constraints.ca and key_usage.digital_signature)
 
 
 class TrustChainCA:
@@ -227,6 +258,7 @@ class TrustChainCA:
         validity_hours: int = 1,
         organization: str = "TrustChain",
         parent_serial: Optional[int] = None,
+        public_key_b64: Optional[str] = None,
     ) -> "AgentCertificate":
         """Issue a short-lived X.509 certificate for an AI agent.
 
@@ -254,12 +286,20 @@ class TrustChainCA:
             validity_hours: How long cert is valid (default 1hr)
             organization: Organization name
             parent_serial: Serial number of parent agent cert (sub-agent)
+            public_key_b64: Optional base64-encoded raw Ed25519 public key.
+                When provided, the private key stays outside the CA / Platform.
 
         Returns:
             AgentCertificate wrapping the X.509 cert
         """
-        agent_key = Ed25519PrivateKey.generate()
-        agent_public = agent_key.public_key()
+        agent_key: Optional[Ed25519PrivateKey]
+        if public_key_b64:
+            public_key_bytes = base64.b64decode(public_key_b64)
+            agent_public = Ed25519PublicKey.from_public_bytes(public_key_bytes)
+            agent_key = None
+        else:
+            agent_key = Ed25519PrivateKey.generate()
+            agent_public = agent_key.public_key()
 
         subject = x509.Name(
             [
@@ -424,6 +464,10 @@ class TrustChainCA:
         """
         errors = []
 
+        # 0. Issuer must match this CA
+        if cert.issuer != self._certificate.subject:
+            errors.append("WRONG_ISSUER")
+
         # 1. Signature verification
         try:
             self._certificate.public_key().verify(
@@ -502,6 +546,10 @@ class TrustChainCA:
         cert_path.write_bytes(
             self._certificate.public_bytes(serialization.Encoding.PEM)
         )
+        try:
+            os.chmod(cert_path, 0o644)
+        except OSError:
+            pass
 
         # Save private key (sensitive!)
         key_path = path / f"{self._safe_name}.key"
@@ -512,10 +560,18 @@ class TrustChainCA:
                 serialization.NoEncryption(),
             )
         )
+        try:
+            os.chmod(key_path, 0o600)
+        except OSError:
+            pass
 
         # Save CRL
         crl_path = path / f"{self._safe_name}.crl"
         crl_path.write_text(self.crl_pem, encoding="utf-8")
+        try:
+            os.chmod(crl_path, 0o644)
+        except OSError:
+            pass
 
     @classmethod
     def load(cls, directory: str, name: str) -> "TrustChainCA":
@@ -528,12 +584,23 @@ class TrustChainCA:
 
         certificate = x509.load_pem_x509_certificate(cert_data)
         private_key = serialization.load_pem_private_key(key_data, password=None)
-
-        return cls(
+        ca = cls(
             name=name,
             private_key=private_key,
             certificate=certificate,
         )
+        crl_path = path / f"{safe}.crl"
+        if crl_path.exists():
+            try:
+                crl = x509.load_pem_x509_crl(crl_path.read_bytes())
+                for revoked in crl:
+                    ca._revoked[revoked.serial_number] = (
+                        revoked.revocation_date_utc,
+                        "persisted-crl",
+                    )
+            except Exception:
+                pass
+        return ca
 
     # ── Internal ──
 
@@ -712,18 +779,24 @@ class AgentCertificate:
             return False
 
         # Verify leaf against first CA
+        if not _is_leaf_certificate(self._certificate):
+            return False
         result = chain[0].verify_cert(self._certificate)
         if not result.valid:
             return False
 
         # Verify each CA against the next
         for i in range(len(chain) - 1):
+            if not _is_ca_certificate(chain[i].certificate):
+                return False
             result = chain[i + 1].verify_cert(chain[i].certificate)
             if not result.valid:
                 return False
 
         # Last CA should be self-signed (root)
         last = chain[-1]
+        if not _is_ca_certificate(last.certificate):
+            return False
         try:
             last.certificate.public_key().verify(
                 last.certificate.signature,

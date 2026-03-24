@@ -1,5 +1,7 @@
 """Tests for TrustChain Certificate Infrastructure (Phase 16.4)."""
 
+import copy
+
 import pytest
 
 from trustchain import TrustChain, TrustChainConfig
@@ -128,3 +130,15 @@ class TestCertificateInfrastructure:
 
         assert response.certificate is not None
         assert response.certificate["owner"] == "Test"
+
+    def test_certificate_is_covered_by_signature(self):
+        """Tampering with certificate metadata must break verification."""
+        cert = {"owner": "Trusted Agent", "tier": "enterprise"}
+        tc = TrustChain(TrustChainConfig(certificate=cert, enable_nonce=False))
+
+        signed = tc.sign("test_tool", {"ok": True})
+        tampered = copy.deepcopy(signed)
+        tampered.certificate["owner"] = "Mallory"
+
+        assert tc.verify(signed) is True
+        assert tc.verify(tampered) is False

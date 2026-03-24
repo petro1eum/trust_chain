@@ -121,9 +121,9 @@ def create_app(config: Optional[TrustChainConfig] = None, **config_kwargs) -> "F
                 def dynamic_tool(data: Any) -> Any:
                     return data
 
-            # Sign the data
-            nonce = tc._generate_nonce() if config.enable_nonce else None
-            signed = tc._signer.sign(request.tool_id, request.data, nonce)
+            # Sign via the primary TrustChain API so nonce/chain/certificate
+            # behavior stays aligned with the library core.
+            signed = tc.sign(request.tool_id, request.data)
 
             # Update tool stats
             if request.tool_id in tc._tools:
