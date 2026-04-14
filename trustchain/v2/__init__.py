@@ -33,7 +33,7 @@ from .verifiable_log import InclusionProof, VerifiableChainStore
 from .verifier import TrustChainVerifier, VerificationResult
 from .x509_pki import AgentCertificate, CertVerifyResult, TrustChainCA
 
-__version__ = "2.4.0"
+__version__ = "2.4.1"
 
 __all__ = [
     # Core

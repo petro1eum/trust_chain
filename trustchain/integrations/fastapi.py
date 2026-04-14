@@ -68,8 +68,11 @@ class TrustChainMiddleware(BaseHTTPMiddleware):
         if "application/json" not in content_type:
             return response
 
-        # Check if we should sign this response
-        should_sign = self.sign_all or request.headers.get("X-TrustChain-Sign")
+        # Check if we should sign this response.
+        # BUGFIX: never use raw `or request.headers.get(...)` — any non-empty string is truthy in Python,
+        # so values like "0", "false", "no" (e.g. from a misconfigured proxy or ~/.curlrc) wrongly enabled signing.
+        _opt = (request.headers.get("X-TrustChain-Sign") or "").strip().lower()
+        should_sign = bool(self.sign_all) or _opt in ("1", "true", "yes", "on")
         if not should_sign:
             return response
 

@@ -105,7 +105,7 @@ class TestFastAPIMiddleware:
         assert response.text == "Hello, World!"
 
     def test_middleware_sign_all_false(self):
-        """Test sign_all=False requires header."""
+        """sign_all=False: no signing unless X-TrustChain-Sign is an explicit opt-in value."""
         from fastapi import FastAPI
 
         tc = TrustChain()
@@ -118,14 +118,22 @@ class TestFastAPIMiddleware:
 
         client = TestClient(app)
 
-        # Without header - no signing
         response = client.get("/api/optional")
-        data = response.json()
-        # When sign_all=False and no header, should not sign
-        # But our implementation returns signed anyway if JSON
-        # Let's check headers
-        if "X-TrustChain-Signed" not in response.headers:
-            assert "signature" not in data
+        assert response.headers.get("X-TrustChain-Signed") is None
+        assert response.json() == {"data": "test"}
+
+        # Misleading header values must NOT opt in (regression: these strings are truthy in Python)
+        for bad in ("0", "false", "no", "off", "anything"):
+            r = client.get("/api/optional", headers={"X-TrustChain-Sign": bad})
+            assert r.headers.get("X-TrustChain-Signed") is None, bad
+            assert r.json() == {"data": "test"}
+
+        # Explicit opt-in still signs
+        r = client.get("/api/optional", headers={"X-TrustChain-Sign": "true"})
+        assert r.headers.get("X-TrustChain-Signed") == "true"
+        body = r.json()
+        assert "signature" in body
+        assert body["data"] == {"data": "test"}
 
 
 class TestSignResponseDecorator:
