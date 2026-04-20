@@ -177,9 +177,9 @@ class TestAsyncTrustChainSession:
             async with tc.session("meta-test", metadata={"user": "alice"}) as s:
                 result = await s.sign("action", {"value": 1})
 
-                assert "metadata" in result.data
-                assert result.data["metadata"]["session_id"] == "meta-test"
-                assert result.data["metadata"]["user"] == "alice"
+                assert result.metadata is not None
+                assert result.metadata.get("session_id") == "meta-test"
+                assert result.metadata.get("user") == "alice"
 
 
 class TestAsyncKeys:
