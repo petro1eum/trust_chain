@@ -14,6 +14,7 @@ from .chain_store import ChainStore
 from .config import TrustChainConfig
 from .metrics import get_metrics
 from .nonce_storage import NonceStorage, create_nonce_storage
+from .pg_verifiable_log import PostgresVerifiableChainStore
 from .signer import SignedResponse, Signer
 from .storage import FileStorage, MemoryStorage, Storage
 from .verifiable_log import VerifiableChainStore
@@ -91,39 +92,60 @@ class TrustChain:
             raise ValueError(f"Unknown storage backend: {self.config.storage_backend}")
 
     def _create_chain_store(self) -> ChainStore:
-        """Create the Git-like chain store for persistent audit trail."""
+        """Create the chain store for the persistent audit trail.
+
+        v3: PostgreSQL is the canonical backend (ADR-SEC-002).  The legacy
+        file-backed ``verifiable`` and ``file`` backends remain available for
+        migration purposes but emit a ``DeprecationWarning`` and will be
+        removed in a future major release.  ``sqlite`` now raises — the Pro
+        package has been migrated to the Postgres backend as well.
+        """
+        import warnings
+
         if not self.config.enable_chain:
-            # Disabled — use in-memory only, no persistence
             return ChainStore(MemoryStorage(max_size=10000))
 
-        if self.config.chain_storage == "verifiable":
-            # Certificate Transparency-style: chain.log + Merkle tree + SQLite index
+        backend = self.config.chain_storage
+        if backend == "postgres":
+            vlog = PostgresVerifiableChainStore(
+                dsn=self.config.chain_dsn,
+                schema=self.config.chain_schema,
+            )
+            return ChainStore(
+                MemoryStorage(max_size=10000),
+                root_dir=self.config.chain_dir,
+                verifiable_log=vlog,
+            )
+        if backend == "verifiable":
+            warnings.warn(
+                "chain_storage='verifiable' (chain.log + SQLite) is deprecated; "
+                "migrate to 'postgres' (ADR-SEC-002).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             vlog = VerifiableChainStore(self.config.chain_dir)
             return ChainStore(
                 MemoryStorage(max_size=10000),
                 root_dir=self.config.chain_dir,
                 verifiable_log=vlog,
             )
-        elif self.config.chain_storage == "memory":
+        if backend == "memory":
             return ChainStore(MemoryStorage(max_size=10000))
-        elif self.config.chain_storage == "file":
+        if backend == "file":
+            warnings.warn(
+                "chain_storage='file' is deprecated; migrate to 'postgres'.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             chain_storage = FileStorage(self.config.chain_dir)
             return ChainStore(chain_storage, root_dir=self.config.chain_dir)
-        elif self.config.chain_storage == "sqlite":
-            # Pro feature — import dynamically
-            try:
-                from trustchain_pro.enterprise.sqlite_store import SQLiteChainStore
-
-                return ChainStore(
-                    SQLiteChainStore(db_path=f"{self.config.chain_dir}/chain.db"),
-                    root_dir=self.config.chain_dir,
-                )
-            except ImportError:
-                # Fallback to file if Pro not available
-                chain_storage = FileStorage(self.config.chain_dir)
-                return ChainStore(chain_storage, root_dir=self.config.chain_dir)
-        else:
-            raise ValueError(f"Unknown chain_storage: {self.config.chain_storage}")
+        if backend == "sqlite":
+            raise ValueError(
+                "chain_storage='sqlite' has been removed in TrustChain v3 "
+                "(ADR-SEC-002).  Use chain_storage='postgres' and set "
+                "TC_VERIFIABLE_LOG_DSN."
+            )
+        raise ValueError(f"Unknown chain_storage: {backend}")
 
     # ── X.509 PKI ──
 
@@ -686,6 +708,12 @@ class TrustChain:
         key_data = self.export_keys()
         with open(path, "w") as f:
             json.dump(key_data, f, indent=2)
+        try:
+            import os as _os
+
+            _os.chmod(path, 0o600)
+        except OSError:
+            pass
 
         return path
 

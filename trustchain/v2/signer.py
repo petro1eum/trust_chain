@@ -1,7 +1,6 @@
 """Simple signer for TrustChain v2."""
 
 import base64
-import hashlib
 import json
 import time
 import uuid
@@ -103,7 +102,6 @@ class Signer:
                 raise RuntimeError(
                     "TrustChain requires the 'cryptography' package for Ed25519 signing."
                 )
-            self._use_fallback = False
             self._private_key = ed25519.Ed25519PrivateKey.generate()
             self._public_key = self._private_key.public_key()
         else:
@@ -138,14 +136,8 @@ class Signer:
         # Serialize to JSON
         json_data = json.dumps(canonical_data, sort_keys=True, separators=(",", ":"))
 
-        # Create signature
-        if self._use_fallback:
-            # Simple HMAC-like signature for demo
-            signature = self._create_fallback_signature(json_data)
-        else:
-            # Real Ed25519 signature
-            signature_bytes = self._private_key.sign(json_data.encode("utf-8"))
-            signature = base64.b64encode(signature_bytes).decode("ascii")
+        signature_bytes = self._private_key.sign(json_data.encode("utf-8"))
+        signature = base64.b64encode(signature_bytes).decode("ascii")
 
         response = SignedResponse(
             tool_id=tool_id,
@@ -181,24 +173,12 @@ class Signer:
                 canonical_data, sort_keys=True, separators=(",", ":")
             )
 
-            if self._use_fallback:
-                # Verify fallback signature
-                expected_signature = self._create_fallback_signature(json_data)
-                return response.signature == expected_signature
-            else:
-                # Verify Ed25519 signature
-                signature_bytes = base64.b64decode(response.signature)
-                self._public_key.verify(signature_bytes, json_data.encode("utf-8"))
-                return True
+            signature_bytes = base64.b64decode(response.signature)
+            self._public_key.verify(signature_bytes, json_data.encode("utf-8"))
+            return True
 
         except Exception:
             return False
-
-    def _create_fallback_signature(self, data: str) -> str:
-        """Create a simple hash-based signature for fallback mode."""
-        hash_input = f"{self._secret}:{data}"
-        hash_bytes = hashlib.sha256(hash_input.encode("utf-8")).digest()
-        return base64.b64encode(hash_bytes).decode("ascii")
 
     def get_public_key(self) -> str:
         """Get the public key in base64 format."""
@@ -252,7 +232,6 @@ class Signer:
         elif key_data["type"] == "ed25519":
             if not HAS_CRYPTOGRAPHY:
                 raise ValueError("cryptography library required for Ed25519")
-            signer._use_fallback = False
             private_bytes = base64.b64decode(key_data["private_key"])
             signer._private_key = ed25519.Ed25519PrivateKey.from_private_bytes(
                 private_bytes

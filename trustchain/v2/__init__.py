@@ -24,6 +24,7 @@ from .nonce_storage import (
     RedisNonceStorage,
     adapt_nonce_storage,
 )
+from .pg_verifiable_log import PostgresVerifiableChainStore
 from .session import TrustChainSession, create_session
 from .signer import SignedResponse
 from .storage import FileStorage, MemoryStorage, Storage
@@ -33,7 +34,7 @@ from .verifiable_log import InclusionProof, VerifiableChainStore
 from .verifier import TrustChainVerifier, VerificationResult
 from .x509_pki import AgentCertificate, CertVerifyResult, TrustChainCA
 
-__version__ = "2.4.1"
+__version__ = "3.0.0"
 
 __all__ = [
     # Core
@@ -51,7 +52,8 @@ __all__ = [
     "ChainStore",
     "FileStorage",
     # Verifiable Append-Only Log (Certificate Transparency)
-    "VerifiableChainStore",
+    "PostgresVerifiableChainStore",  # v3 default (ADR-SEC-002)
+    "VerifiableChainStore",  # deprecated: chain.log + SQLite
     "InclusionProof",
     # Tool Certificates (PKI)
     "ToolCertificate",

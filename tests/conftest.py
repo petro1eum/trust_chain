@@ -1,74 +1,144 @@
-"""
-Pytest configuration for TrustChain tests.
+"""Shared pytest fixtures for trust_chain v3 test suite.
 
-Handles platform-specific configuration and fixtures.
+``postgres_chain_dsn`` — session-scoped testcontainers Postgres 17 instance
+with a dedicated role/schema for the verifiable chain log (ADR-SEC-002 layout).
+Returns a DSN string; also exports it to ``TC_VERIFIABLE_LOG_DSN`` so tests
+that construct ``TrustChainConfig(chain_storage='postgres')`` без явного DSN
+тоже работают.
+
+Если Docker недоступен — фикстура делает ``pytest.skip``, чтобы не ломать
+``pytest -m 'not integration'`` на лаптопах без Docker.
 """
 
-import asyncio
-import platform
-import sys
+from __future__ import annotations
+
+import os
+import socket
+from typing import Iterator
 
 import pytest
 
-# Windows compatibility fix for asyncio
-if platform.system() == "Windows":
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+def _docker_available() -> bool:
+    if os.path.exists("/var/run/docker.sock"):
+        return True
+    host = os.environ.get("DOCKER_HOST", "")
+    if host.startswith("tcp://"):
+        try:
+            hostport = host.removeprefix("tcp://")
+            h, p = hostport.split(":", 1)
+            with socket.create_connection((h, int(p)), timeout=0.5):
+                return True
+        except OSError:
+            return False
+    return False
 
 
 @pytest.fixture(scope="session")
-def event_loop_policy():
-    """Event loop policy fixture for cross-platform compatibility."""
-    if platform.system() == "Windows":
-        return asyncio.WindowsProactorEventLoopPolicy()
-    else:
-        return asyncio.DefaultEventLoopPolicy()
+def postgres_chain_dsn() -> Iterator[str]:
+    """PG 17 + role/schema ``tc_verifiable_log`` (ADR-SEC-002 parity)."""
+    if not _docker_available():
+        pytest.skip("Docker daemon is not available — PG integration tests skipped")
+
+    try:
+        from testcontainers.postgres import PostgresContainer  # type: ignore
+    except ImportError:
+        pytest.skip("testcontainers[postgresql] not installed")
+
+    import psycopg
+
+    container = PostgresContainer(
+        image="postgres:17-alpine",
+        username="trustchain_admin",
+        password="admin_pw_test",
+        dbname="trustchain",
+    )
+    container.start()
+    try:
+        host = container.get_container_host_ip()
+        port = int(container.get_exposed_port(5432))
+
+        admin_dsn = (
+            f"postgresql://trustchain_admin:admin_pw_test@{host}:{port}/trustchain"
+        )
+        role, password, schema = (
+            "tc_verifiable_log",
+            "vlog_pw_test",
+            "tc_verifiable_log",
+        )
+
+        # DDL (CREATE/ALTER ROLE ... PASSWORD) нельзя параметризовать через
+        # plain `%s` — PostgreSQL ждёт литерал. Используем `psycopg.sql.Literal`
+        # + `sql.Identifier`, чтобы пароль и имена экранировались корректно.
+        from psycopg import sql
+
+        with psycopg.connect(admin_dsn, autocommit=True) as conn, conn.cursor() as cur:
+            cur.execute("REVOKE ALL ON SCHEMA public FROM PUBLIC")
+            cur.execute('REVOKE CREATE ON DATABASE "trustchain" FROM PUBLIC')
+            cur.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,))
+            exists = cur.fetchone() is not None
+            stmt = sql.SQL("{verb} ROLE {role} {with_} LOGIN PASSWORD {pw}").format(
+                verb=sql.SQL("ALTER") if exists else sql.SQL("CREATE"),
+                role=sql.Identifier(role),
+                with_=sql.SQL("WITH") if exists else sql.SQL(""),
+                pw=sql.Literal(password),
+            )
+            cur.execute(stmt)
+
+            cur.execute("SELECT 1 FROM pg_namespace WHERE nspname = %s", (schema,))
+            if cur.fetchone() is None:
+                cur.execute(
+                    sql.SQL("CREATE SCHEMA {schema} AUTHORIZATION {role}").format(
+                        schema=sql.Identifier(schema), role=sql.Identifier(role)
+                    )
+                )
+            cur.execute(
+                sql.SQL("REVOKE ALL ON SCHEMA {schema} FROM PUBLIC").format(
+                    schema=sql.Identifier(schema)
+                )
+            )
+            cur.execute(
+                sql.SQL("GRANT USAGE, CREATE ON SCHEMA {schema} TO {role}").format(
+                    schema=sql.Identifier(schema), role=sql.Identifier(role)
+                )
+            )
+            cur.execute(
+                sql.SQL(
+                    'ALTER ROLE {role} IN DATABASE "trustchain" '
+                    "SET search_path TO {schema}"
+                ).format(role=sql.Identifier(role), schema=sql.Identifier(schema))
+            )
+
+        dsn = f"postgresql://{role}:{password}@{host}:{port}/trustchain"
+        os.environ["TC_VERIFIABLE_LOG_DSN"] = dsn
+        yield dsn
+        os.environ.pop("TC_VERIFIABLE_LOG_DSN", None)
+    finally:
+        container.stop()
 
 
-@pytest.fixture(scope="function")
-async def event_loop():
-    """Create event loop for each test function."""
-    if platform.system() == "Windows":
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+@pytest.fixture
+def postgres_chain_reset(postgres_chain_dsn: str) -> Iterator[str]:
+    """Чистим chain_records / chain_head перед каждым тестом.
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    ``chain_records`` защищена append-only-триггером, поэтому TRUNCATE через
+    обычного пользователя заблокирован.  Временно отключаем сессионные
+    триггеры через ``session_replication_role = 'replica'`` — это штатный
+    PG-способ, которым пользуется pg_dump/logical replication.
+    """
+    import psycopg
 
-    yield loop
+    with psycopg.connect(
+        postgres_chain_dsn, autocommit=True
+    ) as conn, conn.cursor() as cur:
+        cur.execute("SET session_replication_role = 'replica'")
+        try:
+            cur.execute(
+                "TRUNCATE TABLE chain_records, chain_head RESTART IDENTITY CASCADE"
+            )
+        except psycopg.errors.UndefinedTable:
+            pass
+        finally:
+            cur.execute("SET session_replication_role = 'origin'")
 
-    # Clean up the loop
-    loop.close()
-
-
-def pytest_configure(config):
-    """Configure pytest for different platforms."""
-    if platform.system() == "Windows":
-        # Windows-specific configuration
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
-    # Add custom markers
-    config.addinivalue_line("markers", "slow: marks tests as slow")
-    config.addinivalue_line("markers", "windows: marks tests as Windows-specific")
-    config.addinivalue_line("markers", "linux: marks tests as Linux-specific")
-    config.addinivalue_line("markers", "macos: marks tests as macOS-specific")
-
-
-def pytest_collection_modifyitems(config, items):
-    """Modify test collection based on platform."""
-    skip_windows = pytest.mark.skip(reason="Windows-only test")
-    skip_unix = pytest.mark.skip(reason="Unix-only test")
-
-    for item in items:
-        if "windows" in item.keywords and platform.system() != "Windows":
-            item.add_marker(skip_windows)
-        elif "linux" in item.keywords and platform.system() != "Linux":
-            item.add_marker(skip_unix)
-        elif "macos" in item.keywords and platform.system() != "Darwin":
-            item.add_marker(skip_unix)
-
-
-# Platform-specific async timeout settings
-if platform.system() == "Windows":
-    # Windows might need longer timeouts
-    pytest.DEFAULT_TIMEOUT = 30
-else:
-    pytest.DEFAULT_TIMEOUT = 10
+    yield postgres_chain_dsn

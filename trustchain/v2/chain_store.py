@@ -353,9 +353,15 @@ class ChainStore:
         """Load HEAD and chain length from persisted state."""
         if self._vlog:
             self._length = self._vlog.length
-            if self._vlog.head:
-                self._head = self._vlog.head
-                self._last_parent_sig = self._head
+            self._head = self._vlog.merkle_root
+            self._last_parent_sig = None
+            if self._length > 0:
+                tail = self._vlog.log(limit=1, offset=0, reverse=True)
+                if tail and isinstance(tail[0], dict):
+                    sig = tail[0].get("signature")
+                    if isinstance(sig, str) and sig:
+                        self._last_parent_sig = sig
+                        self._head = sig
             return
 
         if self._root:

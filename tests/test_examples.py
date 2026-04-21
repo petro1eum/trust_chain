@@ -56,10 +56,14 @@ class TestExamplesRun:
         assert "CloudEvents" in result.stdout or "event" in result.stdout.lower()
 
     def test_langchain_agent_example(self):
-        """Test langchain_agent.py runs successfully."""
-        result = run_example("langchain_agent.py")
+        """Пример требует langchain-core; без пакета пропускаем (не подгоняем exit 0)."""
+        import importlib.util
 
-        # This may have warnings but should not fail
+        if importlib.util.find_spec("langchain_core") is None:
+            pytest.skip(
+                "langchain-core не установлен — см. optional extras для examples"
+            )
+        result = run_example("langchain_agent.py")
         assert result.returncode == 0, f"langchain_agent.py failed:\n{result.stderr}"
 
     def test_mcp_claude_desktop_example(self):

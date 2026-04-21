@@ -47,7 +47,9 @@ class TestVerifiableChainStoreBasic:
         assert record["data"] == {"cmd": "ls"}
         assert record["signature"] == "sig_abc"
         assert record["seq"] == 1
-        assert len(record["id"]) == 12  # sha256[:12]
+        # Полный SHA-256 hex (64 символа) — см. verifiable_log op_id / ADR-SEC-005.
+        assert len(record["id"]) == 64
+        int(record["id"], 16)
         vlog.close()
 
     def test_content_addressable_id(self, tmp_path):
@@ -60,7 +62,7 @@ class TestVerifiableChainStoreBasic:
         assert not r1["id"].startswith("op_")
         assert not r2["id"].startswith("op_")
         assert r1["id"] != r2["id"]
-        assert len(r1["id"]) == 12
+        assert len(r1["id"]) == 64
         vlog.close()
 
     def test_sequential_numbers(self, tmp_path):
