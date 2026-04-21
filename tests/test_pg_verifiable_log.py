@@ -10,10 +10,7 @@ import json
 
 import pytest
 
-from trustchain.v2.pg_verifiable_log import (
-    InclusionProof,
-    PostgresVerifiableChainStore,
-)
+from trustchain.v2.pg_verifiable_log import InclusionProof, PostgresVerifiableChainStore
 
 pytestmark = pytest.mark.integration
 
