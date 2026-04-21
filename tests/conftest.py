@@ -67,21 +67,52 @@ def postgres_chain_dsn() -> Iterator[str]:
             "tc_verifiable_log",
         )
 
+        # DDL (CREATE/ALTER ROLE ... PASSWORD) нельзя параметризовать через
+        # plain `%s` — PostgreSQL ждёт литерал. Используем `psycopg.sql.Literal`
+        # + `sql.Identifier`, чтобы пароль и имена экранировались корректно.
+        from psycopg import sql
+
         with psycopg.connect(admin_dsn, autocommit=True) as conn, conn.cursor() as cur:
             cur.execute("REVOKE ALL ON SCHEMA public FROM PUBLIC")
             cur.execute('REVOKE CREATE ON DATABASE "trustchain" FROM PUBLIC')
             cur.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,))
-            if cur.fetchone() is None:
-                cur.execute(f'CREATE ROLE "{role}" LOGIN PASSWORD %s', (password,))
-            else:
-                cur.execute(f'ALTER ROLE "{role}" WITH LOGIN PASSWORD %s', (password,))
+            exists = cur.fetchone() is not None
+            stmt = sql.SQL(
+                "{verb} ROLE {role} {with_} LOGIN PASSWORD {pw}"
+            ).format(
+                verb=sql.SQL("ALTER") if exists else sql.SQL("CREATE"),
+                role=sql.Identifier(role),
+                with_=sql.SQL("WITH") if exists else sql.SQL(""),
+                pw=sql.Literal(password),
+            )
+            cur.execute(stmt)
+
             cur.execute("SELECT 1 FROM pg_namespace WHERE nspname = %s", (schema,))
             if cur.fetchone() is None:
-                cur.execute(f'CREATE SCHEMA "{schema}" AUTHORIZATION "{role}"')
-            cur.execute(f'REVOKE ALL ON SCHEMA "{schema}" FROM PUBLIC')
-            cur.execute(f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO "{role}"')
+                cur.execute(
+                    sql.SQL("CREATE SCHEMA {schema} AUTHORIZATION {role}").format(
+                        schema=sql.Identifier(schema), role=sql.Identifier(role)
+                    )
+                )
             cur.execute(
-                f'ALTER ROLE "{role}" IN DATABASE "trustchain" SET search_path TO "{schema}"'
+                sql.SQL("REVOKE ALL ON SCHEMA {schema} FROM PUBLIC").format(
+                    schema=sql.Identifier(schema)
+                )
+            )
+            cur.execute(
+                sql.SQL(
+                    "GRANT USAGE, CREATE ON SCHEMA {schema} TO {role}"
+                ).format(
+                    schema=sql.Identifier(schema), role=sql.Identifier(role)
+                )
+            )
+            cur.execute(
+                sql.SQL(
+                    'ALTER ROLE {role} IN DATABASE "trustchain" '
+                    "SET search_path TO {schema}"
+                ).format(
+                    role=sql.Identifier(role), schema=sql.Identifier(schema)
+                )
             )
 
         dsn = f"postgresql://{role}:{password}@{host}:{port}/trustchain"
