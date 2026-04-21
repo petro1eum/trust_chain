@@ -60,7 +60,9 @@ class TestExamplesRun:
         import importlib.util
 
         if importlib.util.find_spec("langchain_core") is None:
-            pytest.skip("langchain-core не установлен — см. optional extras для examples")
+            pytest.skip(
+                "langchain-core не установлен — см. optional extras для examples"
+            )
         result = run_example("langchain_agent.py")
         assert result.returncode == 0, f"langchain_agent.py failed:\n{result.stderr}"
 

@@ -113,7 +113,11 @@ class TrustChainConfig:
         if self.enable_chain and self.chain_storage == "postgres":
             has_dsn = bool(self.chain_dsn or os.environ.get("TC_VERIFIABLE_LOG_DSN"))
             if not has_dsn:
-                if os.environ.get("TC_STRICT_CHAIN", "").lower() in ("1", "true", "yes"):
+                if os.environ.get("TC_STRICT_CHAIN", "").lower() in (
+                    "1",
+                    "true",
+                    "yes",
+                ):
                     raise RuntimeError(
                         "chain_storage='postgres' requires TC_VERIFIABLE_LOG_DSN "
                         "(TC_STRICT_CHAIN=1).  Set the DSN or pass "

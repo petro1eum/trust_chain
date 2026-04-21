@@ -264,8 +264,7 @@ def main():
     print("\n" + "=" * 70)
     print("📊 SUMMARY")
     print("=" * 70)
-    print(
-        """
+    print("""
 TrustChain Reasoning Verification:
 
 1. ✅ Each reasoning step is cryptographically signed
@@ -279,8 +278,7 @@ Use Cases:
 - Financial AI: Audit investment recommendations
 - Legal AI: Verify contract analysis steps
 - Any high-stakes AI: Accountability & compliance
-"""
-    )
+""")
 
 
 if __name__ == "__main__":

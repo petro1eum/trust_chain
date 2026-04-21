@@ -15,7 +15,6 @@ from trustchain.v2.pg_verifiable_log import (
     PostgresVerifiableChainStore,
 )
 
-
 pytestmark = pytest.mark.integration
 
 
@@ -124,9 +123,7 @@ class TestVerification:
 #  Append-only enforcement (ADR-SEC-005)
 # ─────────────────────────────────────────────────────────────────────────────
 class TestAppendOnly:
-    def test_direct_update_blocked_by_trigger(
-        self, postgres_chain_reset: str
-    ) -> None:
+    def test_direct_update_blocked_by_trigger(self, postgres_chain_reset: str) -> None:
         import psycopg
 
         vlog = PostgresVerifiableChainStore(dsn=postgres_chain_reset)

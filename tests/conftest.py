@@ -61,7 +61,11 @@ def postgres_chain_dsn() -> Iterator[str]:
         admin_dsn = (
             f"postgresql://trustchain_admin:admin_pw_test@{host}:{port}/trustchain"
         )
-        role, password, schema = "tc_verifiable_log", "vlog_pw_test", "tc_verifiable_log"
+        role, password, schema = (
+            "tc_verifiable_log",
+            "vlog_pw_test",
+            "tc_verifiable_log",
+        )
 
         with psycopg.connect(admin_dsn, autocommit=True) as conn, conn.cursor() as cur:
             cur.execute("REVOKE ALL ON SCHEMA public FROM PUBLIC")
@@ -99,7 +103,9 @@ def postgres_chain_reset(postgres_chain_dsn: str) -> Iterator[str]:
     """
     import psycopg
 
-    with psycopg.connect(postgres_chain_dsn, autocommit=True) as conn, conn.cursor() as cur:
+    with psycopg.connect(
+        postgres_chain_dsn, autocommit=True
+    ) as conn, conn.cursor() as cur:
         cur.execute("SET session_replication_role = 'replica'")
         try:
             cur.execute(

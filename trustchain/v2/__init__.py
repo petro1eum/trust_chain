@@ -53,7 +53,7 @@ __all__ = [
     "FileStorage",
     # Verifiable Append-Only Log (Certificate Transparency)
     "PostgresVerifiableChainStore",  # v3 default (ADR-SEC-002)
-    "VerifiableChainStore",          # deprecated: chain.log + SQLite
+    "VerifiableChainStore",  # deprecated: chain.log + SQLite
     "InclusionProof",
     # Tool Certificates (PKI)
     "ToolCertificate",

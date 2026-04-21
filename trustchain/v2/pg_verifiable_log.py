@@ -56,7 +56,6 @@ except ImportError as exc:  # pragma: no cover — dep is declared in pyproject.
 
 from .merkle import MerkleProof, MerkleTree, hash_data, verify_proof
 
-
 # ── Advisory-lock key: статический 64-битный идентификатор (одна схема — одна
 #    цепь).  Если в будущем появятся шардированные chains, можно добавить
 #    вторую координату через pg_advisory_xact_lock(key1, key2).
@@ -262,9 +261,7 @@ class PostgresVerifiableChainStore:
                         "SELECT pg_advisory_xact_lock(%s)", (_ADVISORY_LOCK_KEY,)
                     )
 
-                    cur.execute(
-                        "SELECT COALESCE(MAX(seq), 0) + 1 FROM chain_records"
-                    )
+                    cur.execute("SELECT COALESCE(MAX(seq), 0) + 1 FROM chain_records")
                     seq = int(cur.fetchone()[0])
 
                     op_id = _content_id(tool, data, timestamp, signature)
@@ -351,11 +348,9 @@ class PostgresVerifiableChainStore:
             params.append(session_id)
 
         order = "DESC" if reverse else "ASC"
-        sql = (
-            "SELECT record_json FROM chain_records WHERE "
-            + " AND ".join(clauses)
-            + f" ORDER BY seq {order} LIMIT %s OFFSET %s"
-        )
+        # clauses are static templates with %s placeholders; order is one of two literals.
+        where_clause = " AND ".join(clauses)
+        sql = f"SELECT record_json FROM chain_records WHERE {where_clause} ORDER BY seq {order} LIMIT %s OFFSET %s"  # nosec B608
         params.extend([limit, offset])
 
         with self._get_pool().connection() as conn:
@@ -380,8 +375,7 @@ class PostgresVerifiableChainStore:
     def status(self) -> dict:
         with self._get_pool().connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    """
+                cur.execute("""
                     SELECT
                         COUNT(*)                              AS total,
                         COUNT(DISTINCT tool)                  AS tools,
@@ -389,23 +383,18 @@ class PostgresVerifiableChainStore:
                         MAX(ts)                               AS last_op,
                         COALESCE(AVG(latency_ms), 0)          AS avg_latency
                     FROM chain_records
-                    """
-                )
+                    """)
                 stats = cur.fetchone()
 
-                cur.execute(
-                    """
+                cur.execute("""
                     SELECT tool, COUNT(*) AS cnt
                     FROM chain_records
                     GROUP BY tool
                     ORDER BY cnt DESC
-                    """
-                )
+                    """)
                 tool_rows = cur.fetchall()
 
-                cur.execute(
-                    "SELECT pg_total_relation_size('chain_records')"
-                )
+                cur.execute("SELECT pg_total_relation_size('chain_records')")
                 table_bytes = int(cur.fetchone()[0] or 0)
 
         first_op = stats[2].isoformat() if stats[2] else None
@@ -476,9 +465,7 @@ class PostgresVerifiableChainStore:
 
         with pool.connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT seq FROM chain_records WHERE op_id = %s", (op_id,)
-                )
+                cur.execute("SELECT seq FROM chain_records WHERE op_id = %s", (op_id,))
                 row = cur.fetchone()
         if not row:
             return None
@@ -547,6 +534,7 @@ class PostgresVerifiableChainStore:
         )
         if filepath:
             from pathlib import Path
+
             Path(filepath).write_text(output, encoding="utf-8")
         return output
 
@@ -606,17 +594,13 @@ class PostgresVerifiableChainStore:
         """Stream ``record_json`` rows in ``seq`` order."""
         with self._pool.connection() as conn:
             with conn.cursor(name="chain_records_iter") as cur:
-                cur.execute(
-                    "SELECT record_json FROM chain_records ORDER BY seq ASC"
-                )
+                cur.execute("SELECT record_json FROM chain_records ORDER BY seq ASC")
                 for (record_json,) in cur:
                     yield record_json
 
     def _load_head_root(self) -> Optional[str]:
         with self._pool.connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT merkle_root FROM chain_head WHERE id = 'HEAD'"
-                )
+                cur.execute("SELECT merkle_root FROM chain_head WHERE id = 'HEAD'")
                 row = cur.fetchone()
         return row[0] if row else None
