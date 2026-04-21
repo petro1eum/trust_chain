@@ -370,20 +370,23 @@ class ChainStore:
                 self._head = head_path.read_text(encoding="utf-8").strip()
                 self._last_parent_sig = self._head
 
-        # Count existing objects
-        all_ops = self._storage.list_all()
-        self._length = len(all_ops)
-
-        # If we have operations but no HEAD from file, derive from last op
-        if all_ops and not self._head:
-            sorted_ops = sorted(
-                all_ops, key=lambda x: x.get("id", "") if isinstance(x, dict) else ""
-            )
-            if sorted_ops:
-                last = sorted_ops[-1]
-                if isinstance(last, dict):
-                    self._head = last.get("signature")
-                    self._last_parent_sig = self._head
+        # Count existing objects (lazy — не читаем содержимое всех файлов).
+        # list_all() на большом сторадже (prod: 2.9GB / 740k JSON-файлов)
+        # занимает минуты и блокирует импорт backend.routers.trustchain_api
+        # (там `TrustChain()` создаётся на module-level) → cold-start >3 мин
+        # → uvicorn не принимает TCP → nginx upstream timeout (504) → user
+        # видит «минуты жду ответ». size() — просто
+        # `len(list(objects_dir.glob("*.json")))` без read_text/json.loads,
+        # и выполняется за миллисекунды даже на сотнях тысяч файлов.
+        try:
+            self._length = self._storage.size()
+        except Exception:
+            self._length = 0
+        # «derive HEAD from last op» убран намеренно: он требовал list_all
+        # (не-ленивый скан всего стоража), а на проде HEAD всегда пишется
+        # через _save_head после каждой операции (см. chain_store.append).
+        # Если HEAD-файла нет — цепь либо пуста, либо сломана, и full-scan
+        # её не восстановит; правильный путь — explicit recovery-инструмент.
 
     def _save_head(self) -> None:
         """Persist HEAD to file."""
