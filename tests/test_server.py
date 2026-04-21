@@ -10,15 +10,24 @@ pytest.importorskip("httpx")
 
 from fastapi.testclient import TestClient
 
-from trustchain.v2.server import app
+
+@pytest.fixture
+def client(tmp_path):
+    """Изолированное приложение: не импортируем глобальный app (общий nonce-пул и ~/.trustchain)."""
+    from trustchain.v2.server import create_app
+
+    return TestClient(
+        create_app(
+            enable_nonce=True,
+            enable_metrics=False,
+            nonce_backend="memory",
+            chain_dir=str(tmp_path / "chain"),
+        )
+    )
 
 
 class TestHealthEndpoint:
     """Test /health endpoint."""
-
-    @pytest.fixture
-    def client(self):
-        return TestClient(app)
 
     def test_health_returns_ok(self, client):
         response = client.get("/health")
@@ -36,10 +45,6 @@ class TestHealthEndpoint:
 
 class TestPublicKeyEndpoint:
     """Test /public-key endpoint."""
-
-    @pytest.fixture
-    def client(self):
-        return TestClient(app)
 
     def test_get_public_key(self, client):
         response = client.get("/public-key")
@@ -61,10 +66,6 @@ class TestPublicKeyEndpoint:
 
 class TestSignEndpoint:
     """Test POST /sign endpoint."""
-
-    @pytest.fixture
-    def client(self):
-        return TestClient(app)
 
     def test_sign_returns_signature(self, client):
         response = client.post(
@@ -106,10 +107,6 @@ class TestSignEndpoint:
 
 class TestVerifyEndpoint:
     """Test POST /verify endpoint."""
-
-    @pytest.fixture
-    def client(self):
-        return TestClient(app)
 
     def test_verify_valid_signature(self, client):
         # First sign
@@ -178,10 +175,6 @@ class TestVerifyEndpoint:
 
 class TestAPIErrorHandling:
     """Test API error handling."""
-
-    @pytest.fixture
-    def client(self):
-        return TestClient(app)
 
     def test_invalid_json(self, client):
         response = client.post(

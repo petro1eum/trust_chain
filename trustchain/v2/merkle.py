@@ -31,13 +31,13 @@ from typing import List, Tuple
 
 
 def hash_data(data: str) -> str:
-    """Hash a string using SHA-256."""
-    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+    """Hash a leaf string: SHA-256 с префиксом 0x00 (domain separation)."""
+    return hashlib.sha256(("\x00" + data).encode("utf-8")).hexdigest()
 
 
 def hash_pair(left: str, right: str) -> str:
-    """Hash two hashes together."""
-    combined = left + right
+    """Hash two child hashes with domain separation (prefix 0x01 — внутренний узел)."""
+    combined = "\x01" + left + right
     return hashlib.sha256(combined.encode("utf-8")).hexdigest()
 
 

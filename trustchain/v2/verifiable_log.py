@@ -89,9 +89,9 @@ class InclusionProof:
 
 
 def _content_id(tool: str, data: Any, timestamp: str, signature: str) -> str:
-    """Compute content-addressable ID: sha256(tool+data+ts+sig)[:12]."""
+    """Compute content-addressable ID: полный sha256 hex (без усечения)."""
     payload = f"{tool}|{json.dumps(data, sort_keys=True, default=str)}|{timestamp}|{signature}"
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:12]
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 class VerifiableChainStore:

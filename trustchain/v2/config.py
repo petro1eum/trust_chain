@@ -1,5 +1,7 @@
 """Configuration for TrustChain v2."""
 
+import os
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
@@ -43,8 +45,19 @@ class TrustChainConfig:
 
     # Chain persistence (Git-like .trustchain/ directory)
     enable_chain: bool = True  # Auto-record every sign() to ChainStore
-    chain_storage: str = "verifiable"  # Options: verifiable, memory, file (legacy)
-    chain_dir: str = "~/.trustchain"  # Root dir for .trustchain/ structure
+    # chain_storage:
+    #   "postgres"   — PostgreSQL-backed VerifiableChainStore (v3 default, ADR-SEC-002)
+    #   "verifiable" — legacy file-backed CT log (chain.log + SQLite index),
+    #                  deprecated and will be removed in a future release
+    #   "file"       — legacy one-file-per-op JSON storage
+    #   "memory"     — ephemeral, tests only
+    chain_storage: str = "postgres"
+    chain_dir: str = "~/.trustchain"  # Root dir for legacy file-backed chain
+    # PostgreSQL DSN for the verifiable log; if empty the env var
+    # $TC_VERIFIABLE_LOG_DSN is used (fail-closed if neither is set).
+    chain_dsn: Optional[str] = None
+    # PostgreSQL schema for the verifiable log (ADR-SEC-002 isolation contract).
+    chain_schema: str = "tc_verifiable_log"
 
     # Key persistence
     key_file: Optional[str] = None  # Path to key file for persistence
@@ -75,8 +88,10 @@ class TrustChainConfig:
 
     def __post_init__(self) -> None:
         """Validate configuration."""
-        if self.algorithm not in ["ed25519", "rsa", "ecdsa"]:
-            raise ValueError(f"Unsupported algorithm: {self.algorithm}")
+        if self.algorithm != "ed25519":
+            raise ValueError(
+                "TrustChain v2 supports only algorithm='ed25519' (RSA/ECDSA removed from v2 surface).",
+            )
 
         if self.cache_ttl <= 0:
             raise ValueError("cache_ttl must be positive")
@@ -86,3 +101,30 @@ class TrustChainConfig:
 
         if self.nonce_ttl <= 0:
             raise ValueError("nonce_ttl must be positive")
+
+        # ADR-SEC-002 / ADR-SEC-005:
+        # v3 default — chain_storage='postgres'.  Однако в dev/tests
+        # поднимать PG ради каждого `TrustChain()` неоправданно, поэтому если
+        # ни `chain_dsn`, ни `TC_VERIFIABLE_LOG_DSN` не выставлены —
+        # автоматически переключаемся на in-memory backend с предупреждением.
+        # В production DSN гарантируется docker-compose / Helm, и fallback не
+        # активируется.  Явно выставленный `TC_STRICT_CHAIN=1` превращает
+        # отсутствие DSN в hard-error (для runtime-самопроверок).
+        if self.enable_chain and self.chain_storage == "postgres":
+            has_dsn = bool(self.chain_dsn or os.environ.get("TC_VERIFIABLE_LOG_DSN"))
+            if not has_dsn:
+                if os.environ.get("TC_STRICT_CHAIN", "").lower() in ("1", "true", "yes"):
+                    raise RuntimeError(
+                        "chain_storage='postgres' requires TC_VERIFIABLE_LOG_DSN "
+                        "(TC_STRICT_CHAIN=1).  Set the DSN or pass "
+                        "chain_storage='memory' explicitly."
+                    )
+                warnings.warn(
+                    "chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN "
+                    "не задан — автоматически используется in-memory backend. "
+                    "В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 "
+                    "для fail-closed поведения.",
+                    RuntimeWarning,
+                    stacklevel=3,
+                )
+                self.chain_storage = "memory"
