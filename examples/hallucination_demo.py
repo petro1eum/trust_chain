@@ -120,7 +120,8 @@ except Exception as e:
 print("\n" + "=" * 60)
 print("📋 SUMMARY")
 print("=" * 60)
-print("""
+print(
+    """
 | Scenario              | Has Signature | Verification |
 |-----------------------|---------------|--------------|
 | Hallucinated data     | ❌ No         | ❌ Fails     |
@@ -129,4 +130,5 @@ print("""
 
 TrustChain makes AI hallucinations DETECTABLE.
 If there's no valid signature, the data cannot be trusted.
-""")
+"""
+)

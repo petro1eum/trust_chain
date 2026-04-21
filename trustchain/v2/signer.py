@@ -1,7 +1,6 @@
 """Simple signer for TrustChain v2."""
 
 import base64
-import hashlib
 import json
 import time
 import uuid

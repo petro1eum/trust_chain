@@ -247,13 +247,15 @@ class VerifiableChainStore:
 
     def status(self) -> dict:
         """Chain health summary."""
-        stats = self._db.execute("""SELECT
+        stats = self._db.execute(
+            """SELECT
                 COUNT(*) as total,
                 COUNT(DISTINCT tool) as tools,
                 MIN(timestamp) as first_op,
                 MAX(timestamp) as last_op,
                 AVG(latency_ms) as avg_latency
-            FROM chain_log""").fetchone()
+            FROM chain_log"""
+        ).fetchone()
 
         tool_counts = self._db.execute(
             "SELECT tool, COUNT(*) as cnt FROM chain_log GROUP BY tool ORDER BY cnt DESC"
@@ -516,7 +518,8 @@ class VerifiableChainStore:
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute("PRAGMA synchronous=NORMAL")
 
-        self._db.executescript("""
+        self._db.executescript(
+            """
             CREATE TABLE IF NOT EXISTS chain_log (
                 seq          INTEGER PRIMARY KEY,
                 op_id        TEXT NOT NULL UNIQUE,
@@ -531,7 +534,8 @@ class VerifiableChainStore:
             CREATE INDEX IF NOT EXISTS idx_chain_timestamp ON chain_log(timestamp);
             CREATE INDEX IF NOT EXISTS idx_chain_session ON chain_log(session_id);
             CREATE INDEX IF NOT EXISTS idx_chain_op_id ON chain_log(op_id);
-        """)
+        """
+        )
         self._db.commit()
 
     def _index_record(self, record: dict) -> None:

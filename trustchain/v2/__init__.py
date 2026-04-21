@@ -24,12 +24,12 @@ from .nonce_storage import (
     RedisNonceStorage,
     adapt_nonce_storage,
 )
+from .pg_verifiable_log import PostgresVerifiableChainStore
 from .session import TrustChainSession, create_session
 from .signer import SignedResponse
 from .storage import FileStorage, MemoryStorage, Storage
 from .tenants import TenantInfo, TenantManager
 from .tsa import TSAClient, TSAError, TSAResponse, TSAVerifyResult, get_tsa_client
-from .pg_verifiable_log import PostgresVerifiableChainStore
 from .verifiable_log import InclusionProof, VerifiableChainStore
 from .verifier import TrustChainVerifier, VerificationResult
 from .x509_pki import AgentCertificate, CertVerifyResult, TrustChainCA

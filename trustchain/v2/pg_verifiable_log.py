@@ -43,10 +43,10 @@ import os
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Iterable
 
 try:
-    import psycopg
+    import psycopg  # noqa: F401 — required transitively for psycopg_pool runtime
     from psycopg_pool import ConnectionPool
 except ImportError as exc:  # pragma: no cover — dep is declared in pyproject.toml
     raise ImportError(
@@ -86,7 +86,7 @@ class InclusionProof:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "InclusionProof":
+    def from_dict(cls, data: dict) -> InclusionProof:
         return cls(
             op_id=data["op_id"],
             leaf_index=data["leaf_index"],
@@ -174,19 +174,19 @@ class PostgresVerifiableChainStore:
 
     def __init__(
         self,
-        dsn: Optional[str] = None,
+        dsn: str | None = None,
         *,
         schema: str = "tc_verifiable_log",
-        pool: Optional[ConnectionPool] = None,
+        pool: ConnectionPool | None = None,
     ) -> None:
         # DSN и pool разрешаются лениво — см. `_get_pool()`.  Это позволяет
         # безопасно инстанциировать `TrustChain(chain_storage='postgres')` в
         # тестах / кодовых путях, которые никогда не трогают цепочку.  Ошибка
         # «нет DSN» бросается только на первом реальном обращении (append /
         # verify / log …).
-        self._dsn: Optional[str] = dsn
+        self._dsn: str | None = dsn
         self._schema = schema
-        self._pool: Optional[ConnectionPool] = pool
+        self._pool: ConnectionPool | None = pool
         self._owns_pool = pool is None
         self._initialized = False
         # RLock: `_get_pool` может быть вызван из методов, уже удерживающих
@@ -194,8 +194,8 @@ class PostgresVerifiableChainStore:
         self._lock = threading.RLock()
 
         # Cached Merkle state (rebuilt from DB on first load / after rebuild_index).
-        self._leaf_hashes: List[str] = []
-        self._merkle_tree: Optional[MerkleTree] = None
+        self._leaf_hashes: list[str] = []
+        self._merkle_tree: MerkleTree | None = None
         self._length = 0
 
     # ── Lazy init helpers ────────────────────────────────────────────────
@@ -234,16 +234,16 @@ class PostgresVerifiableChainStore:
     def append(
         self,
         tool: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         signature: str,
         signature_id: str = "",
-        parent_hash: Optional[str] = None,
+        parent_hash: str | None = None,
         key_id: str = "",
         algorithm: str = "Ed25519",
         latency_ms: float = 0,
-        session_id: Optional[str] = None,
-        nonce: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        session_id: str | None = None,
+        nonce: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> dict:
         """Append an operation to the verifiable log (PG transactional)."""
         pool = self._get_pool()
@@ -333,10 +333,10 @@ class PostgresVerifiableChainStore:
         self,
         limit: int = 20,
         offset: int = 0,
-        tool: Optional[str] = None,
-        session_id: Optional[str] = None,
+        tool: str | None = None,
+        session_id: str | None = None,
         reverse: bool = True,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Query chain history — indexed, paginated."""
         clauses = ["1=1"]
         params: list = []
@@ -359,7 +359,7 @@ class PostgresVerifiableChainStore:
                 rows = cur.fetchall()
         return [json.loads(row[0]) for row in rows]
 
-    def show(self, op_id: str) -> Optional[dict]:
+    def show(self, op_id: str) -> dict | None:
         with self._get_pool().connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -369,13 +369,14 @@ class PostgresVerifiableChainStore:
                 row = cur.fetchone()
         return json.loads(row[0]) if row else None
 
-    def blame(self, tool: str, limit: int = 50) -> List[dict]:
+    def blame(self, tool: str, limit: int = 50) -> list[dict]:
         return self.log(limit=limit, tool=tool, reverse=True)
 
     def status(self) -> dict:
         with self._get_pool().connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT
                         COUNT(*)                              AS total,
                         COUNT(DISTINCT tool)                  AS tools,
@@ -383,15 +384,18 @@ class PostgresVerifiableChainStore:
                         MAX(ts)                               AS last_op,
                         COALESCE(AVG(latency_ms), 0)          AS avg_latency
                     FROM chain_records
-                    """)
+                    """
+                )
                 stats = cur.fetchone()
 
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT tool, COUNT(*) AS cnt
                     FROM chain_records
                     GROUP BY tool
                     ORDER BY cnt DESC
-                    """)
+                    """
+                )
                 tool_rows = cur.fetchall()
 
                 cur.execute("SELECT pg_total_relation_size('chain_records')")
@@ -418,7 +422,7 @@ class PostgresVerifiableChainStore:
         if not a or not b:
             return {"error": "Operation not found", "a": op_id_a, "b": op_id_b}
 
-        changes: Dict[str, Dict[str, Any]] = {}
+        changes: dict[str, dict[str, Any]] = {}
         for key in sorted(set(list(a.keys()) + list(b.keys()))):
             va, vb = a.get(key), b.get(key)
             if va != vb:
@@ -441,7 +445,7 @@ class PostgresVerifiableChainStore:
                 "verified_at": datetime.now(timezone.utc).isoformat(),
             }
 
-        recomputed_leaves: List[str] = [
+        recomputed_leaves: list[str] = [
             hash_data(record_json) for record_json in self._iter_log_records()
         ]
         recomputed_tree = MerkleTree.from_chunks(list(recomputed_leaves))
@@ -458,7 +462,7 @@ class PostgresVerifiableChainStore:
             "verified_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    def inclusion_proof(self, op_id: str) -> Optional[InclusionProof]:
+    def inclusion_proof(self, op_id: str) -> InclusionProof | None:
         pool = self._get_pool()
         if self._merkle_tree is None:
             return None
@@ -520,7 +524,7 @@ class PostgresVerifiableChainStore:
             self._load_state()
         return {"rebuilt": True, "records": self._length}
 
-    def export_json(self, filepath: Optional[str] = None) -> str:
+    def export_json(self, filepath: str | None = None) -> str:
         records = self.log(limit=10**9, reverse=False)
         output = json.dumps(
             {
@@ -541,11 +545,11 @@ class PostgresVerifiableChainStore:
     # ── Properties ──────────────────────────────────────────────────────
 
     @property
-    def head(self) -> Optional[str]:
+    def head(self) -> str | None:
         return self._merkle_tree.root if self._merkle_tree else None
 
     @property
-    def merkle_root(self) -> Optional[str]:
+    def merkle_root(self) -> str | None:
         return self.head
 
     @property
@@ -598,7 +602,7 @@ class PostgresVerifiableChainStore:
                 for (record_json,) in cur:
                     yield record_json
 
-    def _load_head_root(self) -> Optional[str]:
+    def _load_head_root(self) -> str | None:
         with self._pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT merkle_root FROM chain_head WHERE id = 'HEAD'")
