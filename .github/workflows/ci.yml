@@ -10,9 +10,15 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.10', '3.11', '3.12', '3.13']
+    defaults:
+      run:
+        # На Windows по-умолчанию PowerShell; он не понимает bash-style line-
+        # continuation `\`. Принудительно используем bash (git-bash на Windows).
+        shell: bash
 
     steps:
     - uses: actions/checkout@v4
