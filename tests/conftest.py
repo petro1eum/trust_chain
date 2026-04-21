@@ -77,9 +77,7 @@ def postgres_chain_dsn() -> Iterator[str]:
             cur.execute('REVOKE CREATE ON DATABASE "trustchain" FROM PUBLIC')
             cur.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,))
             exists = cur.fetchone() is not None
-            stmt = sql.SQL(
-                "{verb} ROLE {role} {with_} LOGIN PASSWORD {pw}"
-            ).format(
+            stmt = sql.SQL("{verb} ROLE {role} {with_} LOGIN PASSWORD {pw}").format(
                 verb=sql.SQL("ALTER") if exists else sql.SQL("CREATE"),
                 role=sql.Identifier(role),
                 with_=sql.SQL("WITH") if exists else sql.SQL(""),
@@ -100,9 +98,7 @@ def postgres_chain_dsn() -> Iterator[str]:
                 )
             )
             cur.execute(
-                sql.SQL(
-                    "GRANT USAGE, CREATE ON SCHEMA {schema} TO {role}"
-                ).format(
+                sql.SQL("GRANT USAGE, CREATE ON SCHEMA {schema} TO {role}").format(
                     schema=sql.Identifier(schema), role=sql.Identifier(role)
                 )
             )
@@ -110,9 +106,7 @@ def postgres_chain_dsn() -> Iterator[str]:
                 sql.SQL(
                     'ALTER ROLE {role} IN DATABASE "trustchain" '
                     "SET search_path TO {schema}"
-                ).format(
-                    role=sql.Identifier(role), schema=sql.Identifier(schema)
-                )
+                ).format(role=sql.Identifier(role), schema=sql.Identifier(schema))
             )
 
         dsn = f"postgresql://{role}:{password}@{host}:{port}/trustchain"
