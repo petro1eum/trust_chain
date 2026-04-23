@@ -14,18 +14,31 @@
         rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-card: #1a1a24;
+            --bg-primary: #070712;
+            --bg-secondary: #0c0d1a;
+            --bg-card: rgba(255, 255, 255, 0.035);
+            --bg-card-strong: rgba(255, 255, 255, 0.06);
             --accent: #6366f1;
             --accent-light: #818cf8;
-            --accent-glow: rgba(99, 102, 241, 0.3);
+            --accent-glow: rgba(99, 102, 241, 0.35);
+            --cyan: #22d3ee;
+            --cyan-glow: rgba(34, 211, 238, 0.25);
             --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.28);
             --warning: #f59e0b;
+            --rose: #fb7185;
             --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --text-faint: #64748b;
             --border: rgba(255, 255, 255, 0.08);
+            --border-strong: rgba(255, 255, 255, 0.14);
+            --r-sm: 8px;
+            --r-md: 14px;
+            --r-lg: 20px;
+            --r-xl: 28px;
+            --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         * {
@@ -34,47 +47,118 @@
             box-sizing: border-box;
         }
 
+        html {
+            scroll-behavior: smooth;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            html {
+                scroll-behavior: auto;
+            }
+
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+            }
+        }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             line-height: 1.6;
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            font-feature-settings: "cv11", "ss01", "ss03";
         }
 
-        /* Animated background */
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--accent-light);
+            outline-offset: 3px;
+            border-radius: 4px;
+        }
+
+        /* Skip link */
+        .skip-to-content {
+            position: absolute;
+            left: -9999px;
+            top: 1rem;
+            padding: 0.5rem 1rem;
+            background: var(--accent);
+            color: #fff;
+            border-radius: var(--r-sm);
+            z-index: 2000;
+        }
+
+        .skip-to-content:focus {
+            left: 1rem;
+        }
+
+        /* Mesh-gradient background */
         .bg-grid {
             position: fixed;
             inset: 0;
             background-image:
-                linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
+                linear-gradient(rgba(99, 102, 241, 0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.025) 1px, transparent 1px);
+            background-size: 64px 64px;
+            mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 85%);
             pointer-events: none;
             z-index: -1;
         }
 
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: -2;
+            background:
+                radial-gradient(circle 700px at 10% -10%, rgba(99, 102, 241, 0.22), transparent 60%),
+                radial-gradient(circle 600px at 90% 10%, rgba(34, 211, 238, 0.12), transparent 55%),
+                radial-gradient(circle 650px at 50% 110%, rgba(16, 185, 129, 0.10), transparent 60%);
+        }
+
+        .bg-noise {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0.35;
+            mix-blend-mode: overlay;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.5'/></svg>");
+        }
+
         .glow-orb {
             position: fixed;
-            width: 600px;
-            height: 600px;
+            width: 560px;
+            height: 560px;
             border-radius: 50%;
             background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
             filter: blur(80px);
             pointer-events: none;
             z-index: -1;
-            animation: float 20s ease-in-out infinite;
+            animation: float 22s ease-in-out infinite;
         }
 
         .glow-orb:nth-child(1) {
-            top: -200px;
+            top: -240px;
             left: -200px;
         }
 
         .glow-orb:nth-child(2) {
-            bottom: -200px;
-            right: -200px;
-            animation-delay: -10s;
+            bottom: -260px;
+            right: -220px;
+            background: radial-gradient(circle, var(--cyan-glow) 0%, transparent 70%);
+            animation-delay: -11s;
         }
 
         @keyframes float {
@@ -89,36 +173,65 @@
             }
         }
 
+        /* Scroll-reveal */
+        .reveal {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity 0.8s var(--ease-out), transform 0.8s var(--ease-out);
+            will-change: opacity, transform;
+        }
+
+        .reveal.in {
+            opacity: 1;
+            transform: none;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .reveal {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
         /* Navigation */
         nav {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            padding: 1rem 2rem;
+            padding: 0.9rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: rgba(10, 10, 15, 0.8);
-            backdrop-filter: blur(20px);
+            background: rgba(7, 7, 18, 0.72);
+            backdrop-filter: saturate(160%) blur(22px);
+            -webkit-backdrop-filter: saturate(160%) blur(22px);
             border-bottom: 1px solid var(--border);
             z-index: 1000;
+            transition: background 0.3s var(--ease), border-color 0.3s var(--ease);
+        }
+
+        nav.scrolled {
+            background: rgba(7, 7, 18, 0.88);
+            border-bottom-color: var(--border-strong);
         }
 
         .logo {
-            font-size: 1.5rem;
+            font-size: 1.4rem;
             font-weight: 700;
+            letter-spacing: -0.01em;
             background: linear-gradient(135deg, var(--accent-light), var(--accent));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.6rem;
         }
 
         .logo svg {
-            width: 32px;
-            height: 32px;
+            width: 30px;
+            height: 30px;
+            filter: drop-shadow(0 0 14px var(--accent-glow));
         }
 
         .nav-links {
@@ -128,20 +241,39 @@
         }
 
         .nav-links a {
+            position: relative;
             color: var(--text-secondary);
             text-decoration: none;
             font-size: 0.9rem;
             font-weight: 500;
-            transition: color 0.2s;
+            transition: color 0.2s var(--ease);
+            padding: 0.25rem 0;
+        }
+
+        .nav-links a::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: -4px;
+            height: 2px;
+            width: 0;
+            background: linear-gradient(90deg, var(--accent-light), var(--cyan));
+            border-radius: 2px;
+            transition: width 0.3s var(--ease);
         }
 
         .nav-links a:hover {
             color: var(--text-primary);
         }
 
+        .nav-links a:hover::after,
+        .nav-links a.active::after {
+            width: 100%;
+        }
+
         .nav-cta {
             display: flex;
-            gap: 1rem;
+            gap: 0.75rem;
             align-items: center;
         }
 
@@ -211,39 +343,68 @@
 
         /* Buttons */
         .btn {
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
+            padding: 0.7rem 1.35rem;
+            border-radius: 10px;
             font-size: 0.9rem;
             font-weight: 500;
             text-decoration: none;
-            transition: all 0.2s;
+            transition: transform 0.2s var(--ease), box-shadow 0.3s var(--ease), background 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease);
             cursor: pointer;
             border: none;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
+            letter-spacing: -0.005em;
+            position: relative;
+            isolation: isolate;
         }
 
         .btn-primary {
             background: linear-gradient(135deg, var(--accent), var(--accent-light));
-            color: white;
-            box-shadow: 0 4px 20px var(--accent-glow);
+            color: #fff;
+            box-shadow: 0 6px 24px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+        }
+
+        .btn-primary::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0));
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 30px var(--accent-glow);
+            box-shadow: 0 10px 36px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
         }
 
         .btn-secondary {
-            background: transparent;
+            background: var(--bg-card);
             color: var(--text-primary);
-            border: 1px solid var(--border);
+            border: 1px solid var(--border-strong);
+            backdrop-filter: blur(10px);
         }
 
         .btn-secondary:hover {
-            background: var(--bg-card);
-            border-color: var(--accent);
+            background: var(--bg-card-strong);
+            border-color: var(--accent-light);
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success), #059669);
+            color: #fff;
+            box-shadow: 0 6px 24px var(--success-glow), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 36px var(--success-glow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
         }
 
         /* Hero Section */
@@ -254,22 +415,36 @@
             justify-content: center;
             align-items: center;
             text-align: center;
-            padding: 8rem 2rem 4rem;
+            padding: 9rem 2rem 5rem;
             max-width: 1200px;
             margin: 0 auto;
+            position: relative;
         }
 
         .badge {
+            position: relative;
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
+            gap: 0.55rem;
+            padding: 0.45rem 1rem 0.45rem 0.75rem;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.14), rgba(34, 211, 238, 0.10));
+            border: 1px solid rgba(129, 140, 248, 0.3);
             border-radius: 100px;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             color: var(--text-secondary);
             margin-bottom: 2rem;
+            letter-spacing: 0.005em;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 24px rgba(99, 102, 241, 0.12);
+        }
+
+        .badge code {
+            background: rgba(255, 255, 255, 0.06);
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.78rem;
+            color: var(--accent-light);
+            font-family: 'JetBrains Mono', monospace;
         }
 
         .badge-dot {
@@ -277,6 +452,7 @@
             height: 8px;
             background: var(--success);
             border-radius: 50%;
+            box-shadow: 0 0 10px var(--success-glow), 0 0 20px rgba(16, 185, 129, 0.4);
             animation: pulse 2s infinite;
         }
 
@@ -288,36 +464,49 @@
             }
 
             50% {
-                opacity: 0.5;
+                opacity: 0.45;
             }
         }
 
         h1 {
-            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-size: clamp(2.6rem, 6.2vw, 4.6rem);
             font-weight: 700;
-            line-height: 1.1;
+            line-height: 1.05;
+            letter-spacing: -0.025em;
             margin-bottom: 1.5rem;
-            background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+            background: linear-gradient(180deg, #fff 0%, #cbd5e1 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
         .highlight {
-            background: linear-gradient(135deg, var(--accent-light), var(--accent));
+            position: relative;
+            background: linear-gradient(135deg, var(--accent-light) 0%, var(--cyan) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
         .hero-subtitle {
-            font-size: 1.25rem;
+            font-size: 1.2rem;
             color: var(--text-secondary);
-            max-width: 600px;
+            max-width: 680px;
             margin-bottom: 2.5rem;
+            line-height: 1.55;
+        }
+
+        .hero-subtitle code {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border);
+            padding: 0.1rem 0.45rem;
+            border-radius: 5px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.92em;
+            color: var(--accent-light);
         }
 
         .hero-cta {
             display: flex;
-            gap: 1rem;
+            gap: 0.85rem;
             flex-wrap: wrap;
             justify-content: center;
             margin-bottom: 4rem;
@@ -325,30 +514,55 @@
 
         /* Code Preview */
         .code-preview {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 1.5rem;
-            max-width: 700px;
+            background: linear-gradient(180deg, rgba(12, 13, 26, 0.95), rgba(7, 7, 18, 0.95));
+            border: 1px solid var(--border-strong);
+            border-radius: var(--r-lg);
+            padding: 1.5rem 1.75rem;
+            max-width: 720px;
             width: 100%;
             text-align: left;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.9rem;
             position: relative;
             overflow: hidden;
+            box-shadow:
+                0 40px 80px -20px rgba(0, 0, 0, 0.6),
+                0 0 0 1px rgba(255, 255, 255, 0.03),
+                inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        .code-preview::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse 300px 140px at 20% -10%, var(--accent-glow), transparent 70%);
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        .code-preview > * {
+            position: relative;
         }
 
         .code-header {
             display: flex;
             gap: 0.5rem;
+            align-items: center;
             margin-bottom: 1rem;
             padding-bottom: 1rem;
             border-bottom: 1px solid var(--border);
         }
 
+        .code-header .code-filename {
+            margin-left: auto;
+            color: var(--text-faint);
+            font-size: 0.75rem;
+            letter-spacing: 0.02em;
+        }
+
         .code-dot {
-            width: 12px;
-            height: 12px;
+            width: 11px;
+            height: 11px;
             border-radius: 50%;
         }
 
@@ -366,6 +580,7 @@
 
         .code-content {
             color: var(--text-secondary);
+            line-height: 1.7;
         }
 
         .code-content .keyword {
@@ -381,16 +596,17 @@
         }
 
         .code-content .comment {
-            color: var(--text-muted);
+            color: var(--text-faint);
+            font-style: italic;
         }
 
         .code-content .operator {
             color: #89ddff;
         }
 
-        /* Features Section */
+        /* Sections */
         .features {
-            padding: 6rem 2rem;
+            padding: 7rem 2rem;
             max-width: 1200px;
             margin: 0 auto;
         }
@@ -400,15 +616,41 @@
             margin-bottom: 4rem;
         }
 
-        .section-header h2 {
-            font-size: 2.5rem;
+        .section-eyebrow {
+            display: inline-block;
+            padding: 0.3rem 0.75rem;
+            border-radius: 100px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
             margin-bottom: 1rem;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(34, 211, 238, 0.14));
+            border: 1px solid rgba(129, 140, 248, 0.25);
+            color: var(--accent-light);
+        }
+
+        .section-eyebrow.new {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(5, 150, 105, 0.14));
+            border-color: rgba(16, 185, 129, 0.35);
+            color: #34d399;
+        }
+
+        .section-header h2 {
+            font-size: clamp(2rem, 3.6vw, 2.75rem);
+            letter-spacing: -0.02em;
+            margin-bottom: 1rem;
+            line-height: 1.15;
+            background: linear-gradient(180deg, #fff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .section-header p {
-            color: var(--text-secondary);
-            max-width: 600px;
+            color: var(--text-muted);
+            max-width: 620px;
             margin: 0 auto;
+            font-size: 1.02rem;
         }
 
         .features-grid {
@@ -418,80 +660,182 @@
         }
 
         .feature-card {
-            background: var(--bg-card);
+            position: relative;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
             border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 2rem;
-            transition: all 0.3s;
+            border-radius: var(--r-md);
+            padding: 1.85rem;
+            transition: transform 0.35s var(--ease-out), border-color 0.3s var(--ease), background 0.3s var(--ease);
+            overflow: hidden;
+            isolation: isolate;
+        }
+
+        .feature-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: conic-gradient(from 180deg at 50% 50%, transparent 0deg, var(--accent-glow) 90deg, var(--cyan-glow) 180deg, transparent 270deg);
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.5s var(--ease);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .feature-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(500px circle at var(--mx, 50%) var(--my, -10%), rgba(129, 140, 248, 0.08), transparent 40%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.35s var(--ease);
+            z-index: -1;
         }
 
         .feature-card:hover {
-            border-color: var(--accent);
             transform: translateY(-4px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border-color: transparent;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+        }
+
+        .feature-card:hover::before,
+        .feature-card:hover::after {
+            opacity: 1;
         }
 
         .feature-icon {
-            width: 48px;
-            height: 48px;
+            width: 44px;
+            height: 44px;
             background: linear-gradient(135deg, var(--accent), var(--accent-light));
-            border-radius: 12px;
+            border-radius: 11px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 1.5rem;
-            font-size: 1.5rem;
+            margin-bottom: 1.35rem;
+            font-size: 1.4rem;
+            box-shadow: 0 8px 24px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+        }
+
+        .feature-icon.cyan {
+            background: linear-gradient(135deg, #0891b2, var(--cyan));
+            box-shadow: 0 8px 24px var(--cyan-glow), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+        }
+
+        .feature-icon.emerald {
+            background: linear-gradient(135deg, #059669, var(--success));
+            box-shadow: 0 8px 24px var(--success-glow), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+        }
+
+        .feature-icon.amber {
+            background: linear-gradient(135deg, #d97706, var(--warning));
+            box-shadow: 0 8px 24px rgba(245, 158, 11, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.18);
         }
 
         .feature-card h3 {
-            font-size: 1.25rem;
-            margin-bottom: 0.75rem;
+            font-size: 1.2rem;
+            letter-spacing: -0.012em;
+            margin-bottom: 0.6rem;
+            color: var(--text-primary);
         }
 
         .feature-card p {
-            color: var(--text-secondary);
-            font-size: 0.95rem;
+            color: var(--text-muted);
+            font-size: 0.94rem;
+            line-height: 1.6;
+        }
+
+        .feature-card a {
+            color: var(--accent-light);
+            text-decoration: none;
+            border-bottom: 1px dashed rgba(129, 140, 248, 0.4);
+            transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
+        }
+
+        .feature-card a:hover {
+            color: var(--cyan);
+            border-bottom-color: var(--cyan);
+        }
+
+        .feature-card code {
+            background: rgba(255, 255, 255, 0.06);
+            padding: 0.08rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85em;
+            color: var(--accent-light);
         }
 
         /* Use Cases */
         .use-cases {
-            padding: 6rem 2rem;
-            background: var(--bg-secondary);
+            padding: 7rem 2rem;
+            background: linear-gradient(180deg, transparent, rgba(12, 13, 26, 0.6), transparent);
+            position: relative;
+        }
+
+        .use-cases::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse 1000px 400px at 50% 50%, rgba(99, 102, 241, 0.05), transparent 70%);
+            pointer-events: none;
         }
 
         .use-cases-content {
             max-width: 1200px;
             margin: 0 auto;
+            position: relative;
         }
 
         .use-case-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
+            gap: 1.25rem;
         }
 
         .use-case {
-            background: var(--bg-card);
+            background: rgba(255, 255, 255, 0.025);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: var(--r-md);
             padding: 1.5rem;
             display: flex;
             align-items: flex-start;
             gap: 1rem;
+            transition: border-color 0.3s var(--ease), background 0.3s var(--ease), transform 0.3s var(--ease);
+        }
+
+        .use-case:hover {
+            background: rgba(255, 255, 255, 0.045);
+            border-color: var(--border-strong);
+            transform: translateY(-2px);
         }
 
         .use-case-icon {
             font-size: 2rem;
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(34, 211, 238, 0.12));
+            border-radius: 10px;
         }
 
         .use-case h4 {
-            font-size: 1rem;
-            margin-bottom: 0.5rem;
+            font-size: 1.02rem;
+            letter-spacing: -0.01em;
+            margin-bottom: 0.35rem;
         }
 
         .use-case p {
-            color: var(--text-secondary);
-            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            line-height: 1.55;
         }
 
         /* Stats */
@@ -506,34 +850,78 @@
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 2rem;
             text-align: center;
+            padding: 2.5rem 1rem;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015));
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stats-grid::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 400px 120px at 50% 0%, var(--accent-glow), transparent 70%),
+                radial-gradient(ellipse 300px 100px at 50% 100%, var(--cyan-glow), transparent 70%);
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        .stat-item {
+            position: relative;
+        }
+
+        .stat-item + .stat-item::before {
+            content: "";
+            position: absolute;
+            left: -1rem;
+            top: 20%;
+            bottom: 20%;
+            width: 1px;
+            background: linear-gradient(180deg, transparent, var(--border-strong), transparent);
+        }
+
+        @media (max-width: 820px) {
+            .stat-item + .stat-item::before {
+                display: none;
+            }
         }
 
         .stat-item h3 {
-            font-size: 3rem;
+            font-size: clamp(2.4rem, 4vw, 3rem);
             font-weight: 700;
-            background: linear-gradient(135deg, var(--accent-light), var(--accent));
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--accent-light), var(--cyan));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            line-height: 1;
+            margin-bottom: 0.4rem;
         }
 
         .stat-item p {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            line-height: 1.4;
         }
 
         /* CTA Section */
         .cta {
-            padding: 6rem 2rem;
+            padding: 7rem 2rem;
             text-align: center;
         }
 
         .cta-card {
-            max-width: 800px;
+            max-width: 820px;
             margin: 0 auto;
-            background: linear-gradient(135deg, var(--bg-card), var(--bg-secondary));
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 4rem;
+            background:
+                radial-gradient(ellipse 600px 300px at 80% 0%, rgba(34, 211, 238, 0.15), transparent 70%),
+                radial-gradient(ellipse 600px 300px at 20% 100%, rgba(99, 102, 241, 0.2), transparent 70%),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+            border: 1px solid var(--border-strong);
+            border-radius: var(--r-xl);
+            padding: 4rem 3rem;
             position: relative;
             overflow: hidden;
         }
@@ -542,37 +930,41 @@
             content: '';
             position: absolute;
             inset: 0;
-            background: radial-gradient(circle at top right, var(--accent-glow) 0%, transparent 50%);
+            background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.03) 50%, transparent 70%);
             pointer-events: none;
         }
 
         .cta-card h2 {
-            font-size: 2rem;
+            font-size: clamp(1.85rem, 3vw, 2.2rem);
+            letter-spacing: -0.02em;
             margin-bottom: 1rem;
             position: relative;
         }
 
         .cta-card p {
-            color: var(--text-secondary);
+            color: var(--text-muted);
             margin-bottom: 2rem;
             position: relative;
+            font-size: 1rem;
         }
 
         .install-code {
             display: inline-flex;
             align-items: center;
             gap: 1rem;
-            background: var(--bg-primary);
-            padding: 1rem 1.5rem;
-            border-radius: 8px;
+            background: rgba(7, 7, 18, 0.7);
+            border: 1px solid var(--border-strong);
+            padding: 0.9rem 1.35rem;
+            border-radius: 10px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 1rem;
+            font-size: 0.95rem;
             margin-bottom: 2rem;
             position: relative;
+            backdrop-filter: blur(10px);
         }
 
         .install-code .prefix {
-            color: var(--text-muted);
+            color: var(--text-faint);
         }
 
         .copy-btn {
@@ -581,18 +973,26 @@
             color: var(--text-muted);
             cursor: pointer;
             padding: 0.25rem;
-            transition: color 0.2s;
+            transition: color 0.2s var(--ease), transform 0.2s var(--ease);
+            display: inline-flex;
+            align-items: center;
         }
 
         .copy-btn:hover {
-            color: var(--accent);
+            color: var(--accent-light);
+            transform: translateY(-1px);
+        }
+
+        .copy-btn.copied {
+            color: var(--success);
         }
 
         /* Footer */
         footer {
-            padding: 3rem 2rem;
+            padding: 3rem 2rem 2.5rem;
             border-top: 1px solid var(--border);
             text-align: center;
+            background: linear-gradient(180deg, transparent, rgba(7, 7, 18, 0.4));
         }
 
         .footer-content {
@@ -602,65 +1002,443 @@
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 1rem;
+            gap: 1.25rem;
         }
 
         .footer-links {
             display: flex;
-            gap: 2rem;
+            gap: 1.75rem;
             list-style: none;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         .footer-links a {
-            color: var(--text-secondary);
+            color: var(--text-muted);
             text-decoration: none;
-            font-size: 0.9rem;
-            transition: color 0.2s;
+            font-size: 0.88rem;
+            transition: color 0.2s var(--ease);
         }
 
         .footer-links a:hover {
-            color: var(--accent);
+            color: var(--accent-light);
         }
 
         .copyright {
-            color: var(--text-muted);
+            color: var(--text-faint);
+            font-size: 0.82rem;
+        }
+
+        /* Receipts flagship section */
+        .receipts {
+            padding: 7rem 2rem;
+            background: linear-gradient(180deg, var(--bg-primary) 0%, #0a0a18 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .receipts::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 800px 300px at 50% -5%, var(--success-glow), transparent 70%),
+                radial-gradient(ellipse 600px 300px at 15% 100%, var(--accent-glow), transparent 70%);
+            pointer-events: none;
+        }
+
+        .receipts-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .receipts h2 code,
+        .receipt-inline-code {
+            background: rgba(255, 255, 255, 0.06);
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+            color: var(--accent-light);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85em;
+        }
+
+        .receipts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+
+        .receipts-cta {
+            text-align: center;
+            margin-top: 2.5rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* Integrations */
+        .integrations {
+            padding: 6rem 2rem;
+        }
+
+        .integrations-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .integrations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 1rem;
+            margin-top: 2.5rem;
+        }
+
+        .integration-chip {
+            position: relative;
+            padding: 1.5rem 1.25rem;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            text-align: center;
+            transition: transform 0.3s var(--ease), border-color 0.3s var(--ease), background 0.3s var(--ease);
+        }
+
+        .integration-chip:hover {
+            transform: translateY(-3px);
+            border-color: var(--border-strong);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025));
+        }
+
+        .integration-chip.accent {
+            border-color: rgba(16, 185, 129, 0.4);
+            background: linear-gradient(180deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02));
+        }
+
+        .integration-chip.accent:hover {
+            border-color: var(--success);
+            box-shadow: 0 8px 24px var(--success-glow);
+        }
+
+        .integration-chip .chip-icon {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            border-radius: 9px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(34, 211, 238, 0.12));
+        }
+
+        .integration-chip.accent .chip-icon {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15));
+        }
+
+        .integration-chip .chip-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            margin-bottom: 0.15rem;
+        }
+
+        .integration-chip .chip-sub {
+            color: var(--text-faint);
+            font-size: 0.78rem;
+        }
+
+        .integrations-cta {
+            text-align: center;
+            margin-top: 2.5rem;
+        }
+
+        /* Notebooks */
+        .notebooks {
+            padding: 6rem 2rem;
+            background: linear-gradient(180deg, transparent, rgba(12, 13, 26, 0.7), transparent);
+            position: relative;
+        }
+
+        .notebooks-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .notebooks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .notebook-card {
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            position: relative;
+        }
+
+        .notebook-card .feature-card {
+            height: 100%;
+        }
+
+        .colab-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            margin-top: 0.85rem;
+            padding: 0.3rem 0.65rem;
+            background: linear-gradient(135deg, #F9AB00, #F97316);
+            color: #0a0a12;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .notebook-new {
+            display: inline-block;
+            margin-left: 0.5rem;
+            padding: 0.1rem 0.45rem;
+            background: linear-gradient(135deg, var(--success), #059669);
+            color: #fff;
+            border-radius: 4px;
+            font-size: 0.62rem;
+            font-weight: 700;
+            vertical-align: middle;
+            letter-spacing: 0.04em;
+        }
+
+        /* Pricing */
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.75rem;
+            max-width: 1050px;
+            margin: 0 auto;
+        }
+
+        .price-card {
+            position: relative;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            padding: 2.25rem 2rem;
+            text-align: center;
+            transition: transform 0.35s var(--ease), border-color 0.3s var(--ease);
+        }
+
+        .price-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--border-strong);
+        }
+
+        .price-card.featured {
+            background:
+                radial-gradient(ellipse 400px 250px at 50% 0%, rgba(99, 102, 241, 0.18), transparent 70%),
+                linear-gradient(180deg, rgba(129, 140, 248, 0.08), rgba(99, 102, 241, 0.03));
+            border-color: rgba(129, 140, 248, 0.4);
+            box-shadow: 0 20px 60px -20px var(--accent-glow);
+        }
+
+        .price-card.featured:hover {
+            border-color: var(--accent-light);
+        }
+
+        .price-ribbon {
+            position: absolute;
+            top: -11px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--success), #059669);
+            color: #fff;
+            padding: 0.3rem 1rem;
+            border-radius: 100px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            box-shadow: 0 6px 20px var(--success-glow);
+        }
+
+        .price-card h3 {
+            color: var(--text-primary);
+            font-size: 1.35rem;
+            letter-spacing: -0.01em;
+            margin-bottom: 0.35rem;
+        }
+
+        .price-amount {
+            font-size: 2.75rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            background: linear-gradient(135deg, var(--accent-light), var(--cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0.85rem 0 0.25rem;
+            line-height: 1;
+        }
+
+        .price-amount .price-suffix {
+            font-size: 0.9rem;
+            color: var(--text-faint);
+            -webkit-text-fill-color: var(--text-faint);
+            font-weight: 500;
+            margin-left: 0.1rem;
+        }
+
+        .price-note {
+            color: var(--text-faint);
+            margin-bottom: 1.5rem;
+            font-size: 0.88rem;
+        }
+
+        .price-features {
+            text-align: left;
+            list-style: none;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+        }
+
+        .price-features li {
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.55rem;
+            line-height: 1.5;
+        }
+
+        .price-features li::before {
+            content: "";
+            flex-shrink: 0;
+            width: 16px;
+            height: 16px;
+            margin-top: 3px;
+            background-color: var(--success);
+            -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'><path d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/></svg>") center / contain no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'><path d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/></svg>") center / contain no-repeat;
+        }
+
+        .price-features li.star::before {
+            background-color: var(--cyan);
+            -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'><path d='M12 2l2.39 7.36H22l-6.19 4.5L18.18 21 12 16.5 5.82 21l2.37-7.14L2 9.36h7.61z'/></svg>") center / contain no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'><path d='M12 2l2.39 7.36H22l-6.19 4.5L18.18 21 12 16.5 5.82 21l2.37-7.14L2 9.36h7.61z'/></svg>") center / contain no-repeat;
+        }
+
+        .price-features li.lock::before {
+            background-color: var(--warning);
+            -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'><path d='M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z'/></svg>") center / contain no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'><path d='M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z'/></svg>") center / contain no-repeat;
+        }
+
+        .price-card .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Guides row */
+        .footer-guides {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            margin-top: 0.5rem;
+            padding-top: 1.25rem;
+            border-top: 1px dashed var(--border);
+            color: var(--text-faint);
             font-size: 0.85rem;
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            nav {
-                padding: 1rem;
-            }
+        .footer-guides a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            font-size: 1rem;
+            text-decoration: none;
+            transition: transform 0.2s var(--ease), border-color 0.2s var(--ease);
+        }
 
+        .footer-guides a:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-light);
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
             .nav-links {
                 display: none;
             }
+        }
+
+        @media (max-width: 768px) {
+            nav {
+                padding: 0.75rem 1rem;
+            }
 
             .hero {
-                padding: 6rem 1rem 3rem;
+                padding: 7rem 1rem 3rem;
             }
 
             .hero-cta {
+                width: 100%;
                 flex-direction: column;
+            }
+
+            .hero-cta .btn {
+                width: 100%;
+                justify-content: center;
             }
 
             .code-preview {
                 font-size: 0.75rem;
+                padding: 1.25rem 1rem;
+            }
+
+            .features,
+            .use-cases,
+            .receipts,
+            .integrations,
+            .notebooks,
+            .cta {
+                padding: 4.5rem 1rem;
+            }
+
+            .cta-card {
+                padding: 2.5rem 1.5rem;
             }
 
             .footer-content {
                 flex-direction: column;
                 text-align: center;
             }
+
+            .install-code {
+                font-size: 0.82rem;
+                padding: 0.8rem 1rem;
+            }
         }
     </style>
 </head>
 
 <body>
-    <div class="bg-grid"></div>
-    <div class="glow-orb"></div>
-    <div class="glow-orb"></div>
+    <a href="#main-content" class="skip-to-content">Skip to content</a>
+    <div class="bg-mesh" aria-hidden="true"></div>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="bg-noise" aria-hidden="true"></div>
+    <div class="glow-orb" aria-hidden="true"></div>
+    <div class="glow-orb" aria-hidden="true"></div>
 
     <nav>
         <div class="logo">
@@ -682,6 +1460,7 @@
             <li><a href="#features">Features</a></li>
             <li><a href="#receipts">.tcreceipt</a></li>
             <li><a href="#use-cases">Use Cases</a></li>
+            <li><a href="https://github.com/petro1eum/trust_chain/blob/main/docs/TECHNOLOGY.md">Technology</a></li>
             <li><a href="#pricing">Pricing</a></li>
             <li><a href="https://github.com/petro1eum/trust_chain/wiki">Docs</a></li>
         </ul>
@@ -705,22 +1484,21 @@
         </div>
     </nav>
 
-    <main>
+    <main id="main-content">
         <section class="hero">
             <div class="badge">
-                <span class="badge-dot"></span>
-                v3.0.0 Now Available · `.tcreceipt` portable proofs
+                <span class="badge-dot" aria-hidden="true"></span>
+                <span>v3.0.0 Now Available · <code>.tcreceipt</code> portable proofs</span>
             </div>
             <h1>Cryptographic <span class="highlight">Proof</span><br>for AI Agent Actions</h1>
             <p class="hero-subtitle">
                 <strong>AI either hallucinates facts or gets them from tools.<br>
                     TrustChain signs every fact with Ed25519 — and hands you a portable
-                    <code style="background:var(--bg-card);padding:0.1rem 0.4rem;border-radius:4px;">.tcreceipt</code>
-                    that anyone can verify offline.</strong>
+                    <code>.tcreceipt</code> that anyone can verify offline.</strong>
             </p>
             <div class="hero-cta">
                 <a href="https://github.com/petro1eum/trust_chain" class="btn btn-primary">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                         <path
                             d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
                     </svg>
@@ -729,11 +1507,12 @@
                 <a href="#quick-start" class="btn btn-secondary">Quick Start</a>
             </div>
 
-            <div class="code-preview">
+            <div class="code-preview reveal">
                 <div class="code-header">
                     <span class="code-dot"></span>
                     <span class="code-dot"></span>
                     <span class="code-dot"></span>
+                    <span class="code-filename">sign_and_export.py</span>
                 </div>
                 <div class="code-content">
                     <span class="keyword">from</span> trustchain <span class="keyword">import</span> TrustChain, build_receipt<br><br>
@@ -752,12 +1531,13 @@
         </section>
 
         <section class="features" id="features">
-            <div class="section-header">
+            <div class="section-header reveal">
+                <span class="section-eyebrow">Why TrustChain</span>
                 <h2>Enterprise-Grade Security</h2>
                 <p>Everything you need to build trustworthy, auditable AI systems</p>
             </div>
             <div class="features-grid">
-                <div class="feature-card">
+                <div class="feature-card reveal">
                     <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="white">
                             <path
                                 d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" />
@@ -766,8 +1546,8 @@
                     <p>Every tool call is cryptographically signed with fast, secure Ed25519 elliptic curve signatures.
                     </p>
                 </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                <div class="feature-card reveal">
+                    <div class="feature-icon cyan"><svg width="24" height="24" viewBox="0 0 24 24" fill="white" aria-hidden="true">
                             <path
                                 d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z" />
                         </svg></div>
@@ -775,16 +1555,16 @@
                     <p>Link responses together with parent hashes. Prove the complete execution history of any AI
                         action.</p>
                 </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                <div class="feature-card reveal">
+                    <div class="feature-icon emerald"><svg width="24" height="24" viewBox="0 0 24 24" fill="white" aria-hidden="true">
                             <path
                                 d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
                         </svg></div>
                     <h3>Replay Protection</h3>
                     <p>Built-in nonce and timestamp validation prevents replay attacks and ensures freshness.</p>
                 </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                <div class="feature-card reveal">
+                    <div class="feature-icon amber"><svg width="24" height="24" viewBox="0 0 24 24" fill="white" aria-hidden="true">
                             <path
                                 d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
                         </svg></div>
@@ -792,16 +1572,16 @@
                     <p>Define YAML-based policies for runtime enforcement. Allow, deny, or require specific tool
                         patterns.</p>
                 </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                <div class="feature-card reveal">
+                    <div class="feature-icon cyan"><svg width="24" height="24" viewBox="0 0 24 24" fill="white" aria-hidden="true">
                             <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z" />
                         </svg></div>
                     <h3>Execution Graphs</h3>
                     <p>Visualize agent execution as DAGs. Detect forks, replays, and orphaned responses automatically.
                     </p>
                 </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                <div class="feature-card reveal">
+                    <div class="feature-icon emerald"><svg width="24" height="24" viewBox="0 0 24 24" fill="white" aria-hidden="true">
                             <path
                                 d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
                         </svg></div>
@@ -812,23 +1592,18 @@
         </section>
 
         <!-- .tcreceipt — flagship P0 feature: portable, offline-verifiable proofs -->
-        <section class="receipts" id="receipts"
-            style="padding: 6rem 2rem; background: linear-gradient(180deg, var(--bg-primary) 0%, #0d0d18 100%);">
-            <div style="max-width: 1200px; margin: 0 auto;">
-                <div class="section-header">
-                    <div style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#fff;
-                                padding:0.25rem 0.75rem;border-radius:20px;font-size:0.75rem;font-weight:700;
-                                letter-spacing:0.05em;margin-bottom:1rem;">NEW · v3.0.0</div>
-                    <h2>The <code style="background:var(--bg-card);padding:0.2rem 0.6rem;border-radius:6px;
-                        color:var(--accent-light);font-family:'JetBrains Mono',monospace;">.tcreceipt</code> Format</h2>
+        <section class="receipts" id="receipts">
+            <div class="receipts-inner">
+                <div class="section-header reveal">
+                    <span class="section-eyebrow new">New · v3.0.0</span>
+                    <h2>The <code>.tcreceipt</code> Format</h2>
                     <p>A single JSON file = portable proof that a signed fact is real. Verify it anywhere — browser,
                         CLI, Python, JS, airgapped laptop — <strong>without ever contacting our servers</strong>.</p>
                 </div>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;
-                            margin-top:3rem;">
-                    <div class="feature-card">
-                        <div class="feature-icon" style="background:linear-gradient(135deg,#6366f1,#4338ca);">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                <div class="receipts-grid">
+                    <div class="feature-card reveal">
+                        <div class="feature-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white" aria-hidden="true">
                                 <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
                             </svg>
                         </div>
@@ -836,20 +1611,18 @@
                         <p>One click on any signed AI output — chat answer, tool result, RAG citation — exports a
                             <code>.tcreceipt</code> JSON with envelope + public key + optional identity.</p>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon" style="background:linear-gradient(135deg,#10b981,#059669);">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                    <div class="feature-card reveal">
+                        <div class="feature-icon emerald">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white" aria-hidden="true">
                                 <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1.06 13.54L7.4 11l1.41-1.41 2.12 2.12 4.24-4.24 1.41 1.41-5.64 5.66z"/>
                             </svg>
                         </div>
                         <h3>Verify offline</h3>
-                        <p>Drag &amp; drop into a <a href="https://github.com/petro1eum/trust_chain/blob/main/examples/verify.html"
-                            style="color:var(--accent-light);">single HTML file</a> — WebCrypto Ed25519 check, no
-                            network, no install. Works airgapped.</p>
+                        <p>Drag &amp; drop into a <a href="https://github.com/petro1eum/trust_chain/blob/main/examples/verify.html">single HTML file</a> — WebCrypto Ed25519 check, no network, no install. Works airgapped.</p>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                    <div class="feature-card reveal">
+                        <div class="feature-icon amber">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white" aria-hidden="true">
                                 <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
                             </svg>
                         </div>
@@ -857,9 +1630,9 @@
                         <p>Python (<code>tc receipt verify</code>), JS SDK, Browser WebCrypto — all three produce
                             <strong>bit-identical</strong> canonical envelopes. Covered by automated parity tests.</p>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon" style="background:linear-gradient(135deg,#06b6d4,#0891b2);">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                    <div class="feature-card reveal">
+                        <div class="feature-icon cyan">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white" aria-hidden="true">
                                 <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 2 2h12c1.11 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
                             </svg>
                         </div>
@@ -870,14 +1643,12 @@
                     </div>
                 </div>
 
-                <!-- Receipt sample block -->
-                <div class="code-preview" style="margin-top:3rem;max-width:780px;">
+                <div class="code-preview reveal" style="margin: 3rem auto 0; max-width: 780px;">
                     <div class="code-header">
                         <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
-                        <span style="margin-left:auto;color:var(--text-muted);font-size:0.75rem;
-                                     font-family:'JetBrains Mono',monospace;">balance.tcreceipt</span>
+                        <span class="code-filename">balance.tcreceipt</span>
                     </div>
-                    <div class="code-content" style="font-size:0.78rem;">
+                    <div class="code-content" style="font-size: 0.78rem;">
 <span class="operator">{</span><br>
 &nbsp;&nbsp;<span class="string">"format"</span>: <span class="string">"tcreceipt"</span>,<br>
 &nbsp;&nbsp;<span class="string">"version"</span>: <span class="keyword">1</span>,<br>
@@ -893,10 +1664,10 @@
                     </div>
                 </div>
 
-                <div style="text-align:center;margin-top:2rem;display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
+                <div class="receipts-cta reveal">
                     <a href="https://github.com/petro1eum/trust_chain/blob/main/examples/verify.html"
-                        class="btn btn-primary" style="display:inline-flex;align-items:center;gap:0.5rem;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        class="btn btn-success">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                             <path d="M19 9h-4V3H9v6H5l7 7 7-7z"/>
                         </svg>
                         Open verify.html (offline)
@@ -909,14 +1680,15 @@
 
         <section class="use-cases" id="use-cases">
             <div class="use-cases-content">
-                <div class="section-header">
-                    <h2>Built for Critical Industries</h2>
+                <div class="section-header reveal">
+                    <span class="section-eyebrow">Industries</span>
+                    <h2>Built for Critical Sectors</h2>
                     <p>Where AI decisions must be explainable and auditable</p>
                 </div>
                 <div class="use-case-grid">
-                    <div class="use-case">
-                        <span class="use-case-icon"><svg width="24" height="24" viewBox="0 0 24 24"
-                                fill="var(--accent-light)">
+                    <div class="use-case reveal">
+                        <span class="use-case-icon"><svg width="22" height="22" viewBox="0 0 24 24"
+                                fill="var(--accent-light)" aria-hidden="true">
                                 <path
                                     d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" />
                             </svg></span>
@@ -925,9 +1697,9 @@
                             <p>Prove AI trading decisions, audit recommendations, meet SEC requirements</p>
                         </div>
                     </div>
-                    <div class="use-case">
-                        <span class="use-case-icon"><svg width="24" height="24" viewBox="0 0 24 24"
-                                fill="var(--accent-light)">
+                    <div class="use-case reveal">
+                        <span class="use-case-icon"><svg width="22" height="22" viewBox="0 0 24 24"
+                                fill="var(--accent-light)" aria-hidden="true">
                                 <path
                                     d="M19 3H5c-1.1 0-1.99.9-1.99 2L3 19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6v-4h4V6h4v4h4v4z" />
                             </svg></span>
@@ -936,9 +1708,9 @@
                             <p>HIPAA-compliant AI auditing, track diagnostic recommendations</p>
                         </div>
                     </div>
-                    <div class="use-case">
-                        <span class="use-case-icon"><svg width="24" height="24" viewBox="0 0 24 24"
-                                fill="var(--accent-light)">
+                    <div class="use-case reveal">
+                        <span class="use-case-icon"><svg width="22" height="22" viewBox="0 0 24 24"
+                                fill="var(--accent-light)" aria-hidden="true">
                                 <path
                                     d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
                             </svg></span>
@@ -947,9 +1719,9 @@
                             <p>Merkle-verified citations, prove which document pages were analyzed</p>
                         </div>
                     </div>
-                    <div class="use-case">
-                        <span class="use-case-icon"><svg width="24" height="24" viewBox="0 0 24 24"
-                                fill="var(--accent-light)">
+                    <div class="use-case reveal">
+                        <span class="use-case-icon"><svg width="22" height="22" viewBox="0 0 24 24"
+                                fill="var(--accent-light)" aria-hidden="true">
                                 <path
                                     d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z" />
                             </svg></span>
@@ -963,79 +1735,62 @@
         </section>
 
         <!-- LLM Integrations Section -->
-        <section class="integrations" id="integrations" style="padding: 6rem 2rem;">
-            <div style="max-width: 1200px; margin: 0 auto;">
-                <div class="section-header">
+        <section class="integrations" id="integrations">
+            <div class="integrations-inner">
+                <div class="section-header reveal">
+                    <span class="section-eyebrow">Integrations</span>
                     <h2>Works with Any LLM</h2>
                     <p>Sign and verify tool calls regardless of which model you use</p>
                 </div>
-                <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 2rem; margin-top: 2rem;">
-                    <div
-                        style="text-align: center; padding: 1.5rem 2rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; min-width: 140px;">
-                        <div style="font-size: 2rem; margin-bottom: 0.5rem;"><svg width="28" height="28"
-                                viewBox="0 0 24 24" fill="var(--accent-light)">
-                                <path
-                                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                            </svg></div>
-                        <div style="font-weight: 600;">OpenAI</div>
-                        <div style="color: var(--text-muted); font-size: 0.8rem;">GPT-4, GPT-3.5</div>
+                <div class="integrations-grid reveal">
+                    <div class="integration-chip">
+                        <div class="chip-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="var(--accent-light)" aria-hidden="true">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg></div>
+                        <div class="chip-name">OpenAI</div>
+                        <div class="chip-sub">GPT-4, GPT-3.5</div>
                     </div>
-                    <div
-                        style="text-align: center; padding: 1.5rem 2rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; min-width: 140px;">
-                        <div style="font-size: 2rem; margin-bottom: 0.5rem;"><svg width="28" height="28"
-                                viewBox="0 0 24 24" fill="var(--accent-light)">
-                                <path
-                                    d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1-2.73 2.71-2.73 7.08 0 9.79 2.73 2.71 7.15 2.71 9.88 0C18.32 15.65 19 14.08 19 12.1h2c0 1.98-.88 4.55-2.64 6.29-3.51 3.48-9.21 3.48-12.72 0-3.5-3.47-3.5-9.12 0-12.6 3.51-3.47 9.14-3.47 12.65 0L21 3v7.12z" />
-                            </svg></div>
-                        <div style="font-weight: 600;">Anthropic</div>
-                        <div style="color: var(--text-muted); font-size: 0.8rem;">Claude 3</div>
+                    <div class="integration-chip">
+                        <div class="chip-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="var(--accent-light)" aria-hidden="true">
+                            <path d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1-2.73 2.71-2.73 7.08 0 9.79 2.73 2.71 7.15 2.71 9.88 0C18.32 15.65 19 14.08 19 12.1h2c0 1.98-.88 4.55-2.64 6.29-3.51 3.48-9.21 3.48-12.72 0-3.5-3.47-3.5-9.12 0-12.6 3.51-3.47 9.14-3.47 12.65 0L21 3v7.12z"/>
+                        </svg></div>
+                        <div class="chip-name">Anthropic</div>
+                        <div class="chip-sub">Claude 3</div>
                     </div>
-                    <div
-                        style="text-align: center; padding: 1.5rem 2rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; min-width: 140px;">
-                        <div style="font-size: 2rem; margin-bottom: 0.5rem;"><svg width="28" height="28"
-                                viewBox="0 0 24 24" fill="var(--accent-light)">
-                                <path
-                                    d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z" />
-                            </svg></div>
-                        <div style="font-weight: 600;">LangChain</div>
-                        <div style="color: var(--text-muted); font-size: 0.8rem;">Tools & Agents</div>
+                    <div class="integration-chip">
+                        <div class="chip-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="var(--accent-light)" aria-hidden="true">
+                            <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
+                        </svg></div>
+                        <div class="chip-name">LangChain</div>
+                        <div class="chip-sub">Tools &amp; Agents</div>
                     </div>
-                    <div
-                        style="text-align: center; padding: 1.5rem 2rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; min-width: 140px;">
-                        <div style="font-size: 2rem; margin-bottom: 0.5rem;"><svg width="28" height="28"
-                                viewBox="0 0 24 24" fill="var(--accent-light)">
-                                <path
-                                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z" />
-                            </svg></div>
-                        <div style="font-weight: 600;">OpenRouter</div>
-                        <div style="color: var(--text-muted); font-size: 0.8rem;">100+ Models</div>
+                    <div class="integration-chip">
+                        <div class="chip-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="var(--accent-light)" aria-hidden="true">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
+                        </svg></div>
+                        <div class="chip-name">OpenRouter</div>
+                        <div class="chip-sub">100+ Models</div>
                     </div>
-                    <div
-                        style="text-align: center; padding: 1.5rem 2rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; min-width: 140px;">
-                        <div style="font-size: 2rem; margin-bottom: 0.5rem;"><svg width="28" height="28"
-                                viewBox="0 0 24 24" fill="var(--accent-light)">
-                                <path
-                                    d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z" />
-                            </svg></div>
-                        <div style="font-weight: 600;">MCP</div>
-                        <div style="color: var(--text-muted); font-size: 0.8rem;">Claude Desktop</div>
+                    <div class="integration-chip">
+                        <div class="chip-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="var(--accent-light)" aria-hidden="true">
+                            <path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/>
+                        </svg></div>
+                        <div class="chip-name">MCP</div>
+                        <div class="chip-sub">Claude Desktop</div>
                     </div>
-                    <div
-                        style="text-align: center; padding: 1.5rem 2rem; background: var(--bg-card); border: 1px solid var(--accent); border-radius: 12px; min-width: 140px;">
-                        <div style="font-size: 2rem; margin-bottom: 0.5rem;"><svg width="28" height="28"
-                                viewBox="0 0 24 24" fill="var(--success)">
-                                <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5zm-1 14l-4-4 1.41-1.41L11 13.17l4.59-4.58L17 10l-6 6z"/>
-                            </svg></div>
-                        <div style="font-weight: 600;">.tcreceipt</div>
-                        <div style="color: var(--text-muted); font-size: 0.8rem;">Browser · CLI · SDK</div>
+                    <div class="integration-chip accent">
+                        <div class="chip-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="var(--success)" aria-hidden="true">
+                            <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5zm-1 14l-4-4 1.41-1.41L11 13.17l4.59-4.58L17 10l-6 6z"/>
+                        </svg></div>
+                        <div class="chip-name">.tcreceipt</div>
+                        <div class="chip-sub">Browser · CLI · SDK</div>
                     </div>
                 </div>
-                <div style="text-align: center; margin-top: 2rem;">
+                <div class="integrations-cta reveal">
                     <a href="https://github.com/petro1eum/trust_chain/blob/main/examples/llm_integrations.py"
-                        class="btn btn-secondary" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path
-                                d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z" />
+                        class="btn btn-secondary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
                         </svg>
                         View Integration Examples
                     </a>
@@ -1043,10 +1798,10 @@
             </div>
         </section>
 
-        <section class="stats">
+        <section class="stats reveal">
             <div class="stats-grid">
                 <div class="stat-item">
-                    <h3>600+</h3>
+                    <h3 data-counter="600">600+</h3>
                     <p>Unit Tests (Python+JS)</p>
                 </div>
                 <div class="stat-item">
@@ -1055,8 +1810,7 @@
                 </div>
                 <div class="stat-item">
                     <h3>3</h3>
-                    <p>Byte-exact verifiers<br><span style="font-size:0.8rem;color:var(--text-muted);">
-                        Python · JS · WebCrypto</span></p>
+                    <p>Byte-exact verifiers<br><span style="font-size:0.8rem;color:var(--text-faint);">Python · JS · WebCrypto</span></p>
                 </div>
                 <div class="stat-item">
                     <h3>3.10+</h3>
@@ -1066,212 +1820,168 @@
         </section>
 
         <!-- Interactive Notebooks Section -->
-        <section class="notebooks" id="notebooks" style="padding: 6rem 2rem; background: var(--bg-secondary);">
-            <div style="max-width: 1200px; margin: 0 auto;">
-                <div class="section-header">
+        <section class="notebooks" id="notebooks">
+            <div class="notebooks-inner">
+                <div class="section-header reveal">
+                    <span class="section-eyebrow">Try It Live</span>
                     <h2>Interactive Notebooks</h2>
-                    <p>Learn by doing — run <code
-                            style="background: var(--bg-card); padding: 0.2rem 0.5rem; border-radius: 4px;">!pip install trustchain</code>
-                        in the first cell</p>
+                    <p>Learn by doing — run <code class="receipt-inline-code">!pip install trustchain</code> in the first cell</p>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+                <div class="notebooks-grid">
                     <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_tutorial.ipynb"
-                        target="_blank" style="text-decoration: none;" class="feature-card">
-                        <div class="feature-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                                <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z" />
-                                <path
-                                    d="M5 13.18v4.32c0 .96.42 1.88 1.16 2.5l5.84 4.5 5.84-4.5c.74-.62 1.16-1.54 1.16-2.5v-4.32l-7 3.82-7-3.82z" />
-                            </svg>
+                        target="_blank" rel="noopener" class="notebook-card reveal">
+                        <div class="feature-card">
+                            <div class="feature-icon emerald">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                                    <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/>
+                                    <path d="M5 13.18v4.32c0 .96.42 1.88 1.16 2.5l5.84 4.5 5.84-4.5c.74-.62 1.16-1.54 1.16-2.5v-4.32l-7 3.82-7-3.82z"/>
+                                </svg>
+                            </div>
+                            <h3>Getting Started</h3>
+                            <p>Basic signing, chain of trust, multi-tenancy, tampering detection</p>
+                            <span class="colab-chip">Open in Colab</span>
                         </div>
-                        <h3 style="color: var(--text-primary);">Getting Started</h3>
-                        <p>Basic signing, chain of trust, multi-tenancy, tampering detection</p>
-                        <span
-                            style="display: inline-block; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #F9AB00; color: #000; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">Open
-                            in Colab</span>
                     </a>
                     <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_advanced.ipynb"
-                        target="_blank" style="text-decoration: none;" class="feature-card">
-                        <div class="feature-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                                <path
-                                    d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
-                            </svg>
+                        target="_blank" rel="noopener" class="notebook-card reveal">
+                        <div class="feature-card">
+                            <div class="feature-icon amber">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                                </svg>
+                            </div>
+                            <h3>Advanced Features</h3>
+                            <p>Key management, Merkle audit trails, ReasoningChain</p>
+                            <span class="colab-chip">Open in Colab</span>
                         </div>
-                        <h3 style="color: var(--text-primary);">Advanced Features</h3>
-                        <p>Key management, Merkle audit trails, ReasoningChain</p>
-                        <span
-                            style="display: inline-block; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #F9AB00; color: #000; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">Open
-                            in Colab</span>
                     </a>
                     <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_llm.ipynb"
-                        target="_blank" style="text-decoration: none;" class="feature-card">
-                        <div class="feature-icon" style="background: linear-gradient(135deg, #06b6d4, #0891b2);">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                                <path
-                                    d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1-2.73 2.71-2.73 7.08 0 9.79 2.73 2.71 7.15 2.71 9.88 0C18.32 15.65 19 14.08 19 12.1h2c0 1.98-.88 4.55-2.64 6.29-3.51 3.48-9.21 3.48-12.72 0-3.5-3.47-3.5-9.12 0-12.6 3.51-3.47 9.14-3.47 12.65 0L21 3v7.12z" />
-                            </svg>
+                        target="_blank" rel="noopener" class="notebook-card reveal">
+                        <div class="feature-card">
+                            <div class="feature-icon cyan">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                                    <path d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1-2.73 2.71-2.73 7.08 0 9.79 2.73 2.71 7.15 2.71 9.88 0C18.32 15.65 19 14.08 19 12.1h2c0 1.98-.88 4.55-2.64 6.29-3.51 3.48-9.21 3.48-12.72 0-3.5-3.47-3.5-9.12 0-12.6 3.51-3.47 9.14-3.47 12.65 0L21 3v7.12z"/>
+                                </svg>
+                            </div>
+                            <h3>LLM Integration</h3>
+                            <p>OpenAI, OpenRouter, Claude integration examples</p>
+                            <span class="colab-chip">Open in Colab</span>
                         </div>
-                        <h3 style="color: var(--text-primary);">LLM Integration</h3>
-                        <p>OpenAI, OpenRouter, Claude integration examples</p>
-                        <span
-                            style="display: inline-block; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #F9AB00; color: #000; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">Open
-                            in Colab</span>
                     </a>
                     <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_full_demo.ipynb"
-                        target="_blank" style="text-decoration: none;" class="feature-card">
-                        <div class="feature-icon" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                                <path
-                                    d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z" />
-                            </svg>
+                        target="_blank" rel="noopener" class="notebook-card reveal">
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                                    <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/>
+                                </svg>
+                            </div>
+                            <h3>Full Demo</h3>
+                            <p>Complete walkthrough with real-world examples</p>
+                            <span class="colab-chip">Open in Colab</span>
                         </div>
-                        <h3 style="color: var(--text-primary);">Full Demo</h3>
-                        <p>Complete walkthrough with real-world examples</p>
-                        <span
-                            style="display: inline-block; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #F9AB00; color: #000; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">Open
-                            in Colab</span>
                     </a>
                     <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_receipts.ipynb"
-                        target="_blank" style="text-decoration: none;" class="feature-card"
-                        style="border: 1px solid var(--success);">
-                        <div class="feature-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1.06 13.54L7.4 11l1.41-1.41 2.12 2.12 4.24-4.24 1.41 1.41-5.64 5.66z"/>
-                            </svg>
+                        target="_blank" rel="noopener" class="notebook-card reveal">
+                        <div class="feature-card">
+                            <div class="feature-icon emerald">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1.06 13.54L7.4 11l1.41-1.41 2.12 2.12 4.24-4.24 1.41 1.41-5.64 5.66z"/>
+                                </svg>
+                            </div>
+                            <h3>.tcreceipt Deep Dive<span class="notebook-new">NEW</span></h3>
+                            <p>Portable proofs, pinning, tamper detection, browser verification, compliance identity</p>
+                            <span class="colab-chip">Open in Colab</span>
                         </div>
-                        <h3 style="color: var(--text-primary);">.tcreceipt Deep Dive
-                            <span style="display:inline-block;margin-left:0.5rem;padding:0.1rem 0.4rem;
-                                         background:var(--success);color:#fff;border-radius:4px;font-size:0.6rem;
-                                         font-weight:700;vertical-align:middle;">NEW</span>
-                        </h3>
-                        <p>Portable proofs, pinning, tamper detection, browser verification, compliance identity</p>
-                        <span
-                            style="display: inline-block; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #F9AB00; color: #000; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">Open
-                            in Colab</span>
                     </a>
                 </div>
             </div>
         </section>
 
         <section class="cta" id="quick-start">
-            <div class="cta-card">
+            <div class="cta-card reveal">
                 <h2>Get Started in Seconds</h2>
                 <p>Install TrustChain and start signing AI responses today</p>
                 <div class="install-code">
                     <span class="prefix">$</span>
                     <span>uv pip install trustchain</span>
-                    <button class="copy-btn" onclick="navigator.clipboard.writeText('uv pip install trustchain')">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path
-                                d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                    <button class="copy-btn" data-copy="uv pip install trustchain" aria-label="Copy install command">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
                         </svg>
                     </button>
                 </div>
-                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; position: relative;">
-                    <a href="https://github.com/petro1eum/trust_chain/wiki/Getting-Started" class="btn btn-primary">Read
-                        the Docs</a>
-                    <a href="https://github.com/petro1eum/trust_chain/tree/main/examples" class="btn btn-secondary">View
-                        Examples</a>
+                <div style="display: flex; gap: 0.85rem; justify-content: center; flex-wrap: wrap; position: relative;">
+                    <a href="https://github.com/petro1eum/trust_chain/wiki/Getting-Started" class="btn btn-primary">Read the Docs</a>
+                    <a href="https://github.com/petro1eum/trust_chain/tree/main/examples" class="btn btn-secondary">View Examples</a>
                 </div>
             </div>
         </section>
 
         <!-- Pricing Section -->
-        <section id="pricing" class="features"
-            style="background: linear-gradient(180deg, var(--bg-primary) 0%, #0a0a12 100%);">
-            <div class="section-header">
-                <h2>Pricing</h2>
-                <p>Open Core model — core cryptography is free forever</p>
+        <section id="pricing" class="features">
+            <div class="section-header reveal">
+                <span class="section-eyebrow">Pricing</span>
+                <h2>Open Core, transparent pricing</h2>
+                <p>Core cryptography is free forever. Pro &amp; Enterprise layer on compliance and scale.</p>
             </div>
-            <div
-                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; max-width: 1000px; margin: 0 auto;">
-
-                <!-- Open Source -->
-                <div
-                    style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; text-align: center;">
-                    <h3 style="color: var(--text-primary); margin-bottom: 0.5rem;">Open Source</h3>
-                    <div style="font-size: 2.5rem; font-weight: 700; color: var(--accent); margin: 1rem 0;">Free</div>
-                    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Forever, MIT License</p>
-                    <ul style="text-align: left; list-style: none; margin-bottom: 2rem;">
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Ed25519 cryptographic signing
-                        </li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Chain of Trust (parent-child
-                            links)</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Nonce replay protection</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🧾 <strong>.tcreceipt</strong>
-                            format + <code>tc receipt</code> CLI + offline HTML verifier</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ <strong>AsyncTrustChain</strong>
-                            for FastAPI</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ <strong>Pydantic v2</strong>
-                            integration</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅
-                            <strong>LangChain/LangSmith</strong> callback
-                        </li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ <strong>OpenTelemetry</strong>
-                            instrumentation</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ <strong>pytest plugin</strong>
-                            with fixtures</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ FastAPI/Flask/Django middleware
-                        </li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Basic ReasoningChain</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Community support</li>
+            <div class="pricing-grid">
+                <div class="price-card reveal">
+                    <h3>Open Source</h3>
+                    <div class="price-amount">Free</div>
+                    <p class="price-note">Forever · MIT License</p>
+                    <ul class="price-features">
+                        <li>Ed25519 cryptographic signing</li>
+                        <li>Chain of Trust (parent-child links)</li>
+                        <li>Nonce replay protection</li>
+                        <li class="star"><strong>.tcreceipt</strong> format + <code>tc receipt</code> CLI + offline HTML verifier</li>
+                        <li><strong>AsyncTrustChain</strong> for FastAPI</li>
+                        <li><strong>Pydantic v2</strong> integration</li>
+                        <li><strong>LangChain / LangSmith</strong> callback</li>
+                        <li><strong>OpenTelemetry</strong> instrumentation</li>
+                        <li><strong>pytest</strong> plugin with fixtures</li>
+                        <li>FastAPI / Flask / Django middleware</li>
+                        <li>Basic ReasoningChain</li>
+                        <li>Community support</li>
                     </ul>
-                    <a href="https://pypi.org/project/trustchain" class="btn btn-secondary" style="width: 100%;">pip
-                        install trustchain</a>
+                    <a href="https://pypi.org/project/trustchain" class="btn btn-secondary">pip install trustchain</a>
                 </div>
 
-                <div
-                    style="background: linear-gradient(135deg, #1e1e3f, #2a1a4a); border: 2px solid var(--accent); border-radius: 12px; padding: 2rem; text-align: center; position: relative;">
-                    <div
-                        style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--success); color: white; padding: 0.25rem 1rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
-                        AVAILABLE NOW</div>
-                    <h3 style="color: var(--text-primary); margin-bottom: 0.5rem;">Pro</h3>
-                    <div style="font-size: 2.5rem; font-weight: 700; color: var(--accent); margin: 1rem 0;">$99<span
-                            style="font-size: 1rem; color: var(--text-muted);">/mo</span></div>
-                    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Per team (unlimited devs)</p>
-                    <ul style="text-align: left; list-style: none; margin-bottom: 2rem;">
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Everything in Open Source</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🔐 <strong>PolicyEngine</strong> —
-                            YAML-based rules</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">📊 <strong>ExecutionGraph</strong>
-                            — DAG forensics</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🔄 <strong>Streaming
-                                ReasoningChain</strong></li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">📄 HTML/PDF audit exports</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🌳 <strong>Merkle audit
-                                trails</strong></li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🕐 <strong>RFC 3161 TSA</strong>
-                            timestamps</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🧾 <strong>.tcreceipt with
-                                identity</strong> (X.509 cert chain inside)</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">📧 Priority email support</li>
+                <div class="price-card featured reveal">
+                    <div class="price-ribbon">Available Now</div>
+                    <h3>Pro</h3>
+                    <div class="price-amount">$99<span class="price-suffix">/mo</span></div>
+                    <p class="price-note">Per team · unlimited devs</p>
+                    <ul class="price-features">
+                        <li>Everything in Open Source</li>
+                        <li class="lock"><strong>PolicyEngine</strong> — YAML rules</li>
+                        <li class="star"><strong>ExecutionGraph</strong> DAG forensics</li>
+                        <li class="star"><strong>Streaming ReasoningChain</strong></li>
+                        <li>HTML / PDF audit exports</li>
+                        <li class="star"><strong>Merkle audit trails</strong></li>
+                        <li class="lock"><strong>RFC 3161 TSA</strong> timestamps</li>
+                        <li class="star"><strong>.tcreceipt with identity</strong> (X.509 chain inside)</li>
+                        <li>Priority email support</li>
                     </ul>
-                    <a href="https://github.com/petro1eum/trust_chain_pro" class="btn btn-primary"
-                        style="width: 100%;">Get trustchain-pro</a>
+                    <a href="https://github.com/petro1eum/trust_chain_pro" class="btn btn-primary">Get trustchain-pro</a>
                 </div>
 
-                <div
-                    style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; text-align: center;">
-                    <h3 style="color: var(--text-primary); margin-bottom: 0.5rem;">Enterprise</h3>
-                    <div style="font-size: 2.5rem; font-weight: 700; color: var(--accent); margin: 1rem 0;">Custom</div>
-                    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">For regulated industries</p>
-                    <ul style="text-align: left; list-style: none; margin-bottom: 2rem;">
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Everything in Pro</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🏥 SOC2 / HIPAA / FDA compliance
-                        </li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🔑 External KMS / HSM support</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🏢 On-premise deployment</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">📈 Analytics dashboard</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">⚡ Redis HA (Sentinel/Cluster)</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🛡️ Air-gapped deployments</li>
-                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">📞 SLA + 24/7 dedicated support
-                        </li>
+                <div class="price-card reveal">
+                    <h3>Enterprise</h3>
+                    <div class="price-amount">Custom</div>
+                    <p class="price-note">Regulated industries &amp; scale</p>
+                    <ul class="price-features">
+                        <li>Everything in Pro</li>
+                        <li class="lock">SOC 2 / HIPAA / FDA compliance</li>
+                        <li class="lock">External KMS / HSM support</li>
+                        <li>On-premise deployment</li>
+                        <li class="star">Analytics dashboard</li>
+                        <li>Redis HA (Sentinel / Cluster)</li>
+                        <li class="lock">Air-gapped deployments</li>
+                        <li>SLA + 24/7 dedicated support</li>
                     </ul>
-                    <a href="mailto:edcherednik@gmail.com?subject=TrustChain Enterprise" class="btn btn-secondary"
-                        style="width: 100%;">Contact Sales</a>
+                    <a href="mailto:edcherednik@gmail.com?subject=TrustChain Enterprise" class="btn btn-secondary">Contact Sales</a>
                 </div>
-
             </div>
         </section>
     </main>
@@ -1300,26 +2010,17 @@
                 <li><a href="https://github.com/petro1eum/trust_chain/wiki">Documentation</a></li>
                 <li><a href="https://github.com/petro1eum/trust_chain/blob/main/LICENSE">MIT License</a></li>
             </ul>
-            <div class="language-selector" style="margin: 1.5rem 0;">
-                <span style="color: var(--text-muted); margin-right: 1rem;">📚 Guides:</span>
-                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_EN.md"
-                    style="margin: 0 0.5rem;">🇺🇸</a>
-                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_RU.md"
-                    style="margin: 0 0.5rem;">🇷🇺</a>
-                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_ZH.md"
-                    style="margin: 0 0.5rem;">🇨🇳</a>
-                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_ES.md"
-                    style="margin: 0 0.5rem;">🇪🇸</a>
-                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_FR.md"
-                    style="margin: 0 0.5rem;">🇫🇷</a>
-                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_DE.md"
-                    style="margin: 0 0.5rem;">🇩🇪</a>
-                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_JA.md"
-                    style="margin: 0 0.5rem;">🇯🇵</a>
-                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_KO.md"
-                    style="margin: 0 0.5rem;">🇰🇷</a>
-                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_PT.md"
-                    style="margin: 0 0.5rem;">🇧🇷</a>
+            <div class="footer-guides" role="navigation" aria-label="Guide languages">
+                <span>Guides</span>
+                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_EN.md" aria-label="English guide">🇺🇸</a>
+                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_RU.md" aria-label="Russian guide">🇷🇺</a>
+                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_ZH.md" aria-label="Chinese guide">🇨🇳</a>
+                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_ES.md" aria-label="Spanish guide">🇪🇸</a>
+                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_FR.md" aria-label="French guide">🇫🇷</a>
+                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_DE.md" aria-label="German guide">🇩🇪</a>
+                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_JA.md" aria-label="Japanese guide">🇯🇵</a>
+                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_KO.md" aria-label="Korean guide">🇰🇷</a>
+                <a href="https://github.com/petro1eum/trust_chain/blob/main/GUIDE_PT.md" aria-label="Portuguese guide">🇧🇷</a>
             </div>
             <p class="copyright">2026 TrustChain. Open Source.</p>
         </div>
@@ -1436,7 +2137,10 @@
 
             if (heroTitle) heroTitle.innerHTML = t.hero_title;
             if (heroSubtitle) heroSubtitle.innerHTML = t.hero_subtitle;
-            if (badge) badge.innerHTML = `<span class="badge-dot"></span>${t.badge}`;
+            if (badge) {
+                const badgeText = t.badge.replace(/\.tcreceipt/g, '<code>.tcreceipt</code>');
+                badge.innerHTML = `<span class="badge-dot" aria-hidden="true"></span><span>${badgeText}</span>`;
+            }
 
             // Update nav — order: Features | .tcreceipt (brand, not translated) | Use Cases | Pricing | Docs
             const navLinks = document.querySelectorAll('.nav-links a');
@@ -1458,12 +2162,77 @@
             localStorage.setItem('trustchain_lang', lang);
         }
 
-        // Initialize language from localStorage or browser
         document.addEventListener('DOMContentLoaded', () => {
             const saved = localStorage.getItem('trustchain_lang');
             const browserLang = navigator.language.split('-')[0];
             const lang = saved || (translations[browserLang] ? browserLang : 'en');
             setLanguage(lang);
+
+            // Nav shadow on scroll
+            const navEl = document.querySelector('nav');
+            const onScroll = () => {
+                if (!navEl) return;
+                navEl.classList.toggle('scrolled', window.scrollY > 12);
+            };
+            onScroll();
+            window.addEventListener('scroll', onScroll, { passive: true });
+
+            // Scroll reveal via IntersectionObserver
+            const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const revealEls = document.querySelectorAll('.reveal');
+            if (reduceMotion || !('IntersectionObserver' in window)) {
+                revealEls.forEach(el => el.classList.add('in'));
+            } else {
+                const io = new IntersectionObserver((entries) => {
+                    entries.forEach(e => {
+                        if (e.isIntersecting) {
+                            e.target.classList.add('in');
+                            io.unobserve(e.target);
+                        }
+                    });
+                }, { rootMargin: '0px 0px -10% 0px', threshold: 0.08 });
+                revealEls.forEach(el => io.observe(el));
+            }
+
+            // Feature-card hover glow follow
+            document.querySelectorAll('.feature-card').forEach(card => {
+                card.addEventListener('pointermove', (ev) => {
+                    const rect = card.getBoundingClientRect();
+                    card.style.setProperty('--mx', `${ev.clientX - rect.left}px`);
+                    card.style.setProperty('--my', `${ev.clientY - rect.top}px`);
+                });
+            });
+
+            // Scroll-spy: highlight active nav link
+            const sections = ['features', 'receipts', 'use-cases', 'pricing']
+                .map(id => document.getElementById(id))
+                .filter(Boolean);
+            const navLinkEls = document.querySelectorAll('.nav-links a[href^="#"]');
+            if (sections.length && navLinkEls.length && 'IntersectionObserver' in window) {
+                const spy = new IntersectionObserver((entries) => {
+                    entries.forEach(e => {
+                        if (e.isIntersecting) {
+                            const id = e.target.id;
+                            navLinkEls.forEach(a => {
+                                a.classList.toggle('active', a.getAttribute('href') === `#${id}`);
+                            });
+                        }
+                    });
+                }, { rootMargin: '-45% 0px -50% 0px', threshold: 0 });
+                sections.forEach(s => spy.observe(s));
+            }
+
+            // Copy-to-clipboard
+            document.querySelectorAll('.copy-btn[data-copy]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const text = btn.getAttribute('data-copy');
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        btn.classList.add('copied');
+                        setTimeout(() => btn.classList.remove('copied'), 1400);
+                    } catch (_) { /* no-op */ }
+                });
+            });
         });
     </script>
 </body>

@@ -176,6 +176,19 @@ tc = "trustchain.cli:main"
 tc-verify = "trustchain.tc_verify_main:main"
 tc-witness = "trustchain.tc_witness_main:main"
 
+[tool.setuptools.packages.find]
+include = ["trustchain", "trustchain.*"]
+exclude = [
+    "tests*",
+    "examples*",
+    "benchmarks*",
+    "scripts*",
+    "docs*",
+    "packages*",
+    "build*",
+    "dist*",
+]
+
 [project.urls]
 Homepage = "https://github.com/petro1eum/trust_chain"
 Documentation = "https://github.com/petro1eum/trust_chain/wiki"
