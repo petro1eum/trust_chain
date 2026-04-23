@@ -70,7 +70,7 @@ print(tc.verify(result)) # True
 
 ## Version
 
-Current version: 2.4.0
+Current version: 3.0.0
 
 ## License
 

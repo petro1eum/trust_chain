@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-chain.ai/schemas/tool-manifest-1.json",
+  "title": "TrustChainToolManifest",
+  "description": "Manifest for a tool bound to tc.manifestHash on publisher X.509 (ADR-SEC-003). Canonical JSON (sorted keys, minimal separators) is hashed SHA-256 for tc.entityType=tool-publisher.",
+  "type": "object",
+  "required": ["name", "version", "publisher"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "description": "Semver string" },
+    "publisher": { "type": "string", "description": "Publisher id matching cert tc.entityId" },
+    "permissions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "e.g. filesystem:write, network:http"
+    },
+    "input_schema": { "type": "object", "description": "JSON Schema for tool inputs" },
+    "output_schema": { "type": "object", "description": "JSON Schema for tool outputs" },
+    "reverse_tool": {
+      "type": "string",
+      "description": "Tool id for compensating / undo path (context layer)"
+    },
+    "deterministic": { "type": "boolean" },
+    "revertible": {
+      "type": "boolean",
+      "description": "If false, tc revert may refuse without reverse_tool"
+    }
+  },
+  "additionalProperties": true
+}

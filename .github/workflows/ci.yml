@@ -58,6 +58,16 @@ jobs:
           tests/test_merkle.py \
           tests/test_chain_of_trust.py \
           tests/test_x509_pki.py \
+          tests/test_tc_verify_pkix.py \
+          tests/test_tc_verify_strict.py \
+          tests/test_cli.py \
+          tests/test_v3_compensations.py \
+          tests/test_migrate_v3.py \
+          tests/test_v3_cas_io.py \
+          tests/test_v3_merge_tree.py \
+          tests/test_manifest_hash.py \
+          tests/test_kms_providers.py \
+          tests/test_opentelemetry.py \
           --cov=trustchain --cov-report=xml -v
     
     - name: Upload coverage to Codecov

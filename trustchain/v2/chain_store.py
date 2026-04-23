@@ -48,7 +48,7 @@ class ChainStore:
     - Session refs (per-session HEAD pointers)
     - Log, blame, verify operations
 
-    When backed by a VerifiableChainStore (default since v2.4),
+    When backed by a VerifiableChainStore (default since v3.0),
     all operations use Certificate Transparency-style Merkle proofs
     for O(1) verification and O(log n) inclusion proofs.
     """
@@ -84,8 +84,26 @@ class ChainStore:
         latency_ms: float = 0,
         session_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        response_timestamp: Optional[float] = None,
+        certificate: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Append a signed operation to the chain (like `git commit`).
+
+        ``response_timestamp`` — *exact* float timestamp covered by the
+        Ed25519 signature (see ``SignedResponse.timestamp``). We persist it
+        separately from the store-level ISO ``timestamp`` so downstream
+        consumers (``.tcreceipt`` builders, chain re-verification tools) can
+        reconstruct the canonical envelope byte-for-byte. Without this, the
+        store would only know the ISO string it wrote, which is rounded and
+        truncated versus the float the signer actually signed.
+
+        ``certificate`` — identity material that was covered by the
+        signature (``_signer.sign(certificate=…)``). Kept here so receipts
+        can recreate the canonical payload without re-contacting the signer.
+
+        Both fields are optional and absent by default — the format stays
+        backward-compatible with existing records, and old consumers that
+        don't read them are unaffected.
 
         Returns the full commit record.
         """
@@ -103,6 +121,8 @@ class ChainStore:
                 session_id=session_id,
                 nonce=nonce,
                 metadata=metadata,
+                response_timestamp=response_timestamp,
+                certificate=certificate,
             )
             self._length = self._vlog.length
             self._head = signature
@@ -130,6 +150,10 @@ class ChainStore:
         }
         if metadata:
             record["metadata"] = metadata
+        if response_timestamp is not None:
+            record["response_timestamp"] = float(response_timestamp)
+        if certificate is not None:
+            record["certificate"] = certificate
 
         self._storage.store(op_id, record)
         self._head = signature

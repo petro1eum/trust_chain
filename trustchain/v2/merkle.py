@@ -102,6 +102,28 @@ class MerkleTree:
 
         # Hash all chunks to create leaves
         leaves = [hash_data(chunk) for chunk in chunks]
+        return cls._build_from_leaves(leaves)
+
+    @classmethod
+    def from_leaves(cls, leaves: List[str]) -> "MerkleTree":
+        """Build Merkle tree from already-hashed leaves.
+
+        Unlike :meth:`from_chunks` (which hashes raw content first), this
+        classmethod treats the input as final leaf hashes.  This is the
+        invariant expected by ``InclusionProof.verify(record_json)``: the
+        proof's ``chunk_hash`` must equal ``hash_data(record_json)`` so
+        callers can present the raw record without re-hashing twice.
+
+        Used by :class:`PostgresVerifiableChainStore` and
+        :class:`VerifiableChainStore` where ``_leaf_hashes`` already stores
+        ``sha256(record_json)``.
+        """
+        if not leaves:
+            return cls(root="", leaves=[], levels=[])
+        return cls._build_from_leaves(list(leaves))
+
+    @classmethod
+    def _build_from_leaves(cls, leaves: List[str]) -> "MerkleTree":
 
         # Build tree bottom-up
         levels = [leaves]

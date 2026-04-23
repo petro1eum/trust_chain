@@ -59,7 +59,25 @@ class TrustChain:
         self._used_nonces: list[str] = []
 
     def _load_or_create_signer(self) -> Signer:
-        """Load signer from persistence or create new one."""
+        """Load signer from persistence or create new one.
+
+        Precedence (enterprise, ADR-SEC-002):
+            1. ``config.key_provider`` — KMS/HSM adapter (see ``trustchain.kms``).
+            2. ``config.key_env_var`` — base64 JSON in env var.
+            3. ``config.key_file`` — JSON file on disk.
+            4. fresh ephemeral key (dev/tests).
+        """
+        # (1) Pluggable KeyProvider wins over file/env — enterprise path.
+        provider = self.config.key_provider
+        if provider is not None:
+            key_data = {
+                "type": "ed25519",
+                "key_id": provider.get_key_id(),
+                "private_key": base64.b64encode(provider.get_seed()).decode("ascii"),
+                "algorithm": "ed25519",
+            }
+            return Signer.from_keys(key_data)
+
         # Try loading from environment variable
         if self.config.key_env_var:
             env_value = os.environ.get(self.config.key_env_var)
@@ -407,7 +425,9 @@ class TrustChain:
             certificate=self.config.certificate,
         )
 
-        # Auto-commit to chain (like `git commit -a`)
+        # Auto-commit to chain (like `git commit -a`). Передаём
+        # response_timestamp+certificate, чтобы receipt-слой мог байт-в-байт
+        # восстановить canonical payload (см. ChainStore.commit docstring).
         if self.config.enable_chain:
             self.chain.commit(
                 tool=tool_id,
@@ -421,6 +441,8 @@ class TrustChain:
                 latency_ms=latency_ms,
                 session_id=session_id,
                 metadata=metadata,
+                response_timestamp=signed.timestamp,
+                certificate=self.config.certificate,
             )
 
         return signed

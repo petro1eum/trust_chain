@@ -186,9 +186,12 @@ class VerifiableChainStore:
             self._append_to_log(record_json)
 
             # 2. Update Merkle tree
+            # ``_leaf_hashes`` already stores ``sha256(record_json)``; use
+            # ``from_leaves`` so ``InclusionProof.verify(record_json)`` works
+            # without the client re-hashing twice (см. ADR-SEC-005 §Merkle).
             leaf_hash = hash_data(record_json)
             self._leaf_hashes.append(leaf_hash)
-            self._merkle_tree = MerkleTree.from_chunks(list(self._leaf_hashes))
+            self._merkle_tree = MerkleTree.from_leaves(list(self._leaf_hashes))
 
             # 3. Write HEAD (Merkle root)
             self._save_head(self._merkle_tree.root)
@@ -318,7 +321,7 @@ class VerifiableChainStore:
         for record_json in self._iter_log_records():
             recomputed_leaves.append(hash_data(record_json))
 
-        recomputed_tree = MerkleTree.from_chunks(list(recomputed_leaves))
+        recomputed_tree = MerkleTree.from_leaves(list(recomputed_leaves))
 
         stored_root = self._load_head()
         valid = recomputed_tree.root == stored_root
@@ -379,7 +382,7 @@ class VerifiableChainStore:
             return {"consistent": True, "reason": "empty_prefix"}
 
         # Rebuild tree from first old_length leaves
-        old_tree = MerkleTree.from_chunks(list(self._leaf_hashes[:old_length]))
+        old_tree = MerkleTree.from_leaves(list(self._leaf_hashes[:old_length]))
 
         consistent = old_tree.root == old_root
 
@@ -504,7 +507,7 @@ class VerifiableChainStore:
             self._length += 1
 
         if self._leaf_hashes:
-            self._merkle_tree = MerkleTree.from_chunks(list(self._leaf_hashes))
+            self._merkle_tree = MerkleTree.from_leaves(list(self._leaf_hashes))
         else:
             self._merkle_tree = None
 

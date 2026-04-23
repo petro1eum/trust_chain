@@ -1,0 +1,10 @@
+{
+  "type": "tree",
+  "entries": {
+    "context_window.json": "<blob-digest-placeholder>",
+    "loaded_skills.json": "<blob-digest-placeholder>",
+    "tool_bindings.json": "<blob-digest-placeholder>",
+    "runtime_meta.json": "<blob-digest-placeholder>"
+  },
+  "_comment": "Example v3 Tree snapshot for ADR-016 AgentState; digests point to Blob objects in CAS."
+}

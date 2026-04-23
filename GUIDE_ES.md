@@ -434,4 +434,4 @@ Ed Cherednik
 
 ## Versión
 
-2.4.0
+3.0.0

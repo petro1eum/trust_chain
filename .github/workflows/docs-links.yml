@@ -1,0 +1,15 @@
+name: Docs relative links
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify docs/ relative markdown targets exist
+        run: python scripts/check_doc_links.py

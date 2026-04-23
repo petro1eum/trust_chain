@@ -179,11 +179,19 @@ class PostgresVerifiableChainStore:
         schema: str = "tc_verifiable_log",
         pool: ConnectionPool | None = None,
     ) -> None:
-        # DSN и pool разрешаются лениво — см. `_get_pool()`.  Это позволяет
-        # безопасно инстанциировать `TrustChain(chain_storage='postgres')` в
-        # тестах / кодовых путях, которые никогда не трогают цепочку.  Ошибка
-        # «нет DSN» бросается только на первом реальном обращении (append /
-        # verify / log …).
+        # Fail-closed: в enterprise-контракте (ADR-SEC-002) явное создание
+        # ``PostgresVerifiableChainStore`` без DSN/pool — это misconfiguration.
+        # ``TrustChain(chain_storage='postgres')`` сам делает graceful fallback
+        # на in-memory, НЕ попадая сюда — см. ``trustchain.v2.core.TrustChain``.
+        if pool is None and dsn is None and not os.environ.get(self.ENV_DSN):
+            raise RuntimeError(
+                "PostgresVerifiableChainStore requires a PostgreSQL DSN — "
+                f"set env {self.ENV_DSN} or pass dsn=... "
+                "(ADR-SEC-002 / ADR-SEC-005)."
+            )
+        # Соединение/схема поднимаются лениво в ``_get_pool()`` — это нужно,
+        # чтобы конструктор не делал сетевой вызов и позволял реиспользовать
+        # уже открытый pool между несколькими chain-сторами.
         self._dsn: str | None = dsn
         self._schema = schema
         self._pool: ConnectionPool | None = pool
@@ -244,8 +252,17 @@ class PostgresVerifiableChainStore:
         session_id: str | None = None,
         nonce: str | None = None,
         metadata: dict[str, Any] | None = None,
+        response_timestamp: float | None = None,
+        certificate: dict[str, Any] | None = None,
     ) -> dict:
-        """Append an operation to the verifiable log (PG transactional)."""
+        """Append an operation to the verifiable log (PG transactional).
+
+        ``response_timestamp`` / ``certificate`` — см. docstring
+        :meth:`ChainStore.commit`.  Оба поля опциональны; если переданы,
+        запишем их в ``record`` наряду с штатными.  Это не ломает ни leaf
+        hash (он считается после сборки record_json), ни proof-ы старых
+        записей — формат записи задаёт сам writer.
+        """
         pool = self._get_pool()
         with self._lock:
             timestamp = datetime.now(timezone.utc).isoformat()
@@ -282,6 +299,10 @@ class PostgresVerifiableChainStore:
                         "nonce": nonce,
                         "metadata": metadata or {},
                     }
+                    if response_timestamp is not None:
+                        record["response_timestamp"] = float(response_timestamp)
+                    if certificate is not None:
+                        record["certificate"] = certificate
                     record_json = json.dumps(record, sort_keys=True, default=str)
                     leaf_hash = hash_data(record_json)
 
@@ -307,7 +328,11 @@ class PostgresVerifiableChainStore:
                     )
 
                     self._leaf_hashes.append(leaf_hash)
-                    self._merkle_tree = MerkleTree.from_chunks(list(self._leaf_hashes))
+                    # ``_leaf_hashes`` уже содержит ``sha256(record_json)``.
+                    # Используем ``from_leaves`` (не ``from_chunks``), иначе
+                    # ``proof.verify(record_json)`` вернёт False — proof хранит
+                    # двойной хэш, а клиент хэширует один раз.
+                    self._merkle_tree = MerkleTree.from_leaves(list(self._leaf_hashes))
                     self._length = seq
 
                     cur.execute(
@@ -448,7 +473,7 @@ class PostgresVerifiableChainStore:
         recomputed_leaves: list[str] = [
             hash_data(record_json) for record_json in self._iter_log_records()
         ]
-        recomputed_tree = MerkleTree.from_chunks(list(recomputed_leaves))
+        recomputed_tree = MerkleTree.from_leaves(list(recomputed_leaves))
 
         stored_root = self._load_head_root()
         valid = recomputed_tree.root == stored_root
@@ -496,7 +521,7 @@ class PostgresVerifiableChainStore:
         if old_length == 0:
             return {"consistent": True, "reason": "empty_prefix"}
 
-        old_tree = MerkleTree.from_chunks(list(self._leaf_hashes[:old_length]))
+        old_tree = MerkleTree.from_leaves(list(self._leaf_hashes[:old_length]))
         consistent = old_tree.root == old_root
         return {
             "consistent": consistent,
@@ -546,6 +571,9 @@ class PostgresVerifiableChainStore:
 
     @property
     def head(self) -> str | None:
+        # Lazy init: без этого ``reopened.merkle_root`` после close() возвращает
+        # None, даже если в БД сохранены записи (см. test_reopen_preserves_state).
+        self._get_pool()
         return self._merkle_tree.root if self._merkle_tree else None
 
     @property
@@ -554,6 +582,7 @@ class PostgresVerifiableChainStore:
 
     @property
     def length(self) -> int:
+        self._get_pool()
         return self._length
 
     def close(self) -> None:
@@ -577,7 +606,25 @@ class PostgresVerifiableChainStore:
         with self._pool.connection() as conn:
             conn.autocommit = True
             with conn.cursor() as cur:
-                cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{self._schema}"')
+                # В enterprise-deployments роль с которой ходит сервис часто
+                # НЕ имеет CREATE на database (least privilege, ADR-SEC-002).
+                # Схема создаётся заранее админом (см. docs/POSTGRES_MIGRATION.md),
+                # поэтому сперва проверяем её существование и пробуем CREATE
+                # только если схемы реально нет.
+                cur.execute(
+                    "SELECT 1 FROM pg_namespace WHERE nspname = %s",
+                    (self._schema,),
+                )
+                schema_exists = cur.fetchone() is not None
+                if not schema_exists:
+                    try:
+                        cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{self._schema}"')
+                    except Exception as exc:  # pragma: no cover - enterprise path
+                        raise RuntimeError(
+                            f"schema '{self._schema}' отсутствует, а роль не "
+                            "имеет CREATE на database. Создайте схему заранее "
+                            "(см. docs/POSTGRES_MIGRATION.md §Provisioning)."
+                        ) from exc
                 cur.execute(f'SET LOCAL search_path TO "{self._schema}"')
                 cur.execute(_DDL)
             conn.autocommit = False
@@ -589,7 +636,7 @@ class PostgresVerifiableChainStore:
             self._leaf_hashes.append(hash_data(record_json))
             self._length += 1
         self._merkle_tree = (
-            MerkleTree.from_chunks(list(self._leaf_hashes))
+            MerkleTree.from_leaves(list(self._leaf_hashes))
             if self._leaf_hashes
             else None
         )

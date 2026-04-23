@@ -356,7 +356,7 @@ def main():
         "document_hash": rag.tree.root,
         "total_pages": len(CONTRACT_PAGES),
         "verification_method": "Merkle Tree + Ed25519",
-        "trustchain_version": "2.4.0",
+        "trustchain_version": "3.0.0",
     }
     print(json.dumps(verification_data, indent=2))
 

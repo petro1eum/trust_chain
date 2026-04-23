@@ -22,6 +22,7 @@ def client(tmp_path):
             enable_metrics=False,
             nonce_backend="memory",
             chain_dir=str(tmp_path / "chain"),
+            chain_storage="file",
         )
     )
 

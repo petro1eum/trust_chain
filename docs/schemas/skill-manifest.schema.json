@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-chain.ai/schemas/skill-manifest-1.json",
+  "title": "TrustChainSkillManifest",
+  "description": "Manifest for a skill (SKILL.md bundle). Canonical JSON is SHA-256 for tc.manifestHash on skill-publisher certs.",
+  "type": "object",
+  "required": ["name", "version", "publisher"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "version": { "type": "string" },
+    "publisher": { "type": "string" },
+    "entrypoint": { "type": "string", "description": "e.g. SKILL.md" },
+    "permissions": { "type": "array", "items": { "type": "string" } },
+    "reverse_tool": { "type": "string" },
+    "deterministic": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

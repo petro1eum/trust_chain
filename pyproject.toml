@@ -90,6 +90,24 @@ monitoring = [
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
 ]
+# OpenTelemetry: distributed tracing + trustchain-attributed spans
+# (ATTR_TRUSTCHAIN_SIGNATURE, ATTR_TRUSTCHAIN_VERIFIED, ATTR_TRUSTCHAIN_TOOL_ID).
+# See trustchain.integrations.opentelemetry / docs/wiki/Observability.
+otel = [
+    "opentelemetry-api>=1.27.0",
+    "opentelemetry-sdk>=1.27.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.27.0",
+]
+vault = [
+    "hvac>=2.0.0",
+]
+aws = [
+    "boto3>=1.34.0",
+]
+kms = [
+    "hvac>=2.0.0",
+    "boto3>=1.34.0",
+]
 ai = [
     "langchain>=0.1.0",
     "langchain-core>=0.1.0",
@@ -128,11 +146,35 @@ dev = [
     # v3: integration tests for PostgresVerifiableChainStore require a real
     # Postgres — testcontainers spins one up per pytest session.
     "testcontainers[postgresql]>=4.7,<5.0",
+    # OTel integration is tested against the in-memory exporter — install SDK
+    # in dev so `tests/test_opentelemetry.py` не скипается.
+    "opentelemetry-api>=1.27.0",
+    "opentelemetry-sdk>=1.27.0",
+    # KMS providers: hvac (Vault) + boto3/moto (AWS) для unit-тестов.
+    "hvac>=2.0.0",
+    "boto3>=1.34.0",
+    "moto[secretsmanager]>=5.0.0",
+    # LLM / framework integration tests. Без них tests/test_langchain.py,
+    # tests/test_langsmith.py, tests/test_mcp.py, tests/test_integrations_real.py
+    # и tests/test_real_llm_clean.py молча скипались.  Все они идут в [dev],
+    # потому что нужны только для разработчика/CI, не runtime.
+    "anthropic>=0.40.0",
+    "langchain>=0.3.0",
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langchain-anthropic>=0.3.0",
+    "langsmith>=0.1.100",
+    "mcp>=1.0.0",
+    # Web framework integration tests (test_django_integration.py / test_flask_integration.py).
+    "django>=4.2",
+    "flask>=3.0",
 ]
 
 [project.scripts]
 trustchain = "trustchain.cli:main"
 tc = "trustchain.cli:main"
+tc-verify = "trustchain.tc_verify_main:main"
+tc-witness = "trustchain.tc_witness_main:main"
 
 [project.urls]
 Homepage = "https://github.com/petro1eum/trust_chain"

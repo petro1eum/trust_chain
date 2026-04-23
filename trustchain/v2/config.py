@@ -62,6 +62,10 @@ class TrustChainConfig:
     # Key persistence
     key_file: Optional[str] = None  # Path to key file for persistence
     key_env_var: Optional[str] = None  # Env var name for key (base64 JSON)
+    # Enterprise KMS/HSM adapter. When set, takes precedence over key_file /
+    # key_env_var. See `trustchain.kms.KeyProvider` (file, env, AWS KMS, Vault).
+    # Must implement KeyProvider protocol (sign/verify/get_public_key + metadata).
+    key_provider: Optional[Any] = None
 
     # Enterprise: Nonce storage backend
     nonce_backend: str = "memory"  # Options: memory, redis

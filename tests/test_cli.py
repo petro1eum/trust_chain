@@ -163,3 +163,267 @@ class TestInit:
             assert (trustchain_dir / "refs" / "sessions").exists()
             assert (trustchain_dir / "HEAD").exists()
             assert (trustchain_dir / "config.json").exists()
+
+
+class TestLogGraph:
+    """tc log --graph."""
+
+    def test_log_graph_head_and_linear_prefixes(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert runner.invoke(app, ["init", "-o", "."]).exit_code == 0
+        from trustchain import TrustChain, TrustChainConfig
+
+        tc = TrustChain(
+            TrustChainConfig(
+                enable_chain=True,
+                chain_storage="file",
+                chain_dir=".trustchain",
+            )
+        )
+        tc.sign("first_tool", {"n": 1})
+        tc.sign("second_tool", {"n": 2})
+
+        r = runner.invoke(app, ["log", "--graph", "-n", "10", "-d", ".trustchain"])
+        assert r.exit_code == 0, r.stdout + r.stderr
+        assert "(HEAD)" in r.stdout
+        assert "* " in r.stdout
+        assert "op_" in r.stdout
+
+    def test_log_graph_chrono_marks_head_on_last(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert runner.invoke(app, ["init", "-o", "."]).exit_code == 0
+        from trustchain import TrustChain, TrustChainConfig
+
+        tc = TrustChain(
+            TrustChainConfig(
+                enable_chain=True,
+                chain_storage="file",
+                chain_dir=".trustchain",
+            )
+        )
+        tc.sign("a", {})
+        tc.sign("b", {})
+        r = runner.invoke(
+            app, ["log", "--graph", "--chrono", "-n", "10", "-d", ".trustchain"]
+        )
+        assert r.exit_code == 0, r.stdout + r.stderr
+        lines = [ln for ln in r.stdout.splitlines() if "(HEAD)" in ln]
+        assert len(lines) == 1
+        assert "b" in lines[0]
+
+
+class TestCheckpointBranchRefs:
+    """checkpoint / branch / refs CLI (git-like refs under .trustchain)."""
+
+    def test_checkpoint_requires_nonempty_head(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        r = runner.invoke(app, ["init", "-o", "."])
+        assert r.exit_code == 0
+        r2 = runner.invoke(app, ["checkpoint", "x", "-d", ".trustchain"])
+        assert r2.exit_code == 1
+        assert "empty" in r2.stdout.lower()
+
+    def test_checkpoint_branch_refs(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        r0 = runner.invoke(app, ["init", "-o", "."])
+        assert r0.exit_code == 0
+
+        from trustchain import TrustChain, TrustChainConfig
+
+        tc = TrustChain(
+            TrustChainConfig(
+                enable_chain=True,
+                chain_storage="file",
+                chain_dir=".trustchain",
+            )
+        )
+        tc.sign("demo_tool", {"step": 1})
+
+        r1 = runner.invoke(app, ["checkpoint", "before-edit", "-d", ".trustchain"])
+        assert r1.exit_code == 0, r1.stdout + r1.stderr
+        r2 = runner.invoke(app, ["branch", "side-exp", "-d", ".trustchain"])
+        assert r2.exit_code == 0, r2.stdout + r2.stderr
+        r3 = runner.invoke(app, ["refs", "-d", ".trustchain"])
+        assert r3.exit_code == 0
+        assert "before-edit" in r3.stdout
+        assert "side-exp" in r3.stdout
+
+        rt = runner.invoke(app, ["tag", "release-x", "-d", ".trustchain"])
+        assert rt.exit_code == 0, rt.stdout + rt.stderr
+        tg = tmp_path / ".trustchain" / "refs" / "tags" / "release-x.ref"
+        assert tg.is_file()
+
+        ck = tmp_path / ".trustchain" / "refs" / "checkpoints" / "before-edit.ref"
+        assert ck.is_file()
+        assert len(ck.read_text().strip()) > 10
+
+
+class TestCheckout:
+    """tc checkout — HEAD из refs/heads."""
+
+    def test_checkout_missing_ref(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert runner.invoke(app, ["init", "-o", "."]).exit_code == 0
+        r = runner.invoke(app, ["checkout", "nope", "-d", ".trustchain"])
+        assert r.exit_code == 1
+        assert "branch" in r.stdout.lower() or "refs" in r.stdout.lower()
+
+    def test_checkout_moves_head(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert runner.invoke(app, ["init", "-o", "."]).exit_code == 0
+        from trustchain import TrustChain, TrustChainConfig
+
+        tc = TrustChain(
+            TrustChainConfig(
+                enable_chain=True,
+                chain_storage="file",
+                chain_dir=".trustchain",
+            )
+        )
+        tc.sign("a", {})
+        mid = tc.sign("b", {})
+        assert (
+            runner.invoke(app, ["branch", "saved", "-d", ".trustchain"]).exit_code == 0
+        )
+        tc.sign("c", {})
+        r = runner.invoke(app, ["checkout", "saved", "-d", ".trustchain"])
+        assert r.exit_code == 0, r.stdout + r.stderr
+        head = (tmp_path / ".trustchain" / "HEAD").read_text(encoding="utf-8").strip()
+        assert head == mid.signature
+        txt = (tmp_path / ".trustchain" / "reflog.txt").read_text(encoding="utf-8")
+        assert "checkout" in txt and "saved" in txt
+
+
+class TestResetSoft:
+    """tc reset --soft / --dry-run (file chain)."""
+
+    def test_reset_requires_flag(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert runner.invoke(app, ["init", "-o", "."]).exit_code == 0
+        r = runner.invoke(app, ["reset", "op_0001", "-d", ".trustchain"])
+        assert r.exit_code == 1
+        assert "soft" in r.stdout.lower() or "dry-run" in r.stdout.lower()
+
+    def test_reset_dry_run_lists_detach(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert runner.invoke(app, ["init", "-o", "."]).exit_code == 0
+        from trustchain import TrustChain, TrustChainConfig
+
+        tc = TrustChain(
+            TrustChainConfig(
+                enable_chain=True,
+                chain_storage="file",
+                chain_dir=".trustchain",
+            )
+        )
+        tc.sign("t1", {"n": 1})
+        tc.sign("t2", {"n": 2})
+        tc.sign("t3", {"n": 3})
+        r = runner.invoke(app, ["reset", "op_0002", "--dry-run", "-d", ".trustchain"])
+        assert r.exit_code == 0, r.stdout + r.stderr
+        assert "op_0003" in r.stdout
+        assert "HEAD" in r.stdout
+
+    def test_reset_soft_moves_head(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert runner.invoke(app, ["init", "-o", "."]).exit_code == 0
+        from trustchain import TrustChain, TrustChainConfig
+
+        tc = TrustChain(
+            TrustChainConfig(
+                enable_chain=True,
+                chain_storage="file",
+                chain_dir=".trustchain",
+            )
+        )
+        tc.sign("t1", {})
+        b = tc.sign("t2", {})
+        tc.sign("t3", {})
+        mid_sig = b.signature
+        r = runner.invoke(app, ["reset", "op_0002", "--soft", "-d", ".trustchain"])
+        assert r.exit_code == 0, r.stdout + r.stderr
+        head = (tmp_path / ".trustchain" / "HEAD").read_text(encoding="utf-8").strip()
+        assert head == mid_sig
+        rf = tmp_path / ".trustchain" / "reflog.txt"
+        assert rf.is_file()
+        assert "reset-soft" in rf.read_text(encoding="utf-8")
+
+
+class TestRevert:
+    """tc revert — signed revert_intent."""
+
+    def test_revert_dry_run_override(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert runner.invoke(app, ["init", "-o", "."]).exit_code == 0
+        from trustchain import TrustChain, TrustChainConfig
+
+        tc = TrustChain(
+            TrustChainConfig(
+                enable_chain=True,
+                chain_storage="file",
+                chain_dir=".trustchain",
+            )
+        )
+        tc.sign("demo_tool", {"x": 1})
+        r = runner.invoke(
+            app,
+            [
+                "revert",
+                "HEAD",
+                "-d",
+                ".trustchain",
+                "--dry-run",
+                "--reverse-tool",
+                "demo_undo",
+            ],
+        )
+        assert r.exit_code == 0, r.stdout + r.stderr
+        assert "demo_undo" in r.stdout
+
+    def test_revert_signs_chain(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert runner.invoke(app, ["init", "-o", "."]).exit_code == 0
+        td = tmp_path / ".trustchain"
+        td.joinpath("reversibles.json").write_text(
+            '{"demo_tool":"demo_undo"}', encoding="utf-8"
+        )
+        from trustchain import TrustChain, TrustChainConfig
+
+        tc = TrustChain(
+            TrustChainConfig(
+                enable_chain=True,
+                chain_storage="file",
+                chain_dir=".trustchain",
+            )
+        )
+        tc.sign("demo_tool", {"x": 1})
+        r = runner.invoke(app, ["revert", "HEAD", "-d", ".trustchain"])
+        assert r.exit_code == 0, r.stdout + r.stderr
+        assert "revert_intent" in r.stdout.lower() or "signed" in r.stdout.lower()
+
+        tc2 = TrustChain(
+            TrustChainConfig(
+                enable_chain=True,
+                chain_storage="file",
+                chain_dir=".trustchain",
+            )
+        )
+        tail = tc2.chain.log_reverse(limit=2)
+        assert len(tail) >= 2
+        assert tail[0].get("tool") == "demo_undo"
+        assert (tail[0].get("data") or {}).get("kind") == "revert_intent"
+
+    def test_revert_fails_without_mapping(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert runner.invoke(app, ["init", "-o", "."]).exit_code == 0
+        from trustchain import TrustChain, TrustChainConfig
+
+        TrustChain(
+            TrustChainConfig(
+                enable_chain=True,
+                chain_storage="file",
+                chain_dir=".trustchain",
+            )
+        ).sign("orphan_tool", {})
+        r = runner.invoke(app, ["revert", "HEAD", "-d", ".trustchain"])
+        assert r.exit_code == 1

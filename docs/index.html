@@ -680,6 +680,7 @@
         </div>
         <ul class="nav-links">
             <li><a href="#features">Features</a></li>
+            <li><a href="#receipts">.tcreceipt</a></li>
             <li><a href="#use-cases">Use Cases</a></li>
             <li><a href="#pricing">Pricing</a></li>
             <li><a href="https://github.com/petro1eum/trust_chain/wiki">Docs</a></li>
@@ -708,12 +709,14 @@
         <section class="hero">
             <div class="badge">
                 <span class="badge-dot"></span>
-                v2.3.1 Now Available
+                v3.0.0 Now Available · `.tcreceipt` portable proofs
             </div>
             <h1>Cryptographic <span class="highlight">Proof</span><br>for AI Agent Actions</h1>
             <p class="hero-subtitle">
                 <strong>AI either hallucinates facts or gets them from tools.<br>
-                    TrustChain signs every fact from real tools. Signature = trust.</strong>
+                    TrustChain signs every fact with Ed25519 — and hands you a portable
+                    <code style="background:var(--bg-card);padding:0.1rem 0.4rem;border-radius:4px;">.tcreceipt</code>
+                    that anyone can verify offline.</strong>
             </p>
             <div class="hero-cta">
                 <a href="https://github.com/petro1eum/trust_chain" class="btn btn-primary">
@@ -733,18 +736,17 @@
                     <span class="code-dot"></span>
                 </div>
                 <div class="code-content">
-                    <span class="keyword">from</span> trustchain <span class="keyword">import</span> TrustChain<br><br>
-                    <span class="comment"># Sign AI tool responses with Ed25519</span><br>
+                    <span class="keyword">from</span> trustchain <span class="keyword">import</span> TrustChain, build_receipt<br><br>
+                    <span class="comment"># Sign every fact your AI pulls from a real tool (Ed25519 + auto-chain)</span><br>
                     tc = TrustChain()<br>
-                    response <span class="operator">=</span> tc.<span class="function">sign_response</span>(<br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;tool_id<span class="operator">=</span><span
-                        class="string">"database_query"</span>,<br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;output<span class="operator">=</span><span class="string">"User balance:
-                        $1,234.56"</span><br>
-                    )<br><br>
-                    <span class="comment"># Verify response integrity</span><br>
-                    <span class="keyword">assert</span> tc.<span class="function">verify</span>(response) <span
-                        class="comment"># True</span>
+                    signed <span class="operator">=</span> tc.<span class="function">sign</span>(<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;tool_id<span class="operator">=</span><span class="string">"database_query"</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;data<span class="operator">=</span>{<span class="string">"user_id"</span>: 42, <span class="string">"balance"</span>: 1234.56},<br>
+                    )<br>
+                    <span class="keyword">assert</span> tc.<span class="function">verify</span>(signed) <span class="comment"># True</span><br><br>
+                    <span class="comment"># Export a portable proof — JSON file anyone can verify offline</span><br>
+                    receipt <span class="operator">=</span> <span class="function">build_receipt</span>(signed, tc.<span class="function">export_public_key</span>())<br>
+                    <span class="function">open</span>(<span class="string">"balance.tcreceipt"</span>, <span class="string">"w"</span>).<span class="function">write</span>(receipt.<span class="function">to_json</span>())
                 </div>
             </div>
         </section>
@@ -805,6 +807,102 @@
                         </svg></div>
                     <h3>Merkle Audit Trail</h3>
                     <p>Append-only audit logs with Merkle tree verification. Perfect for compliance and forensics.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- .tcreceipt — flagship P0 feature: portable, offline-verifiable proofs -->
+        <section class="receipts" id="receipts"
+            style="padding: 6rem 2rem; background: linear-gradient(180deg, var(--bg-primary) 0%, #0d0d18 100%);">
+            <div style="max-width: 1200px; margin: 0 auto;">
+                <div class="section-header">
+                    <div style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#fff;
+                                padding:0.25rem 0.75rem;border-radius:20px;font-size:0.75rem;font-weight:700;
+                                letter-spacing:0.05em;margin-bottom:1rem;">NEW · v3.0.0</div>
+                    <h2>The <code style="background:var(--bg-card);padding:0.2rem 0.6rem;border-radius:6px;
+                        color:var(--accent-light);font-family:'JetBrains Mono',monospace;">.tcreceipt</code> Format</h2>
+                    <p>A single JSON file = portable proof that a signed fact is real. Verify it anywhere — browser,
+                        CLI, Python, JS, airgapped laptop — <strong>without ever contacting our servers</strong>.</p>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;
+                            margin-top:3rem;">
+                    <div class="feature-card">
+                        <div class="feature-icon" style="background:linear-gradient(135deg,#6366f1,#4338ca);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                            </svg>
+                        </div>
+                        <h3>Download anything</h3>
+                        <p>One click on any signed AI output — chat answer, tool result, RAG citation — exports a
+                            <code>.tcreceipt</code> JSON with envelope + public key + optional identity.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon" style="background:linear-gradient(135deg,#10b981,#059669);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1.06 13.54L7.4 11l1.41-1.41 2.12 2.12 4.24-4.24 1.41 1.41-5.64 5.66z"/>
+                            </svg>
+                        </div>
+                        <h3>Verify offline</h3>
+                        <p>Drag &amp; drop into a <a href="https://github.com/petro1eum/trust_chain/blob/main/examples/verify.html"
+                            style="color:var(--accent-light);">single HTML file</a> — WebCrypto Ed25519 check, no
+                            network, no install. Works airgapped.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                                <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+                            </svg>
+                        </div>
+                        <h3>Byte-exact parity</h3>
+                        <p>Python (<code>tc receipt verify</code>), JS SDK, Browser WebCrypto — all three produce
+                            <strong>bit-identical</strong> canonical envelopes. Covered by automated parity tests.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon" style="background:linear-gradient(135deg,#06b6d4,#0891b2);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                                <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 2 2h12c1.11 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                            </svg>
+                        </div>
+                        <h3>Tamper-evident &amp; pinned</h3>
+                        <p>Exit codes (<code>0</code>/<code>2</code>/<code>3</code>/<code>4</code>) distinguish ok /
+                            tampered / degraded / malformed. Optional pinning by <code>key_id</code>, max age, and
+                            issuer CN.</p>
+                    </div>
+                </div>
+
+                <!-- Receipt sample block -->
+                <div class="code-preview" style="margin-top:3rem;max-width:780px;">
+                    <div class="code-header">
+                        <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+                        <span style="margin-left:auto;color:var(--text-muted);font-size:0.75rem;
+                                     font-family:'JetBrains Mono',monospace;">balance.tcreceipt</span>
+                    </div>
+                    <div class="code-content" style="font-size:0.78rem;">
+<span class="operator">{</span><br>
+&nbsp;&nbsp;<span class="string">"format"</span>: <span class="string">"tcreceipt"</span>,<br>
+&nbsp;&nbsp;<span class="string">"version"</span>: <span class="keyword">1</span>,<br>
+&nbsp;&nbsp;<span class="string">"envelope"</span>: {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"tool_id"</span>: <span class="string">"database_query"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"data"</span>: { <span class="string">"user_id"</span>: <span class="keyword">42</span>, <span class="string">"balance"</span>: <span class="keyword">1234.56</span> },<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"signature"</span>: <span class="string">"MEUCIQCf…"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"timestamp"</span>: <span class="keyword">1745391847.281</span><br>
+&nbsp;&nbsp;},<br>
+&nbsp;&nbsp;<span class="string">"key"</span>: { <span class="string">"algorithm"</span>: <span class="string">"Ed25519"</span>, <span class="string">"public_key_b64"</span>: <span class="string">"MCowBQYDK…"</span> },<br>
+&nbsp;&nbsp;<span class="string">"identity"</span>: { <span class="string">"subject_cn"</span>: <span class="string">"agent-42"</span> } <span class="comment">// optional</span><br>
+<span class="operator">}</span>
+                    </div>
+                </div>
+
+                <div style="text-align:center;margin-top:2rem;display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
+                    <a href="https://github.com/petro1eum/trust_chain/blob/main/examples/verify.html"
+                        class="btn btn-primary" style="display:inline-flex;align-items:center;gap:0.5rem;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 9h-4V3H9v6H5l7 7 7-7z"/>
+                        </svg>
+                        Open verify.html (offline)
+                    </a>
+                    <a href="https://github.com/petro1eum/trust_chain/blob/main/docs/wiki/Receipts.md"
+                        class="btn btn-secondary">Read the spec</a>
                 </div>
             </div>
         </section>
@@ -922,6 +1020,15 @@
                         <div style="font-weight: 600;">MCP</div>
                         <div style="color: var(--text-muted); font-size: 0.8rem;">Claude Desktop</div>
                     </div>
+                    <div
+                        style="text-align: center; padding: 1.5rem 2rem; background: var(--bg-card); border: 1px solid var(--accent); border-radius: 12px; min-width: 140px;">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;"><svg width="28" height="28"
+                                viewBox="0 0 24 24" fill="var(--success)">
+                                <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5zm-1 14l-4-4 1.41-1.41L11 13.17l4.59-4.58L17 10l-6 6z"/>
+                            </svg></div>
+                        <div style="font-weight: 600;">.tcreceipt</div>
+                        <div style="color: var(--text-muted); font-size: 0.8rem;">Browser · CLI · SDK</div>
+                    </div>
                 </div>
                 <div style="text-align: center; margin-top: 2rem;">
                     <a href="https://github.com/petro1eum/trust_chain/blob/main/examples/llm_integrations.py"
@@ -939,20 +1046,21 @@
         <section class="stats">
             <div class="stats-grid">
                 <div class="stat-item">
-                    <h3>200+</h3>
-                    <p>Unit Tests</p>
+                    <h3>600+</h3>
+                    <p>Unit Tests (Python+JS)</p>
                 </div>
                 <div class="stat-item">
                     <h3>&lt;1ms</h3>
-                    <p>Sign & Verify</p>
+                    <p>Sign &amp; Verify (Ed25519)</p>
                 </div>
                 <div class="stat-item">
-                    <h3>100%</h3>
-                    <p>Type Coverage</p>
+                    <h3>3</h3>
+                    <p>Byte-exact verifiers<br><span style="font-size:0.8rem;color:var(--text-muted);">
+                        Python · JS · WebCrypto</span></p>
                 </div>
                 <div class="stat-item">
                     <h3>3.10+</h3>
-                    <p>Python Support</p>
+                    <p>Python · Node 18+</p>
                 </div>
             </div>
         </section>
@@ -1024,6 +1132,24 @@
                             style="display: inline-block; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #F9AB00; color: #000; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">Open
                             in Colab</span>
                     </a>
+                    <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_receipts.ipynb"
+                        target="_blank" style="text-decoration: none;" class="feature-card"
+                        style="border: 1px solid var(--success);">
+                        <div class="feature-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1.06 13.54L7.4 11l1.41-1.41 2.12 2.12 4.24-4.24 1.41 1.41-5.64 5.66z"/>
+                            </svg>
+                        </div>
+                        <h3 style="color: var(--text-primary);">.tcreceipt Deep Dive
+                            <span style="display:inline-block;margin-left:0.5rem;padding:0.1rem 0.4rem;
+                                         background:var(--success);color:#fff;border-radius:4px;font-size:0.6rem;
+                                         font-weight:700;vertical-align:middle;">NEW</span>
+                        </h3>
+                        <p>Portable proofs, pinning, tamper detection, browser verification, compliance identity</p>
+                        <span
+                            style="display: inline-block; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #F9AB00; color: #000; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">Open
+                            in Colab</span>
+                    </a>
                 </div>
             </div>
         </section>
@@ -1073,6 +1199,8 @@
                         <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Chain of Trust (parent-child
                             links)</li>
                         <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ Nonce replay protection</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🧾 <strong>.tcreceipt</strong>
+                            format + <code>tc receipt</code> CLI + offline HTML verifier</li>
                         <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ <strong>AsyncTrustChain</strong>
                             for FastAPI</li>
                         <li style="padding: 0.5rem 0; color: var(--text-secondary);">✅ <strong>Pydantic v2</strong>
@@ -1096,8 +1224,8 @@
                 <div
                     style="background: linear-gradient(135deg, #1e1e3f, #2a1a4a); border: 2px solid var(--accent); border-radius: 12px; padding: 2rem; text-align: center; position: relative;">
                     <div
-                        style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--accent); color: white; padding: 0.25rem 1rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
-                        COMING SOON</div>
+                        style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--success); color: white; padding: 0.25rem 1rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+                        AVAILABLE NOW</div>
                     <h3 style="color: var(--text-primary); margin-bottom: 0.5rem;">Pro</h3>
                     <div style="font-size: 2.5rem; font-weight: 700; color: var(--accent); margin: 1rem 0;">$99<span
                             style="font-size: 1rem; color: var(--text-muted);">/mo</span></div>
@@ -1115,10 +1243,12 @@
                                 trails</strong></li>
                         <li style="padding: 0.5rem 0; color: var(--text-secondary);">🕐 <strong>RFC 3161 TSA</strong>
                             timestamps</li>
+                        <li style="padding: 0.5rem 0; color: var(--text-secondary);">🧾 <strong>.tcreceipt with
+                                identity</strong> (X.509 cert chain inside)</li>
                         <li style="padding: 0.5rem 0; color: var(--text-secondary);">📧 Priority email support</li>
                     </ul>
-                    <a href="mailto:edcherednik@gmail.com?subject=TrustChain Pro Interest" class="btn btn-primary"
-                        style="width: 100%;">Join Waitlist</a>
+                    <a href="https://github.com/petro1eum/trust_chain_pro" class="btn btn-primary"
+                        style="width: 100%;">Get trustchain-pro</a>
                 </div>
 
                 <div
@@ -1203,90 +1333,90 @@
                 hero_subtitle: '<strong>AI either hallucinates facts or gets them from tools.<br>TrustChain signs every fact from real tools. Signature = trust.</strong>',
                 nav_features: 'Features',
                 nav_usecases: 'Use Cases',
-                nav_notebooks: 'Notebooks',
+                nav_pricing: 'Pricing',
                 nav_docs: 'Docs',
                 btn_install: 'Install',
-                badge: 'v2.1.0 Now Available'
+                badge: 'v3.0.0 Now Available · .tcreceipt portable proofs'
             },
             ru: {
                 hero_title: 'Криптографическое <span class="highlight">доказательство</span><br>для AI-агентов',
                 hero_subtitle: '<strong>ИИ либо галлюцинирует факты, либо получает их из инструментов.<br>TrustChain подписывает каждый факт из реальных инструментов. Подпись = доверие.</strong>',
                 nav_features: 'Возможности',
                 nav_usecases: 'Применение',
-                nav_notebooks: 'Примеры',
+                nav_pricing: 'Цены',
                 nav_docs: 'Документация',
                 btn_install: 'Установить',
-                badge: 'v2.1.0 Доступна'
+                badge: 'v3.0.0 · портативные .tcreceipt'
             },
             zh: {
                 hero_title: 'AI代理操作的<span class="highlight">加密证明</span>',
                 hero_subtitle: '<strong>AI要么产生幻觉，要么使用工具获取事实。<br>TrustChain签署来自真实工具的每个事实。签名 = 信任。</strong>',
                 nav_features: '功能',
                 nav_usecases: '用例',
-                nav_notebooks: '笔记本',
+                nav_pricing: '价格',
                 nav_docs: '文档',
                 btn_install: '安装',
-                badge: 'v2.1.0 现已发布'
+                badge: 'v3.0.0 · .tcreceipt 便携凭证'
             },
             es: {
                 hero_title: '<span class="highlight">Prueba</span> criptográfica<br>para agentes de IA',
                 hero_subtitle: '<strong>La IA alucina hechos o los obtiene de herramientas.<br>TrustChain firma cada hecho de herramientas reales. Firma = confianza.</strong>',
                 nav_features: 'Características',
                 nav_usecases: 'Casos de uso',
-                nav_notebooks: 'Notebooks',
+                nav_pricing: 'Precios',
                 nav_docs: 'Documentación',
                 btn_install: 'Instalar',
-                badge: 'v2.1.0 Disponible'
+                badge: 'v3.0.0 · pruebas portables .tcreceipt'
             },
             fr: {
                 hero_title: '<span class="highlight">Preuve</span> cryptographique<br>pour les agents IA',
                 hero_subtitle: '<strong>L\'IA hallucine ou obtient des faits via des outils.<br>TrustChain signe chaque fait des outils réels. Signature = confiance.</strong>',
                 nav_features: 'Fonctionnalités',
                 nav_usecases: 'Cas d\'usage',
-                nav_notebooks: 'Notebooks',
+                nav_pricing: 'Tarifs',
                 nav_docs: 'Documentation',
                 btn_install: 'Installer',
-                badge: 'v2.1.0 Disponible'
+                badge: 'v3.0.0 · preuves portables .tcreceipt'
             },
             de: {
                 hero_title: 'Kryptografischer <span class="highlight">Beweis</span><br>für KI-Agenten',
                 hero_subtitle: '<strong>KI halluziniert Fakten oder erhält sie von Tools.<br>TrustChain signiert jeden Fakt von echten Tools. Signatur = Vertrauen.</strong>',
                 nav_features: 'Funktionen',
                 nav_usecases: 'Anwendungsfälle',
-                nav_notebooks: 'Notebooks',
+                nav_pricing: 'Preise',
                 nav_docs: 'Dokumentation',
                 btn_install: 'Installieren',
-                badge: 'v2.1.0 Verfügbar'
+                badge: 'v3.0.0 · portable .tcreceipt-Nachweise'
             },
             ja: {
                 hero_title: 'AIエージェント操作の<span class="highlight">暗号証明</span>',
                 hero_subtitle: '<strong>AIは事実を幻覚するか、ツールから取得します。<br>TrustChainは実際のツールからの各事実に署名します。署名 = 信頼。</strong>',
                 nav_features: '機能',
                 nav_usecases: 'ユースケース',
-                nav_notebooks: 'ノートブック',
+                nav_pricing: '価格',
                 nav_docs: 'ドキュメント',
                 btn_install: 'インストール',
-                badge: 'v2.1.0 利用可能'
+                badge: 'v3.0.0 · .tcreceipt 携行可能な証明'
             },
             ko: {
                 hero_title: 'AI 에이전트 작업을 위한<br><span class="highlight">암호화 증명</span>',
                 hero_subtitle: '<strong>AI는 사실을 환각하거나 도구에서 가져옵니다.<br>TrustChain은 실제 도구의 모든 사실에 서명합니다. 서명 = 신뢰.</strong>',
                 nav_features: '기능',
                 nav_usecases: '사용 사례',
-                nav_notebooks: '노트북',
+                nav_pricing: '가격',
                 nav_docs: '문서',
                 btn_install: '설치',
-                badge: 'v2.1.0 출시'
+                badge: 'v3.0.0 · 휴대용 .tcreceipt 증명'
             },
             pt: {
                 hero_title: '<span class="highlight">Prova</span> criptográfica<br>para agentes de IA',
                 hero_subtitle: '<strong>A IA alucina fatos ou os obtém de ferramentas.<br>TrustChain assina cada fato de ferramentas reais. Assinatura = confiança.</strong>',
                 nav_features: 'Recursos',
                 nav_usecases: 'Casos de uso',
-                nav_notebooks: 'Notebooks',
+                nav_pricing: 'Preços',
                 nav_docs: 'Documentação',
                 btn_install: 'Instalar',
-                badge: 'v2.1.0 Disponível'
+                badge: 'v3.0.0 · provas portáteis .tcreceipt'
             }
         };
 
@@ -1308,12 +1438,13 @@
             if (heroSubtitle) heroSubtitle.innerHTML = t.hero_subtitle;
             if (badge) badge.innerHTML = `<span class="badge-dot"></span>${t.badge}`;
 
-            // Update nav
+            // Update nav — order: Features | .tcreceipt (brand, not translated) | Use Cases | Pricing | Docs
             const navLinks = document.querySelectorAll('.nav-links a');
             if (navLinks[0]) navLinks[0].textContent = t.nav_features;
-            if (navLinks[1]) navLinks[1].textContent = t.nav_usecases;
-            if (navLinks[2]) navLinks[2].textContent = t.nav_notebooks;
-            if (navLinks[3]) navLinks[3].textContent = t.nav_docs;
+            // navLinks[1] is '.tcreceipt' — keep as brand literal in all languages.
+            if (navLinks[2]) navLinks[2].textContent = t.nav_usecases;
+            if (navLinks[3]) navLinks[3].textContent = t.nav_pricing || 'Pricing';
+            if (navLinks[4]) navLinks[4].textContent = t.nav_docs;
 
             // Update install button
             const installBtn = document.querySelector('.nav-cta .btn-primary');

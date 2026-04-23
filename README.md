@@ -1,6 +1,11 @@
-# TrustChain v2.4.0
+# TrustChain v3.0.0
 
-**Cryptographic verification layer for AI agents -- "Git for AI"**
+> **TrustChain** is **SSL for AI**: every agent, subagent, tool, skill and data artifact carries a verifiable X.509 certificate chain anchored in a public CA. Combined with a **git-like context layer**, it lets you checkpoint, branch, and roll back agent actions — so AI mistakes become undoable, and trust becomes provable offline.
+
+**SSL for AI + Undo for AI** — cryptographic identity for agents/tools/skills and a **git-like audit chain** (roadmap: full CAS, branches, revert).  
+**Cryptographic verification layer for AI agents** — every tool result can be proven, not hallucinated.
+
+> **Quick start:** [QUICK_START.md](QUICK_START.md) · **Product map:** [docs/PRODUCT_MATRIX.md](docs/PRODUCT_MATRIX.md)
 
 > **AI either hallucinates facts or gets them from tools. TrustChain signs facts from real tool execution. Signature = trust.**
 
@@ -18,7 +23,7 @@ TrustChain gives you:
 - **Proof of execution** — data came from a real tool, not hallucinated
 - **Chain of Trust** — cryptographically linked operation sequences
 - **Persistent storage** — Git-like `.trustchain/` directory with auditable history
-- **CLI** — `tc log`, `tc verify`, `tc blame`, `tc status` commands
+- **CLI** — `tc` (`log`, `migrate-v3`, `manifest hash`, …) и отдельная команда **`tc-verify`** (тот же пакет, entry point в `pyproject`)
 - **Tool certificates (PKI)** — SSL-like certificates for AI tools, code tamper detection
 - **Replay attack protection** — nonce-based anti-replay
 - **Key rotation** — seamless key management with persistence
@@ -235,7 +240,7 @@ step3 = tc._signer.sign("report", {"text": "Done"}, parent_signature=step2.signa
 assert tc.verify_chain([step1, step2, step3]) == True
 ```
 
-### Git-like Persistent Storage (v2.4.0)
+### Git-like Persistent Storage (v3.0.0)
 
 Every signed operation is stored in a `.trustchain/` directory — like Git for AI:
 
@@ -269,7 +274,7 @@ tc.chain.status()       # health summary
 tc.chain.head()         # current HEAD signature
 ```
 
-### CLI — `tc` command (v2.4.0)
+### CLI — `tc` command (v3.0.0)
 
 Git-like commands for incident investigation:
 
@@ -287,7 +292,7 @@ tc info                       # key + version
 tc export-key --format=pem    # export public key
 ```
 
-### Tool Certificates / PKI (v2.4.0)
+### Tool Certificates / PKI (v3.0.0)
 
 SSL-like certificates for AI tools — verify tool code hasn't been tampered with:
 
@@ -373,7 +378,7 @@ lc_tools = to_langchain_tools(tc)
 # Use with LangChain AgentExecutor
 ```
 
-### LangChain Callback Handler (v2.4.0)
+### LangChain Callback Handler (v3.0.0)
 
 Auto-sign all tool calls in LangChain agents:
 
@@ -388,7 +393,7 @@ for response in handler.get_signed_chain():
     print(f"{response.tool_id}: {response.signature[:24]}...")
 ```
 
-### AsyncTrustChain (v2.4.0)
+### AsyncTrustChain (v3.0.0)
 
 Native async/await support for FastAPI and other async frameworks:
 
@@ -400,7 +405,7 @@ async with AsyncTrustChain() as atc:
     assert atc.verify(response)
 ```
 
-### Pydantic v2 Integration (v2.4.0)
+### Pydantic v2 Integration (v3.0.0)
 
 Auto-signing Pydantic models:
 
@@ -418,7 +423,7 @@ user.balance = 999999  # Tampering!
 assert user.verify()  # False - detected!
 ```
 
-### OpenTelemetry Integration (v2.4.0)
+### OpenTelemetry Integration (v3.0.0)
 
 Add TrustChain signatures to OTel spans:
 
@@ -431,7 +436,7 @@ provider.add_span_processor(TrustChainSpanProcessor())
 # All spans now include trustchain.signature attribute
 ```
 
-### pytest Plugin (v2.4.0)
+### pytest Plugin (v3.0.0)
 
 Built-in fixtures for testing:
 
@@ -561,9 +566,9 @@ trustchain/
   v2/
     core.py          # Main TrustChain class
     signer.py        # Ed25519 signatures
-    chain_store.py   # Git-like ChainStore (v2.4)
-    storage.py       # FileStorage, MemoryStorage (v2.4)
-    certificate.py   # ToolCertificate, ToolRegistry, PKI (v2.4)
+    chain_store.py   # Git-like ChainStore (v3)
+    storage.py       # FileStorage, MemoryStorage (v3)
+    certificate.py   # ToolCertificate, ToolRegistry, PKI (v3)
     config.py        # TrustChainConfig
     schemas.py       # OpenAI/Anthropic schema generation
     merkle.py        # Merkle tree implementation
@@ -579,7 +584,7 @@ trustchain/
     pydantic_v2.py   # Pydantic integration
     opentelemetry.py # OTel span processor
     mcp.py           # MCP Server
-  cli.py             # tc command (12 commands) (v2.4)
+  cli.py             # tc command (12 commands) (v3)
   pytest_plugin/     # pytest fixtures
   ui/
     explorer.py      # HTML audit reports
@@ -633,4 +638,4 @@ Ed Cherednik
 
 ## Version
 
-2.4.0
+3.0.0

@@ -352,6 +352,197 @@ export function CertificateInfo({ response, className = '' }) {
 }
 
 // ============================================================================
+// Receipt support — portable .tcreceipt objects (see receipt.js)
+// ============================================================================
+
+import {
+    loadReceipt as _loadReceipt,
+    verifyReceipt as _verifyReceipt,
+    buildReceipt as _buildReceipt,
+    downloadReceipt as _downloadReceipt,
+} from './receipt.mjs';
+
+export {
+    buildReceipt,
+    canonicalize,
+    buildCanonicalEnvelope,
+    loadReceipt,
+    verifyReceipt,
+    downloadReceipt,
+} from './receipt.mjs';
+
+/**
+ * Hook that loads + verifies a TrustChain receipt.
+ *
+ * Accepts heterogeneous sources: parsed receipt object, JSON string, URL,
+ * File, or Blob.  Re-runs verification when ``source`` changes.  Safe to
+ * render inside drop-zones — loading/error states are surfaced explicitly.
+ *
+ * @example
+ *   const { receipt, verification, isLoading, error, download, refresh }
+ *     = useReceipt(file, { expectedPublicKeyB64, maxAgeSeconds: 3600 });
+ *
+ * @param {File|Blob|string|URL|Object|null} source
+ * @param {Object} [options]
+ * @param {string} [options.expectedPublicKeyB64]
+ * @param {number} [options.maxAgeSeconds]
+ * @returns {{
+ *   receipt: Object|null,
+ *   verification: import('./receipt.mjs').ReceiptVerification|null,
+ *   isLoading: boolean,
+ *   error: string|null,
+ *   download: (filename?: string) => void,
+ *   refresh: () => Promise<void>,
+ * }}
+ */
+export function useReceipt(source, options = {}) {
+    const [receipt, setReceipt]           = useState(null);
+    const [verification, setVerification] = useState(null);
+    const [isLoading, setIsLoading]       = useState(false);
+    const [error, setError]               = useState(null);
+
+    const { expectedPublicKeyB64, maxAgeSeconds } = options;
+
+    const run = useCallback(async () => {
+        if (source == null) {
+            setReceipt(null);
+            setVerification(null);
+            setError(null);
+            return;
+        }
+        setIsLoading(true);
+        setError(null);
+        try {
+            const r = await _loadReceipt(source);
+            setReceipt(r);
+            const v = await _verifyReceipt(r, { expectedPublicKeyB64, maxAgeSeconds });
+            setVerification(v);
+        } catch (e) {
+            setReceipt(null);
+            setVerification(null);
+            setError(e && e.message ? e.message : String(e));
+        } finally {
+            setIsLoading(false);
+        }
+    }, [source, expectedPublicKeyB64, maxAgeSeconds]);
+
+    useEffect(() => { run(); }, [run]);
+
+    const download = useCallback((filename) => {
+        if (receipt) _downloadReceipt(receipt, filename);
+    }, [receipt]);
+
+    return { receipt, verification, isLoading, error, download, refresh: run };
+}
+
+/**
+ * Headless-first receipt component.
+ *
+ * * If ``children`` is a function, it's called with the full hook state
+ *   — caller owns rendering. This is the main integration point.
+ * * Otherwise a minimal dark-on-light default card is rendered.  The
+ *   default is deliberately plain so product UIs re-skin it.
+ *
+ * @example
+ *   // Fully headless
+ *   <TrustReceipt source={file}>
+ *     {({ verification, download }) => ...}
+ *   </TrustReceipt>
+ *
+ *   // Default renderer
+ *   <TrustReceipt source={file} />
+ */
+export function TrustReceipt({ source, expectedPublicKeyB64, maxAgeSeconds, children, className = '' }) {
+    const state = useReceipt(source, { expectedPublicKeyB64, maxAgeSeconds });
+
+    if (typeof children === 'function') return children(state);
+
+    const { receipt, verification, isLoading, error, download } = state;
+
+    const rootStyle = {
+        border: '1px solid #d6dae1',
+        borderRadius: 12,
+        padding: 16,
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        background: '#fff',
+        color: '#1a1d21',
+        maxWidth: 480,
+    };
+    const mono = {
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+        fontSize: 12,
+        wordBreak: 'break-all',
+    };
+    const row = { display: 'flex', justifyContent: 'space-between', gap: 8, margin: '6px 0' };
+    const label = { color: '#5c6673', fontSize: 12 };
+
+    if (isLoading) {
+        return <div style={rootStyle} className={className}>Verifying receipt…</div>;
+    }
+    if (error) {
+        return (
+            <div style={{ ...rootStyle, borderColor: '#ef4b5c' }} className={className}>
+                <strong>Receipt error</strong>
+                <div style={mono}>{error}</div>
+            </div>
+        );
+    }
+    if (!receipt || !verification) return null;
+
+    const status = verification.valid
+        ? { label: 'VALID',    color: '#28c76f' }
+        : verification.signature_ok
+            ? { label: 'DEGRADED', color: '#f0b84b' }
+            : { label: 'INVALID',  color: '#ef4b5c' };
+
+    return (
+        <div
+            style={{ ...rootStyle, borderColor: status.color }}
+            className={className}
+            data-tc-verdict={status.label.toLowerCase()}
+        >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{
+                    width: 10, height: 10, borderRadius: '50%',
+                    background: status.color,
+                }} />
+                <strong>Receipt {status.label}</strong>
+            </div>
+            <div style={row}>
+                <span style={label}>tool_id</span>
+                <span style={mono}>{receipt.envelope?.tool_id ?? '—'}</span>
+            </div>
+            <div style={row}>
+                <span style={label}>timestamp</span>
+                <span style={mono}>{receipt.summary?.timestamp_iso ?? '—'}</span>
+            </div>
+            <div style={row}>
+                <span style={label}>key_id</span>
+                <span style={mono}>{receipt.key?.key_id ?? '—'}</span>
+            </div>
+            <div style={row}>
+                <span style={label}>signature</span>
+                <span style={mono}>{receipt.summary?.signature_short ?? '—'}</span>
+            </div>
+            {verification.errors.length > 0 && (
+                <ul style={{ margin: '8px 0 0', paddingLeft: 18, color: '#ef4b5c' }}>
+                    {verification.errors.map((e, i) => <li key={i} style={mono}>{e}</li>)}
+                </ul>
+            )}
+            <button
+                type="button"
+                onClick={() => download()}
+                style={{
+                    marginTop: 12, padding: '6px 10px',
+                    border: '1px solid #d6dae1', background: 'transparent',
+                    borderRadius: 6, cursor: 'pointer', fontSize: 13,
+                }}
+            >Download .tcreceipt</button>
+        </div>
+    );
+}
+
+// ============================================================================
 // Exports
 // ============================================================================
 
@@ -360,7 +551,9 @@ export default {
     useTrustChain,
     useTrustChainContext,
     useTrustChainVerify,
+    useReceipt,
     VerifiedBadge,
     VerifiedResponse,
     CertificateInfo,
+    TrustReceipt,
 };

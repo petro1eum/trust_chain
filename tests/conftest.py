@@ -2,9 +2,14 @@
 
 ``postgres_chain_dsn`` — session-scoped testcontainers Postgres 17 instance
 with a dedicated role/schema for the verifiable chain log (ADR-SEC-002 layout).
-Returns a DSN string; also exports it to ``TC_VERIFIABLE_LOG_DSN`` so tests
-that construct ``TrustChainConfig(chain_storage='postgres')`` без явного DSN
-тоже работают.
+Returns a DSN string.
+
+Важно: мы **не** экспортируем DSN в ``TC_VERIFIABLE_LOG_DSN`` на уровне
+сессии, потому что тогда все тесты (включая юнит-тесты на in-memory backend)
+ловят чужой postgres и падают с ``InsufficientPrivilege``.  Вместо этого
+per-test autouse-фикстура ``_bind_pg_dsn_env`` проставляет DSN
+только если конкретный тест явно запросил ``postgres_chain_dsn``
+(или его производные).  Для юнит-тестов переменная всегда пуста.
 
 Если Docker недоступен — фикстура делает ``pytest.skip``, чтобы не ломать
 ``pytest -m 'not integration'`` на лаптопах без Docker.
@@ -17,6 +22,58 @@ import socket
 from typing import Iterator
 
 import pytest
+
+# Admin DSN для тестовых операций, требующих superuser (TRUNCATE на
+# append-only-таблице с триггером, SET session_replication_role и пр.).
+_PG_STATE: dict[str, str | None] = {"dsn": None, "admin_dsn": None}
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _trustchain_tests_clear_stale_pg_dsn() -> Iterator[None]:
+    """Случайный TC_VERIFIABLE_LOG_DSN из окружения разработчика ломает unit-тесты.
+
+    Сохраняем исходное значение, чтобы вернуть его в конце сессии; но на время
+    pytest-сессии переменная должна контролироваться исключительно фикстурой
+    ``_bind_pg_dsn_env`` (см. ниже).
+
+    Отключение: ``TRUSTCHAIN_PRESERVE_TC_VERIFIABLE_LOG_DSN=1``.
+    """
+    if os.environ.get("TRUSTCHAIN_PRESERVE_TC_VERIFIABLE_LOG_DSN", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        yield
+        return
+    saved = os.environ.pop("TC_VERIFIABLE_LOG_DSN", None)
+    try:
+        yield
+    finally:
+        if saved is not None:
+            os.environ["TC_VERIFIABLE_LOG_DSN"] = saved
+
+
+@pytest.fixture(autouse=True)
+def _bind_pg_dsn_env(request: pytest.FixtureRequest) -> Iterator[None]:
+    """Per-test: выставляем TC_VERIFIABLE_LOG_DSN **только** тем тестам,
+    которые реально запросили ``postgres_chain_dsn`` (или зависящую фикстуру).
+
+    Без этого session-scoped DSN «протекал» бы во все последующие unit-тесты
+    и ломал их InsufficientPrivilege / ownership-ошибками на чужой схеме.
+    """
+    wants_pg = any(
+        name in request.fixturenames
+        for name in ("postgres_chain_dsn", "postgres_chain_reset")
+    )
+    saved = os.environ.pop("TC_VERIFIABLE_LOG_DSN", None)
+    try:
+        if wants_pg and _PG_STATE["dsn"]:
+            os.environ["TC_VERIFIABLE_LOG_DSN"] = _PG_STATE["dsn"]  # type: ignore[assignment]
+        yield
+    finally:
+        os.environ.pop("TC_VERIFIABLE_LOG_DSN", None)
+        if saved is not None:
+            os.environ["TC_VERIFIABLE_LOG_DSN"] = saved
 
 
 def _docker_available() -> bool:
@@ -67,9 +124,6 @@ def postgres_chain_dsn() -> Iterator[str]:
             "tc_verifiable_log",
         )
 
-        # DDL (CREATE/ALTER ROLE ... PASSWORD) нельзя параметризовать через
-        # plain `%s` — PostgreSQL ждёт литерал. Используем `psycopg.sql.Literal`
-        # + `sql.Identifier`, чтобы пароль и имена экранировались корректно.
         from psycopg import sql
 
         with psycopg.connect(admin_dsn, autocommit=True) as conn, conn.cursor() as cur:
@@ -110,10 +164,12 @@ def postgres_chain_dsn() -> Iterator[str]:
             )
 
         dsn = f"postgresql://{role}:{password}@{host}:{port}/trustchain"
-        os.environ["TC_VERIFIABLE_LOG_DSN"] = dsn
+        _PG_STATE["dsn"] = dsn
+        _PG_STATE["admin_dsn"] = admin_dsn
         yield dsn
-        os.environ.pop("TC_VERIFIABLE_LOG_DSN", None)
     finally:
+        _PG_STATE["dsn"] = None
+        _PG_STATE["admin_dsn"] = None
         container.stop()
 
 
@@ -121,20 +177,25 @@ def postgres_chain_dsn() -> Iterator[str]:
 def postgres_chain_reset(postgres_chain_dsn: str) -> Iterator[str]:
     """Чистим chain_records / chain_head перед каждым тестом.
 
-    ``chain_records`` защищена append-only-триггером, поэтому TRUNCATE через
-    обычного пользователя заблокирован.  Временно отключаем сессионные
-    триггеры через ``session_replication_role = 'replica'`` — это штатный
-    PG-способ, которым пользуется pg_dump/logical replication.
+    ``chain_records`` защищена append-only-триггером, а unprivileged-роль
+    ``tc_verifiable_log`` не может ни ``SET session_replication_role``, ни
+    ``ALTER TABLE ... DISABLE TRIGGER`` (в PG17 это требует SUPERUSER /
+    owner-привилегий).  Поэтому сброс выполняем под **admin DSN** — это
+    изолированный testcontainers, обычный production-flow не затрагивается.
     """
     import psycopg
 
-    with psycopg.connect(
-        postgres_chain_dsn, autocommit=True
-    ) as conn, conn.cursor() as cur:
+    admin_dsn = _PG_STATE.get("admin_dsn")
+    if not admin_dsn:
+        pytest.skip("admin DSN unavailable (testcontainers fixture not initialized)")
+
+    with psycopg.connect(admin_dsn, autocommit=True) as conn, conn.cursor() as cur:
         cur.execute("SET session_replication_role = 'replica'")
         try:
             cur.execute(
-                "TRUNCATE TABLE chain_records, chain_head RESTART IDENTITY CASCADE"
+                "TRUNCATE TABLE "
+                "tc_verifiable_log.chain_records, tc_verifiable_log.chain_head "
+                "RESTART IDENTITY CASCADE"
             )
         except psycopg.errors.UndefinedTable:
             pass

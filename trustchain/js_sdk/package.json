@@ -1,19 +1,26 @@
 {
   "name": "trustchain-js",
-  "version": "2.4.0",
+  "version": "3.0.0",
   "description": "JavaScript SDK for TrustChain - Cryptographically verified AI tool responses",
   "main": "trustchain.js",
   "types": "trustchain.d.ts",
   "files": [
     "trustchain.js",
     "trustchain.d.ts",
+    "receipt.mjs",
+    "receipt.d.ts",
     "react.jsx",
     "react.d.ts",
     "README.md",
     "examples/"
   ],
+  "exports": {
+    ".": "./trustchain.js",
+    "./receipt": "./receipt.mjs",
+    "./react": "./react.jsx"
+  },
   "scripts": {
-    "test": "node test/test.js",
+    "test": "node --test test/",
     "build": "echo 'No build step needed for vanilla JS'",
     "lint": "eslint trustchain.js",
     "docs": "jsdoc trustchain.js -d docs",

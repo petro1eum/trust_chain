@@ -64,34 +64,54 @@ async def send_email(recipient: str, subject: str, message: str) -> Dict[str, An
 # ==================== LLM CLIENTS ====================
 
 
+_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+
 class OpenAIClient:
-    """Simple OpenAI client."""
+    """Thin OpenAI-compatible client.
+
+    Приоритет ключей:
+
+    1. ``OPENAI_API_KEY``  → официальный OpenAI endpoint, модель ``gpt-4o-mini``.
+    2. ``OPENROUTER_API_KEY`` → OpenRouter (drop-in OpenAI-compatible),
+       модель ``openai/gpt-4o-mini``. Зачем: можно прогнать smoke-тесты
+       без отдельного OpenAI ключа, через единый OpenRouter-биллинг.
+    """
 
     def __init__(self):
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        self.available = bool(self.api_key)
-        if self.available:
-            try:
-                import openai
+        self.available = False
+        self.model = "gpt-4o-mini"
+        self.endpoint = "openai-direct"
 
-                self.client = openai.OpenAI(api_key=self.api_key)
-            except ImportError:
-                self.available = False
+        try:
+            import openai
+        except ImportError:
+            return
+
+        if os.getenv("OPENAI_API_KEY"):
+            self.client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+            self.available = True
+        elif os.getenv("OPENROUTER_API_KEY"):
+            self.client = openai.OpenAI(
+                api_key=os.environ["OPENROUTER_API_KEY"],
+                base_url=_OPENROUTER_BASE_URL,
+            )
+            self.model = "openai/gpt-4o-mini"
+            self.endpoint = "openrouter"
+            self.available = True
 
     async def chat(self, message: str) -> str:
-        """Chat with OpenAI."""
         if not self.available:
             return "OpenAI not available"
 
         try:
             response = self.client.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model=self.model,
                 messages=[{"role": "user", "content": message}],
                 max_tokens=100,
             )
             ai_response = response.choices[0].message.content
 
-            # Check for tool triggers
             if "weather" in message.lower():
                 weather = await get_weather("New York")
                 ai_response += f"\n[TOOL] Weather: {weather.data}"
@@ -102,31 +122,68 @@ class OpenAIClient:
 
 
 class AnthropicClient:
-    """Simple Anthropic client."""
+    """Anthropic client with OpenRouter fallback.
+
+    1. ``ANTHROPIC_API_KEY``  → официальный SDK ``anthropic.Anthropic``,
+       модель ``claude-3-haiku-20240307``.
+    2. ``OPENROUTER_API_KEY`` → OpenRouter (OpenAI-compatible API), модель
+       ``anthropic/claude-3-haiku``.  Anthropic SDK не умеет ходить в
+       OpenRouter, поэтому используем openai-клиент с OpenRouter base_url —
+       контракт ответа эквивалентен.
+    """
 
     def __init__(self):
-        self.api_key = os.getenv("ANTHROPIC_API_KEY")
-        self.available = bool(self.api_key)
-        if self.available:
+        self.available = False
+        self.mode: str | None = None  # "anthropic-sdk" | "openrouter"
+        self.client = None
+        self.model = "claude-3-haiku-20240307"
+
+        if os.getenv("ANTHROPIC_API_KEY"):
             try:
                 import anthropic
 
-                self.client = anthropic.Anthropic(api_key=self.api_key)
+                self.client = anthropic.Anthropic(
+                    api_key=os.environ["ANTHROPIC_API_KEY"]
+                )
+                self.mode = "anthropic-sdk"
+                self.available = True
+                return
             except ImportError:
-                self.available = False
+                pass
+
+        if os.getenv("OPENROUTER_API_KEY"):
+            try:
+                import openai
+
+                self.client = openai.OpenAI(
+                    api_key=os.environ["OPENROUTER_API_KEY"],
+                    base_url=_OPENROUTER_BASE_URL,
+                )
+                self.model = "anthropic/claude-3-haiku"
+                self.mode = "openrouter"
+                self.available = True
+            except ImportError:
+                pass
 
     async def chat(self, message: str) -> str:
-        """Chat with Claude."""
         if not self.available:
             return "Anthropic not available"
 
         try:
-            response = self.client.messages.create(
-                model="claude-3-haiku-20240307",
-                max_tokens=100,
+            if self.mode == "anthropic-sdk":
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=100,
+                    messages=[{"role": "user", "content": message}],
+                )
+                return response.content[0].text
+            # OpenRouter (OpenAI-compatible)
+            response = self.client.chat.completions.create(
+                model=self.model,
                 messages=[{"role": "user", "content": message}],
+                max_tokens=100,
             )
-            return response.content[0].text
+            return response.choices[0].message.content
         except Exception as e:
             return f"Error: {e}"
 
@@ -175,24 +232,51 @@ async def test_no_manual_setup_required():
 
 @pytest.mark.asyncio
 async def test_openai_integration():
-    """Test OpenAI integration (skipped if no API key)."""
+    """OpenAI integration via OPENAI_API_KEY или OPENROUTER_API_KEY."""
     client = OpenAIClient()
     if not client.available:
-        pytest.skip("OpenAI API key not available")
+        pytest.skip("Neither OPENAI_API_KEY nor OPENROUTER_API_KEY available")
 
     response = await client.chat("What's 2+2?")
     assert response is not None
+    assert isinstance(response, str)
+    assert len(response) > 0
 
 
 @pytest.mark.asyncio
 async def test_anthropic_integration():
-    """Test Anthropic integration (skipped if no API key)."""
+    """Claude integration via ANTHROPIC_API_KEY или OPENROUTER_API_KEY."""
     client = AnthropicClient()
     if not client.available:
-        pytest.skip("Anthropic API key not available")
+        pytest.skip("Neither ANTHROPIC_API_KEY nor OPENROUTER_API_KEY available")
 
-    response = await client.chat("Hello")
+    response = await client.chat("Hello, reply with the single word 'pong'.")
     assert response is not None
+    assert isinstance(response, str)
+    assert len(response) > 0
+
+
+@pytest.mark.asyncio
+async def test_anthropic_picks_openrouter_when_native_key_missing(monkeypatch):
+    """Если нативного ANTHROPIC_API_KEY нет, но есть OPENROUTER_API_KEY,
+    AnthropicClient ДОЛЖЕН переключиться в openrouter-режим (без skip)."""
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-fake-not-called")
+    client = AnthropicClient()
+    assert client.available is True
+    assert client.mode == "openrouter"
+    assert client.model.startswith("anthropic/")
+
+
+@pytest.mark.asyncio
+async def test_openai_picks_openrouter_when_native_key_missing(monkeypatch):
+    """Аналогично для OpenAIClient: OPENROUTER_API_KEY как fallback."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-fake-not-called")
+    client = OpenAIClient()
+    assert client.available is True
+    assert client.endpoint == "openrouter"
+    assert client.model.startswith("openai/")
 
 
 @pytest.mark.asyncio

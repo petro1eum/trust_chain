@@ -1,0 +1,456 @@
+<!--
+  TrustChain Receipt Verifier (standalone, offline-capable).
+
+  Этот файл — self-contained: перетащи .tcreceipt и получи вердикт.
+  Никаких CDN, внешних скриптов и сетевых запросов. Поэтому его можно:
+
+    • положить в tarball аудиторского отчёта,
+    • открыть с USB-стика в air-gapped среде,
+    • раздавать как https://verify.trust-chain.ai/,
+    • встраивать <iframe>-ом в любые продуктовые UI.
+
+  Криптография — только нативный WebCrypto (crypto.subtle).  Ed25519
+  поддерживается в Chrome ≥ 134, Firefox ≥ 130, Safari ≥ 17 (2024+).
+  Для старых браузеров показывается fallback-сообщение — никаких
+  «тихих» зелёных галочек без настоящей проверки.
+
+  Логика canonicalization ОБЯЗАНА 1-в-1 совпадать с
+  ``trustchain.v2.signer._build_canonical_data`` + json.dumps
+  (sort_keys=True, separators=(",", ":")).  Любое расхождение =
+  false negative'ы на рабочих квитанциях.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TrustChain Receipt Verifier</title>
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --panel: #13161b;
+      --panel-2: #1a1e25;
+      --border: #2a2f38;
+      --text: #e6e8eb;
+      --muted: #8a929c;
+      --accent: #6aa8ff;
+      --ok: #28c76f;
+      --warn: #f0b84b;
+      --err: #ef4b5c;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f7f8fa;
+        --panel: #ffffff;
+        --panel-2: #f0f2f5;
+        --border: #d6dae1;
+        --text: #1a1d21;
+        --muted: #5c6673;
+        --accent: #1f6feb;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg); color: var(--text);
+      font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+    }
+    main {
+      max-width: 880px; margin: 0 auto; padding: 32px 20px 64px;
+    }
+    header {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 20px; font-weight: 600; margin: 0;
+      letter-spacing: -0.01em;
+    }
+    .logo {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent) 0%, #28c76f 100%);
+      display: grid; place-items: center;
+      color: white; font-weight: 700;
+    }
+    .lead { color: var(--muted); margin: 0 0 20px; max-width: 640px; }
+    .drop {
+      border: 2px dashed var(--border); border-radius: 12px;
+      padding: 36px; text-align: center;
+      background: var(--panel);
+      transition: border-color .15s, background .15s;
+      cursor: pointer;
+    }
+    .drop.hover { border-color: var(--accent); background: var(--panel-2); }
+    .drop h3 { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
+    .drop p  { margin: 0; color: var(--muted); font-size: 13px; }
+    .drop input[type="file"] { display: none; }
+    .or { text-align: center; color: var(--muted); margin: 12px 0 8px; font-size: 12px; }
+    textarea {
+      width: 100%; min-height: 120px; padding: 12px;
+      background: var(--panel); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      font-family: var(--mono); font-size: 12px; resize: vertical;
+    }
+    .actions {
+      display: flex; gap: 8px; margin-top: 8px;
+    }
+    button {
+      background: var(--accent); color: white; border: 0;
+      padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer;
+      font-size: 13px;
+    }
+    button.secondary {
+      background: transparent; color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button:hover { opacity: .9; }
+    .result {
+      margin-top: 24px; border-radius: 12px; overflow: hidden;
+      background: var(--panel); border: 1px solid var(--border);
+    }
+    .result .verdict {
+      padding: 20px 20px 16px; display: flex; align-items: center; gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .result.ok     .verdict { background: color-mix(in srgb, var(--ok) 12%, var(--panel)); }
+    .result.warn   .verdict { background: color-mix(in srgb, var(--warn) 12%, var(--panel)); }
+    .result.err    .verdict { background: color-mix(in srgb, var(--err) 12%, var(--panel)); }
+    .dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.05);
+    }
+    .ok  .dot { background: var(--ok); }
+    .warn .dot { background: var(--warn); }
+    .err .dot { background: var(--err); }
+    .verdict strong { font-size: 15px; }
+    .verdict span.sub { color: var(--muted); font-size: 13px; }
+    table.kv {
+      width: 100%; border-collapse: collapse;
+    }
+    table.kv td {
+      padding: 8px 20px; border-bottom: 1px solid var(--border);
+      vertical-align: top; font-size: 13px;
+    }
+    table.kv tr:last-child td { border-bottom: 0; }
+    table.kv td.k { color: var(--muted); width: 180px; font-variant-numeric: tabular-nums; }
+    table.kv td.v { font-family: var(--mono); word-break: break-all; }
+    details {
+      margin: 12px 20px 20px;
+      background: var(--panel-2); border-radius: 8px; padding: 10px 14px;
+    }
+    details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+    details pre {
+      margin: 10px 0 0; font-family: var(--mono); font-size: 12px;
+      white-space: pre-wrap; word-break: break-all; color: var(--text);
+    }
+    .errlist { margin: 0 20px 20px; padding: 0; list-style: none; }
+    .errlist li { padding: 6px 10px; border-radius: 6px; font-size: 13px; }
+    .errlist li.e { background: color-mix(in srgb, var(--err) 14%, transparent); }
+    .errlist li.w { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+    footer {
+      margin-top: 48px; color: var(--muted); font-size: 12px; text-align: center;
+    }
+    footer code { font-family: var(--mono); }
+    .notice {
+      margin: 20px 0 0; padding: 12px 14px;
+      background: color-mix(in srgb, var(--warn) 14%, var(--panel));
+      border: 1px solid var(--warn); border-radius: 8px;
+      color: var(--text); font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="logo">T</div>
+    <h1>TrustChain Receipt Verifier</h1>
+  </header>
+
+  <p class="lead">
+    Перетащи файл <code>.tcreceipt</code> в область ниже — или вставь JSON в
+    текстовое поле. Проверка происходит локально в браузере через WebCrypto,
+    ни байта не уходит в сеть.
+  </p>
+
+  <label class="drop" id="drop">
+    <input type="file" id="file" accept=".tcreceipt,.json,application/json" />
+    <h3>Drop receipt here</h3>
+    <p>…or click to choose a file</p>
+  </label>
+
+  <div class="or">— or paste JSON —</div>
+  <textarea id="paste" placeholder='{"format":"tcreceipt", ...}'></textarea>
+  <div class="actions">
+    <button id="btn-verify">Verify pasted JSON</button>
+    <button id="btn-clear" class="secondary">Clear</button>
+  </div>
+
+  <div id="unsupported" class="notice" hidden>
+    Your browser does not expose <code>Ed25519</code> in WebCrypto. The receipt
+    format itself is fine — switch to a recent Chrome / Firefox / Safari to
+    perform cryptographic verification, or use the <code>tc receipt verify</code> CLI.
+  </div>
+
+  <div id="result" class="result" hidden>
+    <div class="verdict">
+      <span class="dot"></span>
+      <strong id="verdict-title"></strong>
+      <span class="sub" id="verdict-sub"></span>
+    </div>
+    <table class="kv" id="kv"></table>
+    <ul class="errlist" id="errlist"></ul>
+    <details>
+      <summary>Raw receipt JSON</summary>
+      <pre id="raw"></pre>
+    </details>
+  </div>
+
+  <footer>
+    TrustChain · Receipt format v1 · verify.html is self-contained — save and
+    reuse offline.
+  </footer>
+</main>
+
+<script>
+'use strict';
+
+// ------------------------------------------------------------------ utilities
+
+function b64decode(s) {
+  // base64 → Uint8Array
+  const bin = atob(s);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/**
+ * Canonical JSON serialization compatible with Python's
+ * json.dumps(obj, sort_keys=True, separators=(",", ":")).
+ * This function MUST match exactly, byte-for-byte — otherwise valid
+ * receipts will fail verification.
+ */
+function canonicalize(x) {
+  if (x === null || typeof x !== 'object') return JSON.stringify(x);
+  if (Array.isArray(x)) return '[' + x.map(canonicalize).join(',') + ']';
+  const keys = Object.keys(x).sort();
+  return '{' + keys.map(k => JSON.stringify(k) + ':' + canonicalize(x[k])).join(',') + '}';
+}
+
+/**
+ * Rebuild the exact byte-sequence covered by the Ed25519 signature.
+ * Mirrors trustchain.v2.signer._build_canonical_data.
+ */
+function buildCanonicalEnvelope(env) {
+  const obj = {
+    tool_id: env.tool_id ?? null,
+    data: env.data ?? null,
+    timestamp: env.timestamp ?? null,
+    nonce: env.nonce ?? null,
+    parent_signature: env.parent_signature ?? null,
+  };
+  if (env.metadata     !== undefined && env.metadata     !== null) obj.metadata = env.metadata;
+  if (env.certificate  !== undefined && env.certificate  !== null) obj.certificate = env.certificate;
+  if (env.tsa_proof    !== undefined && env.tsa_proof    !== null) obj.tsa_proof = env.tsa_proof;
+  return new TextEncoder().encode(canonicalize(obj));
+}
+
+// ------------------------------------------------------------------ verification
+
+async function verifyReceipt(receipt) {
+  const errs = [];
+  const warns = [];
+
+  if (receipt.format !== 'tcreceipt') {
+    errs.push(`format != "tcreceipt" (got ${JSON.stringify(receipt.format)})`);
+  }
+  if (receipt.version !== 1) {
+    errs.push(`unsupported version: ${receipt.version}`);
+  }
+  const pk = receipt.key && receipt.key.public_key_b64;
+  if (!pk) errs.push('key.public_key_b64 missing');
+  if (errs.length) {
+    return { valid: false, signature_ok: false, identity_ok: null, witnesses_ok: null, errors: errs, warnings: warns };
+  }
+
+  let signatureOk = false;
+  try {
+    const pkBytes = b64decode(pk);
+    const sigBytes = b64decode(receipt.envelope.signature || '');
+    const key = await crypto.subtle.importKey(
+      'raw', pkBytes, { name: 'Ed25519' }, true, ['verify']
+    );
+    const msg = buildCanonicalEnvelope(receipt.envelope);
+    signatureOk = await crypto.subtle.verify('Ed25519', key, sigBytes, msg);
+    if (!signatureOk) errs.push('Ed25519 signature does not match the envelope');
+  } catch (e) {
+    errs.push('WebCrypto error: ' + (e && e.message ? e.message : String(e)));
+  }
+
+  // Identity soft-check (PEM shape only; full PKIX needs server-side tc-verify).
+  let identityOk = null;
+  if (receipt.identity) {
+    const chain = receipt.identity.cert_chain_pem;
+    if (!Array.isArray(chain) || chain.length === 0) {
+      identityOk = false;
+      warns.push('identity present but cert_chain_pem is empty');
+    } else if (!chain.every(p => typeof p === 'string' && p.includes('BEGIN CERTIFICATE'))) {
+      identityOk = false;
+      errs.push('identity.cert_chain_pem contains non-PEM entries');
+    } else {
+      identityOk = true;
+    }
+  }
+
+  // Witnesses: we only check structural presence here.  Signature
+  // verification of the co-signed STHs requires the same canonicalization
+  // as the Python witness module and adds another ~200 lines of JS. Users
+  // who need it should run `tc receipt verify --strict`.
+  let witnessesOk = null;
+  if (Array.isArray(receipt.witnesses)) {
+    witnessesOk = receipt.witnesses.length > 0;
+    warns.push('witness signatures not verified in-browser — run `tc receipt verify` for cryptographic witness check');
+  }
+
+  const valid = signatureOk && identityOk !== false && witnessesOk !== false && errs.length === 0;
+  return { valid, signature_ok: signatureOk, identity_ok: identityOk, witnesses_ok: witnessesOk, errors: errs, warnings: warns };
+}
+
+// ------------------------------------------------------------------ UI
+
+const resultEl   = document.getElementById('result');
+const titleEl    = document.getElementById('verdict-title');
+const subEl      = document.getElementById('verdict-sub');
+const kvEl       = document.getElementById('kv');
+const errListEl  = document.getElementById('errlist');
+const rawEl      = document.getElementById('raw');
+const dropEl     = document.getElementById('drop');
+const fileEl     = document.getElementById('file');
+const pasteEl    = document.getElementById('paste');
+const btnVerify  = document.getElementById('btn-verify');
+const btnClear   = document.getElementById('btn-clear');
+const notice     = document.getElementById('unsupported');
+
+function fmt(v) {
+  if (v === null || v === undefined) return '—';
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}
+
+function render(receipt, verification) {
+  resultEl.hidden = false;
+  resultEl.classList.remove('ok', 'warn', 'err');
+
+  let title, sub, cls;
+  if (verification.valid) {
+    title = 'Receipt VALID';
+    sub = 'signature + extras verified';
+    cls = 'ok';
+  } else if (verification.signature_ok) {
+    title = 'Receipt DEGRADED';
+    sub = 'signature OK, optional proofs failed';
+    cls = 'warn';
+  } else {
+    title = 'Receipt INVALID';
+    sub = 'signature does not match the envelope';
+    cls = 'err';
+  }
+  resultEl.classList.add(cls);
+  titleEl.textContent = title;
+  subEl.textContent = sub;
+
+  const env = receipt.envelope || {};
+  const sum = receipt.summary || {};
+  const rows = [
+    ['tool_id',      fmt(env.tool_id)],
+    ['timestamp',    fmt(sum.timestamp_iso) + (env.timestamp ? ` (epoch ${env.timestamp})` : '')],
+    ['signature',    fmt(sum.signature_short || (env.signature || '').slice(0, 12) + '…')],
+    ['key_id',       fmt(receipt.key && receipt.key.key_id)],
+    ['algorithm',    fmt(receipt.key && receipt.key.algorithm)],
+    ['identity',     receipt.identity
+      ? `${fmt(receipt.identity.subject_cn)} ← ${fmt(receipt.identity.issuer_cn)}`
+      : '—'],
+    ['witnesses',    Array.isArray(receipt.witnesses) ? `${receipt.witnesses.length} co-sign(s)` : '—'],
+    ['issued_at',    fmt(receipt.issued_at)],
+  ];
+  kvEl.innerHTML = rows
+    .map(([k, v]) => `<tr><td class="k">${k}</td><td class="v">${escapeHtml(v)}</td></tr>`)
+    .join('');
+
+  errListEl.innerHTML = [
+    ...verification.errors.map(e  => `<li class="e">✗ ${escapeHtml(e)}</li>`),
+    ...verification.warnings.map(w => `<li class="w">! ${escapeHtml(w)}</li>`),
+  ].join('');
+
+  rawEl.textContent = JSON.stringify(receipt, null, 2);
+  resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+}
+
+async function handleText(text) {
+  let receipt;
+  try {
+    receipt = JSON.parse(text);
+  } catch (e) {
+    render({ envelope: {}, key: {} }, {
+      valid: false, signature_ok: false, identity_ok: null, witnesses_ok: null,
+      errors: ['Invalid JSON: ' + e.message], warnings: [],
+    });
+    return;
+  }
+  const verification = await verifyReceipt(receipt);
+  render(receipt, verification);
+}
+
+// --- drag & drop
+['dragenter','dragover'].forEach(ev => dropEl.addEventListener(ev, e => {
+  e.preventDefault(); e.stopPropagation(); dropEl.classList.add('hover');
+}));
+['dragleave','drop'].forEach(ev => dropEl.addEventListener(ev, e => {
+  e.preventDefault(); e.stopPropagation(); dropEl.classList.remove('hover');
+}));
+dropEl.addEventListener('drop', async e => {
+  const f = e.dataTransfer.files[0];
+  if (!f) return;
+  const text = await f.text();
+  pasteEl.value = text;
+  await handleText(text);
+});
+dropEl.addEventListener('click', () => fileEl.click());
+fileEl.addEventListener('change', async () => {
+  const f = fileEl.files[0];
+  if (!f) return;
+  const text = await f.text();
+  pasteEl.value = text;
+  await handleText(text);
+});
+
+btnVerify.addEventListener('click', () => handleText(pasteEl.value));
+btnClear.addEventListener('click',  () => {
+  pasteEl.value = '';
+  resultEl.hidden = true;
+  fileEl.value = '';
+});
+
+// --- WebCrypto Ed25519 capability probe.
+// If the UA can't import Ed25519 raw keys, show an informative notice
+// instead of silently failing every receipt.
+(async () => {
+  try {
+    await crypto.subtle.importKey(
+      'raw', new Uint8Array(32), { name: 'Ed25519' }, true, ['verify']
+    );
+  } catch (_) {
+    notice.hidden = false;
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trustchain-verify"
+version = "1.0.0"
+description = "Тонкий пакет: только entry-point tc-verify поверх библиотеки trustchain."
+requires-python = ">=3.10"
+dependencies = [
+    "trustchain>=3.0.0,<4",
+]
+
+[project.scripts]
+tc-verify = "trustchain.tc_verify_main:main"
