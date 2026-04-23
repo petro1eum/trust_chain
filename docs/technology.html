@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrustChain Technology — OSS, Pro, Enterprise</title>
+    <meta name="description"
+        content="How TrustChain works, what ships in OSS vs Pro vs Enterprise, security model, and which tier to choose.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #070712;
+            --bg-secondary: #0c0d1a;
+            --bg-card: rgba(255, 255, 255, 0.035);
+            --bg-card-strong: rgba(255, 255, 255, 0.06);
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.35);
+            --cyan: #22d3ee;
+            --cyan-glow: rgba(34, 211, 238, 0.25);
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.28);
+            --amber: #f59e0b;
+            --rose: #fb7185;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --text-faint: #64748b;
+            --border: rgba(255, 255, 255, 0.08);
+            --border-strong: rgba(255, 255, 255, 0.14);
+            --r-sm: 8px;
+            --r-md: 14px;
+            --r-lg: 20px;
+            --r-xl: 28px;
+            --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+            *, *::before, *::after {
+                animation-duration: 0.001ms !important;
+                transition-duration: 0.001ms !important;
+            }
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.65;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::selection { background: var(--accent-glow); color: var(--text-primary); }
+        :focus-visible { outline: 2px solid var(--accent-light); outline-offset: 3px; border-radius: 4px; }
+
+        a { color: var(--accent-light); text-decoration: none; }
+        a:hover { color: var(--text-primary); }
+
+        code {
+            font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+            background: rgba(99, 102, 241, 0.14);
+            color: var(--accent-light);
+            padding: 0.12em 0.4em;
+            border-radius: 6px;
+            font-size: 0.88em;
+            border: 1px solid rgba(99, 102, 241, 0.22);
+        }
+
+        pre {
+            background: linear-gradient(180deg, rgba(12, 13, 26, 0.92), rgba(7, 7, 18, 0.92));
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            padding: 1.1rem 1.3rem;
+            margin: 1rem 0 1.4rem;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+            font-size: 0.86rem;
+            line-height: 1.65;
+            color: #cbd5e1;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+        }
+
+        pre code {
+            background: none;
+            border: none;
+            padding: 0;
+            color: inherit;
+            font-size: inherit;
+        }
+
+        /* Syntax hints */
+        .tok-k { color: #c4b5fd; } /* keyword */
+        .tok-s { color: #86efac; } /* string */
+        .tok-c { color: #64748b; font-style: italic; } /* comment */
+        .tok-f { color: #7dd3fc; } /* function */
+        .tok-n { color: #fda4af; } /* number */
+
+        /* Mesh background */
+        .bg-grid {
+            position: fixed; inset: 0;
+            background-image:
+                linear-gradient(rgba(99, 102, 241, 0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.025) 1px, transparent 1px);
+            background-size: 64px 64px;
+            mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 85%);
+            pointer-events: none; z-index: -1;
+        }
+        .bg-mesh {
+            position: fixed; inset: 0; pointer-events: none; z-index: -2;
+            background:
+                radial-gradient(circle 700px at 10% -10%, rgba(99, 102, 241, 0.22), transparent 60%),
+                radial-gradient(circle 600px at 90% 10%, rgba(34, 211, 238, 0.12), transparent 55%),
+                radial-gradient(circle 650px at 50% 110%, rgba(16, 185, 129, 0.10), transparent 60%);
+        }
+        .bg-noise {
+            position: fixed; inset: 0; pointer-events: none; z-index: -1;
+            opacity: 0.35; mix-blend-mode: overlay;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.5'/></svg>");
+        }
+
+        /* Nav */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0;
+            padding: 0.9rem 2rem;
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(7, 7, 18, 0.72);
+            backdrop-filter: saturate(160%) blur(22px);
+            -webkit-backdrop-filter: saturate(160%) blur(22px);
+            border-bottom: 1px solid var(--border);
+            z-index: 1000;
+            transition: background 0.3s var(--ease);
+        }
+        nav.scrolled { background: rgba(7, 7, 18, 0.88); border-bottom-color: var(--border-strong); }
+        .logo {
+            font-size: 1.4rem; font-weight: 700; letter-spacing: -0.01em;
+            background: linear-gradient(135deg, var(--accent-light), var(--accent));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            display: flex; align-items: center; gap: 0.6rem;
+        }
+        .logo a { color: inherit; -webkit-text-fill-color: transparent; background: inherit; -webkit-background-clip: text; }
+        .logo svg { width: 30px; height: 30px; filter: drop-shadow(0 0 14px var(--accent-glow)); }
+        .nav-links { display: flex; gap: 2rem; list-style: none; }
+        .nav-links a {
+            position: relative; color: var(--text-secondary);
+            font-size: 0.9rem; font-weight: 500; padding: 0.25rem 0;
+            transition: color 0.2s var(--ease);
+        }
+        .nav-links a::after {
+            content: ''; position: absolute; left: 0; bottom: -2px;
+            height: 2px; width: 0;
+            background: linear-gradient(90deg, var(--accent-light), var(--cyan));
+            transition: width 0.3s var(--ease-out);
+        }
+        .nav-links a:hover { color: var(--text-primary); }
+        .nav-links a:hover::after, .nav-links a.active::after { width: 100%; }
+        .nav-links a.active { color: var(--text-primary); }
+        .nav-cta { display: flex; gap: 0.75rem; align-items: center; }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.7rem 1.25rem;
+            border-radius: 999px;
+            font-size: 0.85rem; font-weight: 600; letter-spacing: 0.01em;
+            cursor: pointer; transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+            text-decoration: none; border: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            color: #fff; box-shadow: 0 10px 30px rgba(99, 102, 241, 0.35);
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 14px 40px rgba(99, 102, 241, 0.45); color: #fff; }
+        .btn-ghost {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-primary);
+            border: 1px solid var(--border-strong);
+        }
+        .btn-ghost:hover { background: rgba(255, 255, 255, 0.08); color: var(--text-primary); }
+
+        /* Layout */
+        main {
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 7rem 2rem 5rem;
+        }
+
+        /* Hero */
+        .hero {
+            padding: 2.5rem 0 3rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 3rem;
+        }
+        .eyebrow {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.4rem 0.9rem;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.14), rgba(34, 211, 238, 0.1));
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 999px;
+            font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--accent-light);
+            margin-bottom: 1.4rem;
+        }
+        .hero h1 {
+            font-size: clamp(2.2rem, 5vw, 3.6rem);
+            font-weight: 700;
+            line-height: 1.08;
+            letter-spacing: -0.02em;
+            margin-bottom: 1.1rem;
+            background: linear-gradient(180deg, #fff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .hero h1 .hl {
+            background: linear-gradient(135deg, var(--accent-light), var(--cyan));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .hero p.lede {
+            font-size: clamp(1.05rem, 1.5vw, 1.2rem);
+            color: var(--text-secondary);
+            max-width: 720px;
+            margin-bottom: 1.8rem;
+        }
+        .hero-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+
+        /* Layout with sidebar */
+        .doc-grid {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            gap: 3rem;
+            align-items: start;
+        }
+        @media (max-width: 900px) {
+            .doc-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+            .toc { position: static !important; }
+        }
+        .toc {
+            position: sticky; top: 100px;
+            font-size: 0.88rem;
+        }
+        .toc h4 {
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.72rem;
+            color: var(--text-faint);
+            font-weight: 700;
+            margin-bottom: 0.9rem;
+        }
+        .toc ul { list-style: none; }
+        .toc li { margin-bottom: 0.45rem; }
+        .toc a {
+            color: var(--text-muted);
+            display: block;
+            padding: 0.25rem 0 0.25rem 0.8rem;
+            border-left: 2px solid transparent;
+            transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
+        }
+        .toc a:hover { color: var(--text-primary); }
+        .toc a.active { color: var(--accent-light); border-left-color: var(--accent); }
+
+        .doc { min-width: 0; }
+        .doc section { margin-bottom: 3.5rem; scroll-margin-top: 90px; }
+        .doc h2 {
+            font-size: clamp(1.6rem, 2.8vw, 2.2rem);
+            font-weight: 700;
+            letter-spacing: -0.015em;
+            margin-bottom: 1rem;
+            background: linear-gradient(180deg, #fff, #cbd5e1);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .doc h3 {
+            font-size: 1.25rem; font-weight: 600;
+            letter-spacing: -0.01em;
+            margin-top: 2rem; margin-bottom: 0.7rem;
+            color: var(--text-primary);
+        }
+        .doc h4 { font-size: 1rem; font-weight: 600; margin: 1.2rem 0 0.5rem; color: var(--text-primary); }
+        .doc p { color: var(--text-secondary); margin-bottom: 1rem; }
+        .doc ul, .doc ol { margin: 0.5rem 0 1rem 1.3rem; color: var(--text-secondary); }
+        .doc li { margin-bottom: 0.35rem; }
+        .doc li strong { color: var(--text-primary); }
+
+        /* Tier cards */
+        .tier-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin: 1.5rem 0 2rem;
+        }
+        @media (max-width: 860px) { .tier-grid { grid-template-columns: 1fr; } }
+        .tier-card {
+            position: relative;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            transition: border-color 0.25s var(--ease), transform 0.25s var(--ease);
+        }
+        .tier-card:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+        .tier-card.featured {
+            border-color: rgba(99, 102, 241, 0.45);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(34, 211, 238, 0.05));
+            box-shadow: 0 12px 40px rgba(99, 102, 241, 0.18);
+        }
+        .tier-badge {
+            display: inline-block;
+            padding: 0.25rem 0.7rem;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 0.9rem;
+        }
+        .tier-badge.oss { background: rgba(16, 185, 129, 0.14); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .tier-badge.pro { background: rgba(99, 102, 241, 0.14); color: var(--accent-light); border: 1px solid rgba(99, 102, 241, 0.35); }
+        .tier-badge.ent { background: rgba(251, 113, 133, 0.14); color: var(--rose); border: 1px solid rgba(251, 113, 133, 0.35); }
+        .tier-card h3 { margin: 0 0 0.5rem; font-size: 1.35rem; }
+        .tier-card .price { font-size: 0.95rem; color: var(--text-muted); margin-bottom: 0.8rem; }
+        .tier-card ul { margin: 0; list-style: none; padding: 0; }
+        .tier-card ul li {
+            position: relative; padding-left: 1.3rem;
+            font-size: 0.88rem; color: var(--text-secondary);
+            margin-bottom: 0.35rem;
+        }
+        .tier-card ul li::before {
+            content: ''; position: absolute; left: 0; top: 0.5rem;
+            width: 6px; height: 6px; border-radius: 50%;
+            background: currentColor; opacity: 0.55;
+        }
+        .tier-card.oss ul li::before { background: var(--success); }
+        .tier-card.pro ul li::before { background: var(--accent-light); }
+        .tier-card.ent ul li::before { background: var(--rose); }
+
+        /* Comparison table */
+        .matrix {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+            margin: 1rem 0 1.6rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            overflow: hidden;
+        }
+        .matrix th, .matrix td {
+            padding: 0.7rem 0.9rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .matrix thead th {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .matrix tbody tr:last-child td { border-bottom: none; }
+        .matrix tbody tr:hover { background: rgba(255, 255, 255, 0.025); }
+        .matrix td.feat { color: var(--text-primary); font-weight: 500; min-width: 220px; }
+        .matrix td.y { color: var(--success); font-weight: 600; }
+        .matrix td.p { color: var(--amber); font-weight: 500; }
+        .matrix td.n { color: var(--text-faint); }
+        .matrix td.col { text-align: center; }
+
+        /* Concept callout */
+        .callout {
+            padding: 1rem 1.2rem;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(34, 211, 238, 0.04));
+            border: 1px solid rgba(99, 102, 241, 0.22);
+            border-left: 4px solid var(--accent);
+            border-radius: var(--r-md);
+            margin: 1rem 0 1.4rem;
+        }
+        .callout p:last-child { margin-bottom: 0; }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--border);
+            margin-top: 4rem;
+            padding: 2.5rem 2rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+        }
+        footer a { color: var(--text-secondary); margin: 0 0.75rem; }
+        footer a:hover { color: var(--text-primary); }
+
+        /* CTA block */
+        .cta-block {
+            padding: 2rem;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--r-lg);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(34, 211, 238, 0.05));
+            display: flex; flex-wrap: wrap;
+            align-items: center; justify-content: space-between; gap: 1rem;
+            margin-top: 2rem;
+        }
+        .cta-block h3 { margin: 0; font-size: 1.2rem; color: var(--text-primary); }
+        .cta-block p { margin: 0.25rem 0 0; color: var(--text-secondary); font-size: 0.92rem; }
+    </style>
+</head>
+
+<body>
+    <div class="bg-mesh" aria-hidden="true"></div>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="bg-noise" aria-hidden="true"></div>
+
+    <nav>
+        <div class="logo">
+            <a href="index.html" style="display:flex;align-items:center;gap:0.6rem;">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M16 2L4 8v8c0 7.5 5.1 14.5 12 16 6.9-1.5 12-8.5 12-16V8L16 2z" stroke="url(#grad)" stroke-width="2" fill="none" />
+                    <path d="M12 16l3 3 6-6" stroke="url(#grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    <defs>
+                        <linearGradient id="grad" x1="4" y1="2" x2="28" y2="26">
+                            <stop stop-color="#818cf8" />
+                            <stop offset="1" stop-color="#6366f1" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                TrustChain
+            </a>
+        </div>
+        <ul class="nav-links">
+            <li><a href="index.html#features">Features</a></li>
+            <li><a href="index.html#receipts">.tcreceipt</a></li>
+            <li><a href="index.html#use-cases">Use Cases</a></li>
+            <li><a href="technology.html" class="active">Technology</a></li>
+            <li><a href="index.html#pricing">Pricing</a></li>
+            <li><a href="https://github.com/petro1eum/trust_chain/wiki">Docs</a></li>
+        </ul>
+        <div class="nav-cta">
+            <a href="https://github.com/petro1eum/trust_chain" class="btn btn-ghost" target="_blank" rel="noopener">GitHub</a>
+            <a href="index.html#install" class="btn btn-primary">Install</a>
+        </div>
+    </nav>
+
+    <main>
+        <section class="hero">
+            <div class="eyebrow">Technology Guide · v3.0.0</div>
+            <h1>How TrustChain works —<br><span class="hl">OSS, Pro, Enterprise</span>.</h1>
+            <p class="lede">
+                TrustChain is <strong>SSL for AI agents</strong>: every tool response,
+                retrieved fact, and reasoning step is cryptographically signed, chained,
+                and independently verifiable — offline, without trusting the vendor that produced it.
+                This page explains what ships in each tier, which public APIs you reach for,
+                and the security model behind them.
+            </p>
+            <div class="hero-actions">
+                <a href="#concepts" class="btn btn-primary">Start with concepts</a>
+                <a href="#matrix" class="btn btn-ghost">Compare tiers</a>
+                <a href="https://github.com/petro1eum/trust_chain/blob/main/docs/TECHNOLOGY.md" class="btn btn-ghost" target="_blank" rel="noopener">Markdown version on GitHub ↗</a>
+            </div>
+        </section>
+
+        <div class="doc-grid">
+            <aside class="toc" aria-label="Table of contents">
+                <h4>On this page</h4>
+                <ul>
+                    <li><a href="#why">Why TrustChain</a></li>
+                    <li><a href="#concepts">Core concepts</a></li>
+                    <li><a href="#tiers">The three tiers</a></li>
+                    <li><a href="#oss">OSS surface</a></li>
+                    <li><a href="#pro">Pro surface</a></li>
+                    <li><a href="#enterprise">Enterprise</a></li>
+                    <li><a href="#matrix">Comparison matrix</a></li>
+                    <li><a href="#security">Security model</a></li>
+                    <li><a href="#choose">Which tier?</a></li>
+                    <li><a href="#next">Where to next</a></li>
+                </ul>
+            </aside>
+
+            <div class="doc">
+                <section id="why">
+                    <h2>1. Why TrustChain exists</h2>
+                    <p>
+                        Modern LLM agents invent facts, silently mutate tool outputs, and leave almost
+                        no verifiable trail. Plain logs are <strong>not evidence</strong> — anyone with
+                        write access can rewrite them. TrustChain treats AI output the same way browsers
+                        treat TLS: you only trust what is signed by a known key, chained to prior state,
+                        and verifiable <em>without calling the agent back</em>.
+                    </p>
+                    <h4>Three guarantees</h4>
+                    <ul>
+                        <li><strong>Authenticity</strong> — this JSON came from tool <code>X</code> under key <code>K</code>, not from an LLM pretending it did.</li>
+                        <li><strong>Integrity</strong> — the bytes you have now are identical to what was signed. One flipped field invalidates the signature.</li>
+                        <li><strong>Order (chain of trust)</strong> — step <em>N</em> was produced after step <em>N-1</em>. You cannot reorder or drop steps without breaking the chain.</li>
+                    </ul>
+                    <p>
+                        The <strong>OSS</strong> core is MIT-licensed, runs entirely in-process, and has
+                        no network dependencies. <strong>Pro</strong> and <strong>Enterprise</strong>
+                        layer governance, compliance, and scale on top — as additional PyPI packages and
+                        SaaS endpoints — <em>without changing the core trust model</em>.
+                    </p>
+                </section>
+
+                <section id="concepts">
+                    <h2>2. Core concepts (shared across all tiers)</h2>
+
+                    <h3>2.1 Signed response</h3>
+                    <p>The atomic unit is a <code>SignedResponse</code>:</p>
+<pre><code><span class="tok-k">from</span> trustchain <span class="tok-k">import</span> TrustChain, TrustChainConfig
+
+tc = <span class="tok-f">TrustChain</span>(<span class="tok-f">TrustChainConfig</span>(enable_nonce=<span class="tok-k">False</span>))
+
+signed = tc.<span class="tok-f">sign</span>(
+    tool_id=<span class="tok-s">"weather_api"</span>,
+    data={<span class="tok-s">"city"</span>: <span class="tok-s">"Moscow"</span>, <span class="tok-s">"temp_c"</span>: <span class="tok-n">22.5</span>},
+)
+
+<span class="tok-k">assert</span> tc.<span class="tok-f">verify</span>(signed)        <span class="tok-c"># True</span>
+signed.signature                <span class="tok-c"># base64 Ed25519 signature</span>
+signed.public_key_b64           <span class="tok-c"># verifier key</span>
+signed.response_timestamp       <span class="tok-c"># monotonic, signed</span>
+</code></pre>
+                    <p>
+                        The canonical payload is serialized with sorted keys and UTF-8 — the same bytes any
+                        verifier can reproduce — and signed with <strong>Ed25519</strong>.
+                    </p>
+
+                    <h3>2.2 Chain of trust</h3>
+                    <p>Every signed response is linked to the current chain HEAD:</p>
+<pre><code>op_0  -- signs --&gt; H0
+op_1  -- signs --&gt; H1 = sig(data_1 || H0)
+op_2  -- signs --&gt; H2 = sig(data_2 || H1)
+</code></pre>
+                    <p>
+                        If anyone rewrites <code>op_1</code>, every later signature breaks.
+                        HEAD is persisted by the configured <code>ChainStore</code> backend —
+                        in-memory, file, or Postgres (see OSS §4.5).
+                    </p>
+
+                    <h3>2.3 <code>.tcreceipt</code> — portable proof (v3)</h3>
+                    <p>
+                        Sometimes you need to hand a <em>single fact</em> to a downstream party —
+                        a regulator, a partner, another agent — without giving them access to your whole
+                        chain. TrustChain 3.x introduces the <code>.tcreceipt</code> format:
+                    </p>
+<pre><code><span class="tok-k">from</span> trustchain <span class="tok-k">import</span> TrustChain, TrustChainConfig, build_receipt
+
+tc = <span class="tok-f">TrustChain</span>(<span class="tok-f">TrustChainConfig</span>(enable_nonce=<span class="tok-k">False</span>))
+signed = tc.<span class="tok-f">sign</span>(<span class="tok-s">"sec_filing_lookup"</span>,
+                 {<span class="tok-s">"company"</span>: <span class="tok-s">"Acme"</span>, <span class="tok-s">"revenue_usd"</span>: <span class="tok-n">4_812_300_000</span>})
+
+receipt = <span class="tok-f">build_receipt</span>(
+    signed,
+    tc.<span class="tok-f">export_public_key</span>(),
+    key_id=tc.<span class="tok-f">get_key_id</span>(),
+)
+<span class="tok-f">open</span>(<span class="tok-s">"acme_revenue.tcreceipt"</span>, <span class="tok-s">"w"</span>).<span class="tok-f">write</span>(receipt.<span class="tok-f">to_json</span>(indent=<span class="tok-n">2</span>))
+</code></pre>
+                    <p>A <code>.tcreceipt</code> is one self-contained JSON blob holding:</p>
+                    <table class="matrix">
+                        <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
+                        <tbody>
+                            <tr><td class="feat">envelope</td><td>Original tool payload + <code>tool_id</code> + <code>response_timestamp</code>.</td></tr>
+                            <tr><td class="feat">signature</td><td>Ed25519 signature over canonical envelope bytes.</td></tr>
+                            <tr><td class="feat">public_key</td><td>Base64 signer key (optionally with <code>key_id</code>).</td></tr>
+                            <tr><td class="feat">chain</td><td>Parent signature / HEAD fingerprint (optional).</td></tr>
+                            <tr><td class="feat">certificate</td><td>PEM chain when the signer is anchored to a CA (Platform tier).</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="callout">
+                        <p>
+                            <strong>Offline browser verification.</strong> The reference
+                            <a href="verify.html"><code>verify.html</code></a> drag-and-drops
+                            a <code>.tcreceipt</code> and returns a pass/fail using WebCrypto —
+                            <em>no network call</em>, works air-gapped.
+                        </p>
+                    </div>
+
+                    <h3>2.4 Versioning</h3>
+                    <table class="matrix">
+                        <thead><tr><th>Version</th><th>Status</th><th>Notes</th></tr></thead>
+                        <tbody>
+                            <tr><td class="feat">v1</td><td>legacy</td><td>detached signatures, no chain store</td></tr>
+                            <tr><td class="feat">v2</td><td>stable</td><td>chained responses, Merkle, tenants, integrations</td></tr>
+                            <tr><td class="feat">v3</td><td class="y">current</td><td><code>.tcreceipt</code>, DAG merges, compensations, manifest hashing, Postgres-first verifiable log</td></tr>
+                        </tbody>
+                    </table>
+                    <p><code>pip install trustchain>=3.0.0</code> gets you v3. v2 modules remain importable under <code>trustchain.v2.*</code> for back-compat.</p>
+                </section>
+
+                <section id="tiers">
+                    <h2>3. The three tiers at a glance</h2>
+                    <div class="tier-grid">
+                        <div class="tier-card oss">
+                            <span class="tier-badge oss">Open Source · MIT</span>
+                            <h3>trustchain</h3>
+                            <div class="price">Free forever · <code>pip install trustchain</code></div>
+                            <ul>
+                                <li>Ed25519 sign / verify</li>
+                                <li>Chain of trust + Merkle log</li>
+                                <li><code>.tcreceipt</code> portable proofs</li>
+                                <li>LangChain · MCP · FastAPI · Pydantic · OTel</li>
+                                <li>Postgres verifiable log</li>
+                                <li>CLI: <code>tc</code>, <code>tc-verify</code>, <code>tc-witness</code></li>
+                            </ul>
+                        </div>
+                        <div class="tier-card pro featured">
+                            <span class="tier-badge pro">Pro · Commercial</span>
+                            <h3>trustchain-pro</h3>
+                            <div class="price">Seat-based · <code>pip install trustchain-pro</code></div>
+                            <ul>
+                                <li>PolicyEngine (YAML governance)</li>
+                                <li>StreamingReasoningChain</li>
+                                <li>ExecutionGraph + HTML exports</li>
+                                <li>RFC 3161 TSA · FactSeal</li>
+                                <li>Redis HA nonces · KMS helpers</li>
+                                <li>ComplianceReport (HTML/PDF)</li>
+                            </ul>
+                        </div>
+                        <div class="tier-card ent">
+                            <span class="tier-badge ent">Enterprise · SaaS + on-prem</span>
+                            <h3>TrustChain Platform</h3>
+                            <div class="price">Custom · <a href="mailto:edcherednik@gmail.com">Contact sales</a></div>
+                            <ul>
+                                <li>Root / Intermediate CA + leaf certs</li>
+                                <li>Public registry · CRL / revocation</li>
+                                <li>SOC 2 · HIPAA · FDA · EU AI Act templates</li>
+                                <li>Airgap deployment · dedicated engineer</li>
+                                <li>SLA · 24/7 support</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="oss">
+                    <h2>4. OSS — <code>pip install trustchain</code></h2>
+                    <p>Everything below ships in the open-source package. No license key, no network call, no phone-home.</p>
+
+                    <h3>4.1 <code>@tc.tool</code> decorator</h3>
+<pre><code><span class="tok-k">@tc.tool</span>(<span class="tok-s">"database_query"</span>)
+<span class="tok-k">def</span> <span class="tok-f">query</span>(sql: <span class="tok-k">str</span>):
+    <span class="tok-k">return</span> db.<span class="tok-f">fetchall</span>(sql)
+
+response = <span class="tok-f">query</span>(<span class="tok-s">"SELECT 1"</span>)
+response.data          <span class="tok-c"># {'rows': [...]}</span>
+response.signature     <span class="tok-c"># auto-attached</span>
+tc.<span class="tok-f">verify</span>(response)    <span class="tok-c"># True</span>
+</code></pre>
+
+                    <h3>4.2 Low-level <code>sign</code> / <code>verify</code></h3>
+                    <p>Used when you don't own the callable — wrapping a third-party SDK or an LLM tool-call result. <code>TrustChain.sign(tool_id, data)</code> returns a <code>SignedResponse</code>; <code>tc.verify(response)</code> is a pure boolean check.</p>
+
+                    <h3>4.3 <code>TrustChainVerifier</code></h3>
+                    <p>Standalone verifier — <strong>no private key</strong>, verification only. Useful in consumer services that must trust data coming from another team:</p>
+<pre><code><span class="tok-k">from</span> trustchain <span class="tok-k">import</span> TrustChainVerifier
+v = <span class="tok-f">TrustChainVerifier</span>(public_keys=[producer_pubkey_b64])
+<span class="tok-k">assert</span> v.<span class="tok-f">verify</span>(signed_response)
+</code></pre>
+
+                    <h3>4.4 <code>AsyncTrustChain</code></h3>
+                    <p>Drop-in async context manager for FastAPI / asyncio workloads:</p>
+<pre><code><span class="tok-k">from</span> trustchain.v2.async_core <span class="tok-k">import</span> AsyncTrustChain
+
+<span class="tok-k">async with</span> <span class="tok-f">AsyncTrustChain</span>() <span class="tok-k">as</span> atc:
+    resp = <span class="tok-k">await</span> atc.<span class="tok-f">sign</span>(<span class="tok-s">"embedding_search"</span>, {<span class="tok-s">"hits"</span>: [...]})
+</code></pre>
+
+                    <h3>4.5 Chain storage backends</h3>
+                    <table class="matrix">
+                        <thead><tr><th>Backend</th><th>Import / env</th><th>When to use</th></tr></thead>
+                        <tbody>
+                            <tr><td class="feat">In-memory</td><td>default</td><td>tests, notebooks</td></tr>
+                            <tr><td class="feat">File</td><td>set <code>TC_CHAIN_DIR</code></td><td>single-node services</td></tr>
+                            <tr><td class="feat">Postgres verifiable log</td><td><code>PostgresVerifiableChainStore</code></td><td>multi-node / production (ADR-SEC-002)</td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3>4.6 Merkle verifiable log</h3>
+                    <p><code>trustchain.v2.merkle.MerkleTree</code> + <code>verify_proof</code> build and prove inclusion for batches of signed responses. This is the primitive behind third-party audit trails.</p>
+
+                    <h3>4.7 Multi-tenant isolation</h3>
+                    <p><code>trustchain.v2.tenants.TenantManager</code> issues isolated <code>TrustChain</code> instances per tenant — separate keys, separate chain stores.</p>
+
+                    <h3>4.8 Framework integrations (all OSS)</h3>
+                    <table class="matrix">
+                        <thead><tr><th>Framework</th><th>Module</th></tr></thead>
+                        <tbody>
+                            <tr><td class="feat">LangChain / LangGraph</td><td><code>trustchain.integrations.langchain</code></td></tr>
+                            <tr><td class="feat">LangSmith callback</td><td><code>trustchain.integrations.langsmith</code></td></tr>
+                            <tr><td class="feat">MCP (Model Context Protocol)</td><td><code>trustchain.integrations.mcp</code></td></tr>
+                            <tr><td class="feat">Pydantic v2 signed models</td><td><code>trustchain.integrations.pydantic_v2</code></td></tr>
+                            <tr><td class="feat">FastAPI / Starlette middleware</td><td><code>trustchain.integrations.fastapi</code></td></tr>
+                            <tr><td class="feat">Flask / Django</td><td><code>trustchain.integrations.flask</code> / <code>.django</code></td></tr>
+                            <tr><td class="feat">OpenTelemetry span attributes</td><td><code>trustchain.integrations.opentelemetry</code></td></tr>
+                            <tr><td class="feat">pytest fixtures</td><td><code>trustchain.pytest_plugin</code></td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3>4.9 CLI</h3>
+<pre><code>tc sign &lt;tool_id&gt; &lt;json&gt;       <span class="tok-c"># sign ad-hoc payload</span>
+tc verify &lt;file&gt;               <span class="tok-c"># verify a .tcreceipt / chain entry</span>
+tc cert request ...            <span class="tok-c"># request a leaf cert from Platform</span>
+tc-verify file.jsonl.gz        <span class="tok-c"># fully offline batch verify</span>
+tc-witness ...                 <span class="tok-c"># external witness co-signer</span>
+</code></pre>
+
+                    <h3>4.10 v3 primitives (OSS)</h3>
+                    <ul>
+                        <li><code>trustchain.v3.objects</code> — content-addressed objects.</li>
+                        <li><code>trustchain.v3.cas_io</code> — CAS read/write.</li>
+                        <li><code>trustchain.v3.manifest_hash</code> — canonical manifest hashing.</li>
+                        <li><code>trustchain.v3.merge_commit</code> / <code>log_walk</code> — DAG merges for agent branches.</li>
+                        <li><code>trustchain.v3.compensations</code> — reversible action hooks.</li>
+                        <li><code>trustchain.v3.migrate_v2</code> — migrate an existing v2 chain store.</li>
+                    </ul>
+                    <p>
+                        → Hands-on:
+                        <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_tutorial.ipynb" target="_blank" rel="noopener">tutorial</a>,
+                        <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_receipts.ipynb" target="_blank" rel="noopener">.tcreceipt deep dive</a>,
+                        <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_advanced.ipynb" target="_blank" rel="noopener">advanced</a>.
+                    </p>
+                </section>
+
+                <section id="pro">
+                    <h2>5. Pro — <code>pip install trustchain-pro</code></h2>
+                    <p>
+                        Pro is a <strong>separate commercial package</strong> that <em>uses</em> the OSS
+                        core. It adds governance, streaming, compliance exports, and production-grade
+                        storage. Gated by an Ed25519-signed license token
+                        (<code>TRUSTCHAIN_PRO_LICENSE</code>).
+                    </p>
+                    <div class="callout">
+                        <p>
+                            The sections below describe the <strong>public surface</strong> —
+                            the classes and helpers you import. Internal policies, token validation
+                            logic, seat management, and license-server schemas are intentionally
+                            not covered here.
+                        </p>
+                    </div>
+
+                    <h3>5.1 <code>PolicyEngine</code> — YAML governance</h3>
+                    <p>Declarative rules evaluated against every signed response or tool call. Blocks, requires approval, rewrites metadata, or routes to a parent operation.</p>
+<pre><code><span class="tok-k">from</span> trustchain_pro <span class="tok-k">import</span> PolicyEngine
+
+engine = <span class="tok-f">PolicyEngine</span>()
+engine.<span class="tok-f">load_yaml</span>(<span class="tok-s">"""
+policies:
+  - name: payment_limits
+    if:  { tool: payment, "args.amount": { ">": 10000 } }
+    then: { action: require, parent_tool: manager_approval }
+"""</span>)
+
+decision = engine.<span class="tok-f">evaluate</span>(response, args={<span class="tok-s">"amount"</span>: <span class="tok-n">50000</span>})
+<span class="tok-k">if not</span> decision.allowed:
+    <span class="tok-k">raise</span> <span class="tok-f">PolicyViolation</span>(decision.message)
+</code></pre>
+                    <p>Typical uses: medical-data guardrails, spend limits, regulated-content filters.</p>
+
+                    <h3>5.2 <code>StreamingReasoningChain</code></h3>
+                    <p>Signs an LLM reasoning stream token-by-token (or step-by-step). Every intermediate step is cryptographically linked to the previous one, so a truncated or re-ordered stream breaks verification.</p>
+
+                    <h3>5.3 <code>RedisHAStorage</code></h3>
+                    <p>Production nonce storage backed by Redis Sentinel. Plugs into <code>TrustChainConfig(nonce_storage=...)</code> for HA replay-attack protection at high QPS.</p>
+
+                    <h3>5.4 <code>ExecutionGraph</code></h3>
+                    <p>A signed, navigable graph of everything the agent did — tools, sub-agents, tool inputs/outputs, reasoning steps. Renderable to DOT / HTML for auditors.</p>
+
+                    <h3>5.5 RFC 3161 timestamping (TSA)</h3>
+                    <p>Wrap a signed response with a timestamp token from an RFC 3161-compliant Time-Stamping Authority — legally-defensible <em>"was alive at time T"</em> evidence.</p>
+
+                    <h3>5.6 <code>FactSeal</code></h3>
+                    <p>Bundles a fact + its provenance manifest (source URL, retrieval hash, transforms applied) into a single signed object. Designed to be embedded inside <code>.tcreceipt</code> files for RAG pipelines.</p>
+
+                    <h3>5.7 KMS helpers</h3>
+                    <p>Thin helpers around AWS KMS / HashiCorp Vault / Azure Key Vault for key custody. The OSS core supports external KMS via <code>TrustChainConfig(signer=...)</code>; Pro ships preconfigured signer factories and rotation policies.</p>
+
+                    <h3>5.8 <code>ComplianceReport</code></h3>
+                    <p>One call produces an auditor-ready HTML/PDF: signature coverage, policy hits, failures, timestamps, Merkle proofs.</p>
+
+                    <h3>5.9 <code>Analytics</code></h3>
+                    <p>Aggregated signed-operation metrics (hit rate, failure reasons, tool latency distributions, anomaly scores) exposed as a pluggable data source for Grafana / Superset.</p>
+
+                    <h3>5.10 Airgap mode</h3>
+                    <p>Offline verification bundle — sealed package of <code>{public keys, CRL snapshot, TSA certs, policy bundle}</code> for environments with no internet egress.</p>
+                </section>
+
+                <section id="enterprise">
+                    <h2>6. Enterprise — <code>TrustChain_Platform</code></h2>
+                    <p>Enterprise is a <strong>platform deployment</strong>, not a new Python API. It surrounds OSS + Pro with organizational trust:</p>
+
+                    <h3>6.1 Root / Intermediate CA and leaf certificates</h3>
+                    <p>Every agent, subagent, tool, and skill receives an X.509 leaf certificate chained to the Platform Root CA. <code>.tcreceipt</code> files produced inside the platform embed the PEM chain — so a third party can verify both the signature <em>and</em> the signer's organization, exactly like TLS for websites.</p>
+
+                    <h3>6.2 Public registry</h3>
+                    <p><code>/api/pub/*</code> endpoints expose signer metadata, revocation status, and verification keys — so any client (browser, CLI, Chrome extension) can verify a <code>.tcreceipt</code> without a private relationship with the issuer.</p>
+
+                    <h3>6.3 CRL / revocation</h3>
+                    <p>Signed Certificate Revocation Lists for compromised keys or retired agents. OSS and Pro clients can consume the CRL in airgapped mode.</p>
+
+                    <h3>6.4 License server</h3>
+                    <p>Runs the <code>trustchain-pro</code> license issuance endpoints with seat management, hardware binding, and audit. Deploy on your infra or consume as SaaS.</p>
+
+                    <h3>6.5 Compliance templates</h3>
+                    <p>SOC 2, HIPAA, FDA 21 CFR Part 11, EU AI Act — ready policy bundles, evidence collectors, and report templates. Maps Pro <code>ComplianceReport</code> output to specific control IDs.</p>
+
+                    <h3>6.6 Support, SLA, deployment</h3>
+                    <p>On-prem installer, air-gapped mirror, 24/7 response, dedicated engineer. Contact: <a href="mailto:edcherednik@gmail.com">edcherednik@gmail.com</a>.</p>
+
+                    <div class="callout">
+                        <p>Internal implementation — CA HSM layout, registry DB schema, CRL signing cadence, SSO integration, tenant routing — is covered under NDA.</p>
+                    </div>
+                </section>
+
+                <section id="matrix">
+                    <h2>7. Comparison matrix</h2>
+                    <table class="matrix">
+                        <thead>
+                            <tr>
+                                <th>Capability</th>
+                                <th class="col">OSS</th>
+                                <th class="col">Pro</th>
+                                <th class="col">Enterprise</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td class="feat">Ed25519 sign / verify</td><td class="col y">✓</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat"><code>@tc.tool</code> decorator</td><td class="col y">✓</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat"><code>.tcreceipt</code> portable proof</td><td class="col y">✓</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">Chain-of-trust HEAD</td><td class="col y">✓</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">Multi-tenant manager</td><td class="col y">✓</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">Merkle verifiable log</td><td class="col y">✓</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">LangChain · MCP · FastAPI adapters</td><td class="col y">✓</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">Postgres verifiable chain store</td><td class="col y">✓</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">Nonce replay protection (in-memory)</td><td class="col y">✓</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">Redis HA nonces</td><td class="col n">—</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">PolicyEngine (YAML governance)</td><td class="col n">—</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">Streaming reasoning signatures</td><td class="col n">—</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">ExecutionGraph + HTML export</td><td class="col n">—</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">RFC 3161 TSA timestamps</td><td class="col n">—</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">FactSeal (provenance manifests)</td><td class="col n">—</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">KMS / HSM helpers</td><td class="col p">partial</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">ComplianceReport (HTML/PDF)</td><td class="col n">—</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">Analytics dashboards</td><td class="col n">—</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">Airgap bundle</td><td class="col n">—</td><td class="col y">✓</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">Platform CA + leaf certificates</td><td class="col n">—</td><td class="col n">—</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">Public registry + CRL</td><td class="col n">—</td><td class="col n">—</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">SOC 2 · HIPAA · EU AI Act templates</td><td class="col n">—</td><td class="col n">—</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">SLA · 24/7 support</td><td class="col n">—</td><td class="col n">—</td><td class="col y">✓</td></tr>
+                            <tr><td class="feat">License</td><td class="col y">MIT</td><td class="col p">Commercial</td><td class="col p">Commercial + SLA</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section id="security">
+                    <h2>8. Security model (authoritative)</h2>
+                    <ul>
+                        <li><strong>Signature:</strong> Ed25519 over canonical JSON (RFC 8785-style: sorted keys, UTF-8, no whitespace).</li>
+                        <li><strong>Key storage:</strong> local file (<code>~/.trustchain/keys/</code>) in OSS, external KMS / HSM in Pro / Enterprise.</li>
+                        <li><strong>Chain HEAD:</strong> every new response signs <code>sha256(data) || prev_signature</code>; <code>TC_STRICT_CHAIN=1</code> enforces fail-closed behavior (ADR-SEC-005).</li>
+                        <li><strong>Nonce:</strong> optional replay protection with monotonic counter + TTL; Redis HA in Pro.</li>
+                        <li><strong>Clock:</strong> <code>response_timestamp</code> is signed; optional RFC 3161 TSA in Pro.</li>
+                        <li><strong>Certificates:</strong> OSS operates with bare public keys; Platform adds X.509 chains anchored to the Platform Root CA.</li>
+                        <li><strong>Revocation:</strong> CRL (Platform) or manual key rotation (OSS / Pro).</li>
+                        <li><strong>Browser verification:</strong> <code>.tcreceipt</code> files verify with WebCrypto Ed25519 without any server call — see <a href="verify.html">verify.html</a>.</li>
+                    </ul>
+                    <p>ADRs of record: ADR-SEC-001 (Ed25519 over canonical JSON), ADR-SEC-002 (Postgres verifiable log), ADR-SEC-005 (strict-chain default), ADR-015 (signing architecture), ADR-016 (context layer).</p>
+                </section>
+
+                <section id="choose">
+                    <h2>9. Which tier should you pick?</h2>
+                    <ul>
+                        <li><strong>You just want signed tool responses in one service.</strong> → OSS.</li>
+                        <li><strong>You need YAML policies, streaming LLMs, auditor-ready reports, Redis HA.</strong> → Pro.</li>
+                        <li><strong>You issue AI agents that outside parties (regulators, customers) must verify without trusting your servers.</strong> → Enterprise (you need a CA).</li>
+                        <li><strong>You're building on top of TrustChain and want a partner SLA.</strong> → Enterprise.</li>
+                    </ul>
+                    <p>Start free, upgrade when the compliance or scale story requires it. <strong>OSS is forward-compatible with every upper tier</strong> — no data or code migration.</p>
+                </section>
+
+                <section id="next">
+                    <h2>10. Where to go next</h2>
+                    <ul>
+                        <li>Quick start: <a href="https://github.com/petro1eum/trust_chain/blob/main/QUICK_START.md" target="_blank" rel="noopener">QUICK_START.md</a></li>
+                        <li>Feature table (localized): <a href="https://github.com/petro1eum/trust_chain/blob/main/docs/FEATURES.md" target="_blank" rel="noopener">docs/FEATURES.md</a></li>
+                        <li>Product matrix: <a href="https://github.com/petro1eum/trust_chain/blob/main/docs/PRODUCT_MATRIX.md" target="_blank" rel="noopener">docs/PRODUCT_MATRIX.md</a></li>
+                        <li>Context layer (v3 DAG): <a href="https://github.com/petro1eum/trust_chain/blob/main/docs/TRUSTCHAIN_CONTEXT_LAYER.md" target="_blank" rel="noopener">TRUSTCHAIN_CONTEXT_LAYER.md</a></li>
+                        <li>Wiki: <a href="https://github.com/petro1eum/trust_chain/wiki/Architecture" target="_blank" rel="noopener">Architecture</a> · <a href="https://github.com/petro1eum/trust_chain/wiki/Security" target="_blank" rel="noopener">Security</a> · <a href="https://github.com/petro1eum/trust_chain/wiki/API-Reference" target="_blank" rel="noopener">API Reference</a></li>
+                        <li>Notebooks: <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_tutorial.ipynb" target="_blank" rel="noopener">Tutorial</a> · <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_receipts.ipynb" target="_blank" rel="noopener">.tcreceipt</a> · <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_advanced.ipynb" target="_blank" rel="noopener">Advanced</a> · <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_llm.ipynb" target="_blank" rel="noopener">LLM</a> · <a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_full_demo.ipynb" target="_blank" rel="noopener">Full demo</a></li>
+                    </ul>
+                </section>
+
+                <div class="cta-block">
+                    <div>
+                        <h3>Ready to sign every AI fact?</h3>
+                        <p><code>pip install trustchain</code> · MIT · zero network · works today.</p>
+                    </div>
+                    <div style="display:flex;gap:0.6rem;">
+                        <a href="https://github.com/petro1eum/trust_chain" class="btn btn-ghost" target="_blank" rel="noopener">GitHub ↗</a>
+                        <a href="index.html#pricing" class="btn btn-primary">See pricing</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div>
+            <a href="index.html">← Back to landing</a>
+            <a href="https://github.com/petro1eum/trust_chain" target="_blank" rel="noopener">GitHub</a>
+            <a href="https://pypi.org/project/trustchain/" target="_blank" rel="noopener">PyPI</a>
+            <a href="https://github.com/petro1eum/trust_chain/wiki" target="_blank" rel="noopener">Wiki</a>
+            <a href="mailto:edcherednik@gmail.com">Contact</a>
+        </div>
+        <p style="margin-top:1rem;">© 2026 TrustChain. Open source core is MIT-licensed. Pro / Enterprise are commercial.</p>
+    </footer>
+
+    <script>
+        const nav = document.querySelector('nav');
+        const onScroll = () => { nav.classList.toggle('scrolled', window.scrollY > 8); };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
+
+        const tocLinks = document.querySelectorAll('.toc a');
+        const sections = Array.from(tocLinks)
+            .map(a => document.querySelector(a.getAttribute('href')))
+            .filter(Boolean);
+
+        const setActive = () => {
+            const y = window.scrollY + 120;
+            let active = sections[0];
+            for (const s of sections) { if (s.offsetTop <= y) active = s; }
+            tocLinks.forEach(a => {
+                a.classList.toggle('active', a.getAttribute('href') === '#' + active.id);
+            });
+        };
+        window.addEventListener('scroll', setActive, { passive: true });
+        setActive();
+    </script>
+</body>
+
+</html>
