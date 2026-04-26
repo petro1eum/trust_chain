@@ -186,7 +186,56 @@ All included in OSS:
 | OpenTelemetry span attributes | `trustchain.integrations.opentelemetry` |
 | pytest fixtures | `trustchain.pytest_plugin` |
 
-### 3.9 CLI
+### 3.9 Standards adapters
+
+TrustChain keeps `.tcreceipt` as the native source of truth, then exports the
+same evidence into the standards ecosystems security teams already use:
+
+| Standard surface | Module | Output |
+|------------------|--------|--------|
+| SCITT / AI Agent Execution | `trustchain.standards.scitt` | AIR-shaped JSON profile with `content_hash`, `prev_chain_hash`, `chain_hash`, `sequence_number`, and `agent_id`. |
+| W3C Verifiable Credentials | `trustchain.standards.w3c_vc` | VC-shaped envelope embedding the native `.tcreceipt`. |
+| in-toto / Sigstore / DSSE | `trustchain.standards.intoto` | in-toto Statement v1.0 with a TrustChain predicate. |
+
+These adapters are interoperability exports. Full SCITT custody, COSE signing,
+transparency admission, retention policy, and enterprise governance remain
+deployment-layer concerns.
+
+### 3.10 Tool PKI
+
+Tool PKI binds tool identity to implementation integrity. A `ToolCertificate`
+records the tool name, module, version, permissions, issuer, and SHA-256 hash of
+the tool source. `ToolRegistry.verify()` recomputes the hash before execution,
+so unexpected tool changes are detected before the signed output is trusted.
+
+```python
+from trustchain.v2.certificate import ToolRegistry
+
+registry = ToolRegistry()
+cert = registry.certify(my_tool, owner="Risk Engineering")
+assert registry.verify(my_tool)
+```
+
+See [`docs/TOOL_PKI.md`](TOOL_PKI.md) and [`tool-pki.html`](tool-pki.html).
+
+### 3.11 Anchoring
+
+Local hash chains detect edits inside `.trustchain/`, but a powerful attacker
+with filesystem access could rewrite the whole directory. OSS anchoring exports
+a portable checkpoint that should be stored outside the agent's writable
+environment:
+
+```bash
+tc anchor export -d .trustchain -o chain.anchor.json
+tc anchor verify chain.anchor.json -d .trustchain
+```
+
+The anchor contains the current `head`, `length`, canonical `chain_sha256`,
+`chain_valid`, and optional `merkle_root`. Pro/Enterprise can schedule this and
+submit checkpoints to a transparency service, customer evidence store, TSA, or
+object-lock storage.
+
+### 3.12 CLI
 
 ```
 tc sign <tool_id> <json>           # sign ad-hoc payload
@@ -194,9 +243,11 @@ tc verify <file>                   # verify a .tcreceipt / chain entry
 tc cert request ...                # request a leaf cert from Platform (optional)
 tc-verify file.jsonl.gz            # fully offline batch verify
 tc-witness ...                     # external witness co-signer
+tc standards export r.tcreceipt --format scitt   # SCITT/W3C VC/in-toto JSON exports
+tc anchor export -o chain.anchor.json             # portable chain-head checkpoint
 ```
 
-### 3.10 v3 primitives
+### 3.13 v3 primitives
 
 Also OSS:
 
@@ -318,6 +369,9 @@ On-prem installer, air-gapped mirror, 24/7 response, dedicated engineer. Contact
 | Ed25519 sign / verify | Yes | Yes | Yes |
 | `@tc.tool` decorator | Yes | Yes | Yes |
 | `.tcreceipt` portable proof | Yes | Yes | Yes |
+| Standards export (SCITT/W3C VC/in-toto) | Yes | Yes | Yes |
+| Tool PKI / code hash checks | Yes | Yes | managed registry |
+| Chain-head anchoring CLI | Yes | scheduled | managed custody |
 | Chain-of-trust HEAD | Yes | Yes | Yes |
 | Multi-tenant manager | Yes | Yes | Yes |
 | Merkle verifiable log | Yes | Yes | Yes |
@@ -350,6 +404,7 @@ On-prem installer, air-gapped mirror, 24/7 response, dedicated engineer. Contact
 - **Nonce:** optional replay protection with monotonic counter + TTL; Redis HA in Pro.
 - **Clock:** `response_timestamp` is signed; optional RFC 3161 TSA in Pro.
 - **Certificates:** OSS operates with bare public keys; Platform adds X.509 chains anchored to the Platform Root CA.
+- **Anchoring:** OSS exports portable chain-head checkpoints; Pro/Enterprise automate custody and external publication.
 - **Revocation:** CRL (Platform) or manual key rotation (OSS/Pro).
 - **Browser verification:** `.tcreceipt` files verify with WebCrypto (Ed25519) without any server call. See [`examples/verify.html`](../examples/verify.html).
 
@@ -372,6 +427,10 @@ Start free, upgrade when the compliance or scale story requires it. OSS is forwa
 
 - Quick start: [`QUICK_START.md`](../QUICK_START.md)
 - Product matrix: [`docs/PRODUCT_MATRIX.md`](PRODUCT_MATRIX.md)
+- Receipt spec: [`docs/RECEIPTS.md`](RECEIPTS.md)
+- Standards and alternatives: [`docs/STANDARDS.md`](STANDARDS.md)
+- Tool PKI: [`docs/TOOL_PKI.md`](TOOL_PKI.md)
+- Compliance evidence: [`docs/COMPLIANCE.md`](COMPLIANCE.md)
 - Feature table (localized): [`docs/FEATURES.md`](FEATURES.md)
 - Context layer (v3 DAG): [`docs/TRUSTCHAIN_CONTEXT_LAYER.md`](TRUSTCHAIN_CONTEXT_LAYER.md)
 - `.tcreceipt` vs git: [`docs/TRUSTCHAIN_VS_GIT.md`](TRUSTCHAIN_VS_GIT.md)

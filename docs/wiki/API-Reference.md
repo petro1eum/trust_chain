@@ -30,6 +30,107 @@ tc = TrustChain(config=None)
 | `get_tools_schema(format)` | Get schemas for all tools |
 | `get_stats()` | Get usage statistics |
 
+### Receipt API
+
+Portable `.tcreceipt` files are built from a signed response plus the public key
+that verifiers should use.
+
+```python
+from trustchain import Receipt, build_receipt, verify_receipt
+
+signed = tc.sign("sec_filing_lookup", {"company": "Acme", "revenue": 42})
+
+receipt = build_receipt(
+    signed,
+    tc.export_public_key(),
+    key_id=tc.get_key_id(),
+)
+receipt.save("acme_revenue.tcreceipt")
+
+loaded = Receipt.load("acme_revenue.tcreceipt")
+result = loaded.verify(expected_public_key_b64=tc.export_public_key())
+assert result.valid
+
+same_result = verify_receipt(
+    "acme_revenue.tcreceipt",
+    expected_public_key_b64=tc.export_public_key(),
+)
+```
+
+| API | Description |
+|-----|-------------|
+| `build_receipt(response, public_key_b64, key_id=None)` | Wrap a `SignedResponse` or dict into a `.tcreceipt`. |
+| `Receipt.load(path_or_json_or_dict)` | Load a receipt from disk, JSON text, or dict. |
+| `Receipt.verify(expected_public_key_b64=None, max_age_seconds=None)` | Verify the native TrustChain signature and optional policy checks. |
+| `verify_receipt(source, **kwargs)` | One-shot load + verify helper. |
+
+### Standards API
+
+Standards adapters export TrustChain evidence without replacing the native
+receipt format.
+
+```python
+from trustchain.standards import (
+    to_scitt_air_json,
+    to_w3c_vc,
+    to_intoto_statement,
+)
+
+air = to_scitt_air_json(
+    signed,
+    agent_id="agent:researcher",
+    sequence_number=0,
+)
+
+vc = to_w3c_vc(
+    receipt,
+    issuer="did:web:trust-chain.ai",
+    subject_id="did:example:agent",
+)
+
+statement = to_intoto_statement(receipt)
+```
+
+| API | Output |
+|-----|--------|
+| `to_scitt_air_json(...)` | SCITT AIR-shaped JSON profile. |
+| `verify_scitt_air_json(record)` | Deterministic integrity check for the SCITT JSON profile. |
+| `to_w3c_vc(...)` | VC-shaped envelope embedding the native receipt. |
+| `verify_w3c_vc_shape(vc)` | Shape/digest consistency check for the VC envelope. |
+| `to_intoto_statement(...)` | in-toto Statement v1.0 with TrustChain predicate. |
+| `verify_intoto_statement_shape(statement)` | Statement/digest consistency check. |
+
+### Tool PKI API
+
+Tool PKI binds a tool's identity to a source-code hash and certificate metadata.
+
+```python
+from trustchain.v2.certificate import ToolRegistry, trustchain_certified
+
+registry = ToolRegistry()
+
+cert = registry.certify(
+    my_tool,
+    owner="Risk Engineering",
+    organization="Acme Bank",
+    permissions=["read:customer"],
+)
+
+assert registry.verify(my_tool)
+
+@trustchain_certified(registry)
+def guarded_tool(customer_id: str) -> dict:
+    return my_tool(customer_id)
+```
+
+| API | Description |
+|-----|-------------|
+| `ToolRegistry.certify(func, ...)` | Issue and persist a tool certificate. |
+| `ToolRegistry.verify(func)` | Verify certificate presence, expiry/revocation, and code hash. |
+| `ToolRegistry.revoke(func, reason)` | Mark a tool certificate as revoked. |
+| `compute_code_hash(func)` | Compute the SHA-256 source hash used by certificates. |
+| `trustchain_certified(registry)` | Decorator that enforces certificate verification before execution. |
+
 ### TrustChainConfig
 
 Configuration options for TrustChain.

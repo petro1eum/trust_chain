@@ -1458,9 +1458,10 @@
         </div>
         <ul class="nav-links">
             <li><a href="#features">Features</a></li>
-            <li><a href="#receipts">.tcreceipt</a></li>
+            <li><a href="receipts.html">.tcreceipt</a></li>
             <li><a href="#use-cases">Use Cases</a></li>
             <li><a href="technology.html">Technology</a></li>
+            <li><a href="standards.html">Standards</a></li>
             <li><a href="#pricing">Pricing</a></li>
             <li><a href="https://github.com/petro1eum/trust_chain/wiki">Docs</a></li>
         </ul>
@@ -2007,6 +2008,10 @@
             <ul class="footer-links">
                 <li><a href="https://github.com/petro1eum/trust_chain">GitHub</a></li>
                 <li><a href="https://pypi.org/project/trustchain">PyPI</a></li>
+                <li><a href="receipts.html">.tcreceipt</a></li>
+                <li><a href="standards.html">Standards</a></li>
+                <li><a href="tool-pki.html">Tool PKI</a></li>
+                <li><a href="compliance.html">Compliance</a></li>
                 <li><a href="https://github.com/petro1eum/trust_chain/wiki">Documentation</a></li>
                 <li><a href="https://github.com/petro1eum/trust_chain/blob/main/LICENSE">MIT License</a></li>
             </ul>
@@ -2034,6 +2039,8 @@
                 hero_subtitle: '<strong>AI either hallucinates facts or gets them from tools.<br>TrustChain signs every fact from real tools. Signature = trust.</strong>',
                 nav_features: 'Features',
                 nav_usecases: 'Use Cases',
+                nav_technology: 'Technology',
+                nav_standards: 'Standards',
                 nav_pricing: 'Pricing',
                 nav_docs: 'Docs',
                 btn_install: 'Install',
@@ -2044,6 +2051,8 @@
                 hero_subtitle: '<strong>ИИ либо галлюцинирует факты, либо получает их из инструментов.<br>TrustChain подписывает каждый факт из реальных инструментов. Подпись = доверие.</strong>',
                 nav_features: 'Возможности',
                 nav_usecases: 'Применение',
+                nav_technology: 'Технология',
+                nav_standards: 'Стандарты',
                 nav_pricing: 'Цены',
                 nav_docs: 'Документация',
                 btn_install: 'Установить',
@@ -2142,13 +2151,15 @@
                 badge.innerHTML = `<span class="badge-dot" aria-hidden="true"></span><span>${badgeText}</span>`;
             }
 
-            // Update nav — order: Features | .tcreceipt (brand, not translated) | Use Cases | Pricing | Docs
+            // Update nav — order: Features | .tcreceipt | Use Cases | Technology | Standards | Pricing | Docs
             const navLinks = document.querySelectorAll('.nav-links a');
             if (navLinks[0]) navLinks[0].textContent = t.nav_features;
             // navLinks[1] is '.tcreceipt' — keep as brand literal in all languages.
             if (navLinks[2]) navLinks[2].textContent = t.nav_usecases;
-            if (navLinks[3]) navLinks[3].textContent = t.nav_pricing || 'Pricing';
-            if (navLinks[4]) navLinks[4].textContent = t.nav_docs;
+            if (navLinks[3]) navLinks[3].textContent = t.nav_technology || 'Technology';
+            if (navLinks[4]) navLinks[4].textContent = t.nav_standards || 'Standards';
+            if (navLinks[5]) navLinks[5].textContent = t.nav_pricing || 'Pricing';
+            if (navLinks[6]) navLinks[6].textContent = t.nav_docs || 'Docs';
 
             // Update install button
             const installBtn = document.querySelector('.nav-cta .btn-primary');

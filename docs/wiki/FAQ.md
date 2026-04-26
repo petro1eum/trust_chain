@@ -15,6 +15,9 @@ TrustChain addresses the trust gap in AI agent systems. When an AI agent calls e
 
 TrustChain adds Ed25519 signatures to every tool response, creating verifiable proof of execution.
 
+For portable evidence, TrustChain can wrap a signed response into a `.tcreceipt`
+file that another team, customer, auditor, or browser can verify offline.
+
 ### Is TrustChain a blockchain?
 
 No. TrustChain uses cryptographic signatures similar to blockchain technology, but without the distributed consensus mechanism. It's designed for:
@@ -23,6 +26,9 @@ No. TrustChain uses cryptographic signatures similar to blockchain technology, b
 - Simple integration (no network overhead)
 
 Think of it as "SSL for AI agents" rather than a blockchain.
+
+For stronger evidence, you can export a chain-head checkpoint with
+`tc anchor export` and store it outside the local `.trustchain/` directory.
 
 ### What signature algorithm is used?
 
@@ -195,6 +201,87 @@ Use Merkle Trees when:
 - Storage or bandwidth is limited
 
 They're ideal for RAG systems where you return document fragments.
+
+---
+
+## Receipts, Standards, and Anchoring
+
+### What is a `.tcreceipt`?
+
+A `.tcreceipt` is a portable JSON proof containing:
+
+- the signed TrustChain envelope;
+- the public key and key id;
+- optional identity/certificate material;
+- optional witness evidence;
+- a human-readable summary.
+
+It lets a verifier check the signature without contacting the original agent.
+
+### How do I create and verify a receipt?
+
+```bash
+tc receipt build signed_response.json --key pubkey.json -o result.tcreceipt
+tc receipt show result.tcreceipt
+tc receipt verify result.tcreceipt --pin BASE64_PUBLIC_KEY
+```
+
+Python:
+
+```python
+from trustchain import build_receipt
+
+signed = tc.sign("tool", {"answer": 42})
+receipt = build_receipt(signed, tc.export_public_key(), key_id=tc.get_key_id())
+assert receipt.verify(expected_public_key_b64=tc.export_public_key()).valid
+```
+
+### Does TrustChain support SCITT, W3C VC, or in-toto?
+
+Yes, through export adapters. The native `.tcreceipt` remains the source of
+truth; standards exports are wrappers for interoperability.
+
+```bash
+tc standards export result.tcreceipt --format scitt
+tc standards export result.tcreceipt --format w3c-vc
+tc standards export result.tcreceipt --format intoto
+```
+
+Python:
+
+```python
+from trustchain.standards import to_scitt_air_json, to_w3c_vc, to_intoto_statement
+```
+
+### What does anchoring do?
+
+Anchoring exports the current chain HEAD and canonical chain digest:
+
+```bash
+tc anchor export -d .trustchain -o chain.anchor.json
+tc anchor verify chain.anchor.json -d .trustchain
+```
+
+If you store `chain.anchor.json` outside the agent's writable environment, later
+rewrites of the whole local chain become detectable.
+
+### What is Tool PKI?
+
+Tool PKI certifies tool implementations. A `ToolCertificate` contains the tool
+name, module, version, permissions, issuer, and source-code hash. At runtime,
+`ToolRegistry.verify()` recomputes the hash and rejects the tool if the code no
+longer matches, the certificate expired, or it was revoked.
+
+```python
+from trustchain.v2.certificate import ToolRegistry
+
+registry = ToolRegistry()
+registry.certify(my_tool, owner="Risk Engineering")
+assert registry.verify(my_tool)
+```
+
+This is different from a normal action receipt: it proves not only that some key
+signed output, but also that the expected tool implementation produced it.
 
 ### How do I verify a chunk?
 

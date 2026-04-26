@@ -19,6 +19,14 @@ TrustChain provides a cryptographic signing layer for AI agent tool calls. Every
                           +------------------+
 ```
 
+TrustChain now exposes four public evidence surfaces:
+
+1. `SignedResponse` — the in-process signed tool output.
+2. `.tcreceipt` — a portable JSON proof for third-party offline verification.
+3. `trustchain.standards.*` — SCITT-shaped JSON, W3C VC, and in-toto exports.
+4. `tc anchor` — chain-head checkpoints for external evidence stores.
+5. Tool PKI — certificates that bind tools to source-code hashes and revocation.
+
 ---
 
 ## Core Components
@@ -44,6 +52,24 @@ TrustChain
             |
             +-- Tool Definitions
             +-- Schema Generator
+
+    +-- Receipt Builder (.tcreceipt)
+    |       |
+    |       +-- Signed envelope
+    |       +-- Public key / key id
+    |       +-- Optional identity / witnesses
+    |
+    +-- Standards Adapters
+            |
+            +-- SCITT AIR-shaped JSON
+            +-- W3C VC envelope
+            +-- in-toto Statement
+
+    +-- Tool PKI
+            |
+            +-- ToolCertificate
+            +-- ToolRegistry
+            +-- Source-code hash verification
 ```
 
 ### 2. Signer
@@ -128,6 +154,72 @@ Links operations cryptographically to prove execution order.
 ```
 
 Each step includes the previous step's signature, creating an unbreakable chain.
+
+### Anchoring Flow
+
+Local chains are tamper-evident. Anchoring makes whole-chain rewrites detectable
+by storing a checkpoint outside the local `.trustchain/` directory.
+
+```
+.trustchain/ chain
+       |
+       v
+tc anchor export
+       |
+       +-- head
+       +-- length
+       +-- chain_sha256
+       +-- chain_valid
+       |
+       v
+external evidence store
+```
+
+Later:
+
+```
+tc anchor verify chain.anchor.json
+       |
+       v
+compare current chain against exported checkpoint
+```
+
+### Receipt Flow
+
+```
+SignedResponse
+       |
+       v
+build_receipt(...)
+       |
+       v
+result.tcreceipt
+       |
+       +-- Receipt.verify(...)
+       +-- tc receipt verify
+       +-- browser/WebCrypto verifier
+       +-- standards export
+```
+
+### Tool PKI Flow
+
+```
+Tool function
+       |
+       v
+ToolRegistry.certify(...)
+       |
+       +-- compute source hash
+       +-- issue ToolCertificate
+       +-- store in .trustchain/certs/
+       |
+       v
+ToolRegistry.verify(...)
+       |
+       +-- certificate exists
+       +-- not expired / revoked
+       +-- source hash still matches
+```
 
 ---
 

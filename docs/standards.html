@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrustChain Standards & Positioning</title>
+    <meta name="description"
+        content="How TrustChain maps to SCITT, W3C Verifiable Credentials, in-toto, MCP security, and competing agent receipt systems.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #070712;
+            --bg-card: rgba(255, 255, 255, 0.04);
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --cyan: #22d3ee;
+            --success: #10b981;
+            --amber: #f59e0b;
+            --rose: #fb7185;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --border: rgba(255, 255, 255, 0.09);
+            --border-strong: rgba(255, 255, 255, 0.16);
+            --r-md: 14px;
+            --r-lg: 20px;
+            --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; scroll-padding-top: 96px; }
+        body {
+            font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.65;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+        a { color: var(--accent-light); text-decoration: none; }
+        a:hover { color: var(--text-primary); }
+        code {
+            font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+            background: rgba(99, 102, 241, 0.14);
+            color: var(--accent-light);
+            border: 1px solid rgba(99, 102, 241, 0.22);
+            border-radius: 6px;
+            padding: 0.12em 0.4em;
+            font-size: 0.88em;
+        }
+        pre {
+            background: rgba(7, 7, 18, 0.86);
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            padding: 1rem 1.1rem;
+            overflow-x: auto;
+            margin: 1rem 0 1.4rem;
+            color: #dbeafe;
+        }
+        pre code { background: none; border: 0; padding: 0; color: inherit; }
+        .bg {
+            position: fixed; inset: 0; z-index: -2;
+            background:
+                radial-gradient(circle 760px at 10% -10%, rgba(99, 102, 241, 0.24), transparent 60%),
+                radial-gradient(circle 620px at 92% 12%, rgba(34, 211, 238, 0.12), transparent 56%),
+                radial-gradient(circle 720px at 50% 110%, rgba(16, 185, 129, 0.10), transparent 60%),
+                #070712;
+        }
+        .grid {
+            position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(99, 102, 241, 0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.025) 1px, transparent 1px);
+            background-size: 64px 64px;
+            mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 85%);
+        }
+        nav {
+            position: fixed; inset: 0 0 auto 0; z-index: 1000;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.9rem 2rem;
+            background: rgba(7, 7, 18, 0.78);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(22px) saturate(160%);
+        }
+        .logo a {
+            display: flex; align-items: center; gap: 0.6rem;
+            font-weight: 700; font-size: 1.35rem;
+            background: linear-gradient(135deg, var(--accent-light), var(--accent));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .logo svg { width: 30px; height: 30px; filter: drop-shadow(0 0 14px rgba(99, 102, 241, 0.35)); }
+        .nav-links { display: flex; gap: 1.45rem; list-style: none; }
+        .nav-links a {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            position: relative;
+        }
+        .nav-links a.active, .nav-links a:hover { color: var(--text-primary); }
+        .nav-links a.active::after, .nav-links a:hover::after {
+            content: "";
+            position: absolute;
+            left: 0; right: 0; bottom: -6px;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-light), var(--cyan));
+        }
+        .btn {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            border-radius: 999px;
+            padding: 0.72rem 1.2rem;
+            font-size: 0.86rem;
+            font-weight: 700;
+            border: 1px solid var(--border-strong);
+            color: var(--text-primary);
+            transition: transform 0.2s var(--ease), background 0.2s var(--ease);
+        }
+        .btn:hover { transform: translateY(-1px); background: rgba(255, 255, 255, 0.06); }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            border-color: transparent;
+            color: #fff;
+            box-shadow: 0 12px 34px rgba(99, 102, 241, 0.34);
+        }
+        main {
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 7.2rem 2rem 5rem;
+        }
+        .hero {
+            padding: 2.5rem 0 3rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 3rem;
+        }
+        .eyebrow {
+            display: inline-flex;
+            padding: 0.4rem 0.9rem;
+            border-radius: 999px;
+            border: 1px solid rgba(99, 102, 241, 0.32);
+            background: rgba(99, 102, 241, 0.12);
+            color: var(--accent-light);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.76rem;
+            font-weight: 700;
+            margin-bottom: 1.4rem;
+        }
+        h1 {
+            font-size: clamp(2.25rem, 5vw, 3.8rem);
+            line-height: 1.08;
+            letter-spacing: -0.03em;
+            margin-bottom: 1.1rem;
+            background: linear-gradient(180deg, #fff, #cbd5e1);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        h1 span {
+            background: linear-gradient(135deg, var(--accent-light), var(--cyan));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .lede {
+            max-width: 780px;
+            color: var(--text-secondary);
+            font-size: clamp(1.05rem, 1.6vw, 1.22rem);
+            margin-bottom: 1.6rem;
+        }
+        .hero-actions { display: flex; flex-wrap: wrap; gap: 0.8rem; }
+        .layout {
+            display: grid;
+            grid-template-columns: 230px 1fr;
+            gap: 3rem;
+            align-items: start;
+        }
+        .toc {
+            position: sticky;
+            top: 100px;
+            font-size: 0.9rem;
+        }
+        .toc h4 {
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.72rem;
+            margin-bottom: 0.8rem;
+        }
+        .toc ul { list-style: none; }
+        .toc li { margin-bottom: 0.45rem; }
+        .toc a {
+            display: block;
+            padding-left: 0.8rem;
+            border-left: 2px solid transparent;
+            color: var(--text-muted);
+        }
+        .toc a:hover { color: var(--text-primary); border-left-color: var(--accent); }
+        section { margin-bottom: 3.3rem; scroll-margin-top: 96px; }
+        h2 {
+            font-size: clamp(1.55rem, 3vw, 2.2rem);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 1rem;
+        }
+        h3 { font-size: 1.15rem; margin: 1.4rem 0 0.55rem; }
+        p { color: var(--text-secondary); margin-bottom: 1rem; }
+        ul { color: var(--text-secondary); margin: 0.4rem 0 1rem 1.2rem; }
+        li { margin-bottom: 0.38rem; }
+        strong { color: var(--text-primary); }
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin: 1.2rem 0 1.8rem;
+        }
+        .card, .callout {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            padding: 1.25rem;
+        }
+        .card h3 { margin-top: 0; }
+        .tag {
+            display: inline-flex;
+            padding: 0.22rem 0.62rem;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.72rem;
+            color: var(--accent-light);
+            background: rgba(99, 102, 241, 0.13);
+            border: 1px solid rgba(99, 102, 241, 0.28);
+        }
+        .tag.ok { color: var(--success); background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.28); }
+        .tag.warn { color: var(--amber); background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.28); }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            overflow: hidden;
+            margin: 1rem 0 1.6rem;
+            font-size: 0.9rem;
+        }
+        th, td {
+            text-align: left;
+            padding: 0.75rem 0.85rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+        th {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.045);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        tr:last-child td { border-bottom: 0; }
+        td { color: var(--text-secondary); }
+        .callout {
+            border-left: 4px solid var(--accent);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(34, 211, 238, 0.04));
+            margin: 1.2rem 0 1.6rem;
+        }
+        footer {
+            text-align: center;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+            padding: 2.4rem 2rem;
+            font-size: 0.9rem;
+        }
+        footer a { margin: 0 0.65rem; color: var(--text-secondary); }
+        @media (max-width: 920px) {
+            .nav-links { display: none; }
+            .layout { grid-template-columns: 1fr; gap: 1.2rem; }
+            .toc { position: static; }
+            .card-grid { grid-template-columns: 1fr; }
+            main { padding-inline: 1.1rem; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg" aria-hidden="true"></div>
+    <div class="grid" aria-hidden="true"></div>
+
+    <nav>
+        <div class="logo">
+            <a href="index.html">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M16 2L4 8v8c0 7.5 5.1 14.5 12 16 6.9-1.5 12-8.5 12-16V8L16 2z" stroke="url(#grad)" stroke-width="2" fill="none" />
+                    <path d="M12 16l3 3 6-6" stroke="url(#grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    <defs><linearGradient id="grad" x1="4" y1="2" x2="28" y2="26"><stop stop-color="#818cf8" /><stop offset="1" stop-color="#6366f1" /></linearGradient></defs>
+                </svg>
+                TrustChain
+            </a>
+        </div>
+        <ul class="nav-links">
+            <li><a href="index.html#features">Features</a></li>
+            <li><a href="receipts.html">.tcreceipt</a></li>
+            <li><a href="technology.html">Technology</a></li>
+            <li><a href="standards.html" class="active">Standards</a></li>
+            <li><a href="tool-pki.html">Tool PKI</a></li>
+            <li><a href="compliance.html">Compliance</a></li>
+            <li><a href="index.html#pricing">Pricing</a></li>
+            <li><a href="https://github.com/petro1eum/trust_chain/wiki">Docs</a></li>
+        </ul>
+        <a href="https://pypi.org/project/trustchain" class="btn btn-primary">Install</a>
+    </nav>
+
+    <main>
+        <section class="hero">
+            <div class="eyebrow">Standards & Positioning · v3.0.0</div>
+            <h1>TrustChain is not isolated.<br><span>It is a practical bridge to the AI trust stack.</span></h1>
+            <p class="lede">
+                The market now has agent receipts, SCITT profiles, MCPS envelopes, W3C credentials, and Sigstore/in-toto attestations.
+                TrustChain uses native receipts as the source of truth, then exports them into the standards and audit ecosystems teams already trust.
+            </p>
+            <div class="hero-actions">
+                <a href="#adapters" class="btn btn-primary">See adapters</a>
+                <a href="#comparison" class="btn">Compare alternatives</a>
+                <a href="technology.html" class="btn">Technology guide</a>
+            </div>
+        </section>
+
+        <div class="layout">
+            <aside class="toc" aria-label="Table of contents">
+                <h4>On this page</h4>
+                <ul>
+                    <li><a href="#positioning">Positioning</a></li>
+                    <li><a href="#map">Functional map</a></li>
+                    <li><a href="#adapters">Standards adapters</a></li>
+                    <li><a href="#receipts">.tcreceipt contract</a></li>
+                    <li><a href="#comparison">Alternatives</a></li>
+                    <li><a href="#compliance">Compliance</a></li>
+                    <li><a href="#tiers">Tiers</a></li>
+                </ul>
+            </aside>
+
+            <div>
+                <section id="positioning">
+                    <h2>1. Honest positioning</h2>
+                    <p>
+                        TrustChain does not claim to invent digital signatures, hash chains, or receipts.
+                        Those primitives are deliberately boring and standard: Ed25519, SHA-256, deterministic JSON, optional PKIX, optional witness signatures.
+                    </p>
+                    <div class="callout">
+                        <p><strong>The product claim is narrower and stronger:</strong> TrustChain turns those primitives into a working trust layer for AI tool outputs, agent execution chains, portable receipts, tool certificates, and compliance evidence.</p>
+                    </div>
+                    <p>
+                        The right comparison is not "blockchain for AI." It is closer to <strong>Git + Sigstore + PKI for AI execution evidence</strong>:
+                        sign the output, link the operation, preserve the receipt, verify offline, and export to the systems auditors already understand.
+                    </p>
+                </section>
+
+                <section id="map">
+                    <h2>2. Functional map</h2>
+                    <div class="card-grid">
+                        <article class="card">
+                            <span class="tag ok">Core</span>
+                            <h3>Signed facts</h3>
+                            <p>Tool output becomes a signed response with timestamp, nonce, optional parent signature, and offline verification.</p>
+                        </article>
+                        <article class="card">
+                            <span class="tag ok">Receipts</span>
+                            <h3>Portable proof</h3>
+                            <p><code>.tcreceipt</code> bundles the envelope, key identity, certificate material, and witness data for third-party verification.</p>
+                        </article>
+                        <article class="card">
+                            <span class="tag ok">Chain</span>
+                            <h3>Execution history</h3>
+                            <p>Operations are linked into a tamper-evident trail stored in memory, files, Postgres, or an enterprise custody layer.</p>
+                        </article>
+                        <article class="card">
+                            <span class="tag">Tool PKI</span>
+                            <h3>Tool identity</h3>
+                            <p>Certificates identify tools and agents, making code tampering, key rotation, and revocation visible to verifiers.</p>
+                        </article>
+                        <article class="card">
+                            <span class="tag">Standards</span>
+                            <h3>Export layer</h3>
+                            <p>Receipts can be exported as SCITT-shaped AIR JSON, W3C VC envelopes, and in-toto Statements.</p>
+                        </article>
+                        <article class="card">
+                            <span class="tag warn">Custody</span>
+                            <h3>Enterprise evidence</h3>
+                            <p>KMS/HSM custody, transparency service, retention, policy, SSO, and audit workflows stay in the commercial platform.</p>
+                        </article>
+                    </div>
+                </section>
+
+                <section id="adapters">
+                    <h2>3. Standards adapters</h2>
+                    <p>
+                        TrustChain keeps native receipts stable and adds export adapters instead of forcing every user into a single external standard.
+                        The adapters are deliberately lightweight in OSS and can be wrapped by Pro/Enterprise infrastructure.
+                    </p>
+                    <table>
+                        <thead>
+                            <tr><th>Adapter</th><th>OSS output</th><th>Why it matters</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>trustchain.standards.scitt</code></td>
+                                <td>SCITT AIR-shaped JSON profile with <code>content_hash</code>, <code>prev_chain_hash</code>, <code>chain_hash</code>, <code>sequence_number</code>, <code>agent_id</code>.</td>
+                                <td>Prepares TrustChain evidence for SCITT/COSE transparency services without changing the native receipt.</td>
+                            </tr>
+                            <tr>
+                                <td><code>trustchain.standards.w3c_vc</code></td>
+                                <td>W3C VC-shaped envelope embedding the native <code>.tcreceipt</code> as the credential subject.</td>
+                                <td>Lets identity and compliance systems handle receipts using issuer/subject/proof metadata.</td>
+                            </tr>
+                            <tr>
+                                <td><code>trustchain.standards.intoto</code></td>
+                                <td>in-toto Statement v1.0 with a TrustChain predicate and SHA-256 subject digest.</td>
+                                <td>Connects AI tool evidence to Sigstore, cosign, DSSE, and supply-chain audit workflows.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <pre><code>from trustchain.standards import to_scitt_air_json, to_w3c_vc, to_intoto_statement
+
+air = to_scitt_air_json(signed_response, agent_id="agent:researcher", sequence_number=3)
+vc = to_w3c_vc(receipt, issuer="did:web:trust-chain.ai", subject_id="did:example:agent")
+statement = to_intoto_statement(signed_response)</code></pre>
+                    <div class="callout">
+                        <p>
+                            The SCITT adapter is a JSON profile, not a COSE_Sign1 transparency receipt.
+                            The W3C adapter uses a TrustChain-specific proof type because the native signature covers the TrustChain envelope, not the outer VC JSON.
+                            This honesty keeps the OSS layer safe while leaving room for full enterprise custody.
+                        </p>
+                    </div>
+                </section>
+
+                <section id="receipts">
+                    <h2>4. <code>.tcreceipt</code> contract</h2>
+                    <p>
+                        A receipt is the portable object TrustChain owns. Everything else is an adapter.
+                        Verifiers should treat the native receipt as the source of truth and use standards exports as interoperability envelopes.
+                    </p>
+                    <table>
+                        <thead>
+                            <tr><th>Field</th><th>Purpose</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>format</code> / <code>version</code></td><td>Stable receipt contract: <code>tcreceipt</code>, currently version <code>1</code>.</td></tr>
+                            <tr><td><code>envelope</code></td><td>Signed response: tool id, data, timestamp, nonce, parent signature, metadata, certificate, TSA proof.</td></tr>
+                            <tr><td><code>key</code></td><td>Algorithm, key id, and public key required for offline verification.</td></tr>
+                            <tr><td><code>identity</code></td><td>Optional certificate material for PKIX or platform-backed identity.</td></tr>
+                            <tr><td><code>witnesses</code></td><td>Optional co-signatures from witness services or external custody.</td></tr>
+                            <tr><td><code>summary</code></td><td>Human-readable tool id, timestamp, and short signature preview.</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section id="comparison">
+                    <h2>5. Alternatives and overlap</h2>
+                    <p>
+                        The category is real. That is good: the market is validating cryptographic agent evidence.
+                        TrustChain should be positioned as a practical implementation and bridge, not as the only project in the field.
+                    </p>
+                    <table>
+                        <thead>
+                            <tr><th>Project / standard</th><th>Overlap</th><th>TrustChain angle</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Signet</td><td>Signed MCP tool calls, Ed25519 receipts, hash-chained audit log.</td><td>TrustChain covers tool outputs, receipts, Tool PKI, broader Python/JS usage, and product tiers.</td></tr>
+                            <tr><td>Agent Receipts</td><td>W3C VC-based agent action receipts.</td><td>TrustChain can export VC-shaped receipts while keeping a native developer-friendly format.</td></tr>
+                            <tr><td>SCITT AI Agent Execution</td><td>Evidence records, transparency service, chain hash, compliance mapping.</td><td>TrustChain can become the SDK layer that emits SCITT-ready evidence.</td></tr>
+                            <tr><td>MCPS</td><td>Signed MCP envelopes, passports, replay protection.</td><td>TrustChain complements message security by signing durable outputs and audit evidence.</td></tr>
+                            <tr><td>Sigstore / in-toto</td><td>Signed attestations and supply-chain verification.</td><td>TrustChain exports AI execution evidence into the same attestation ecosystem.</td></tr>
+                            <tr><td>ChainProof / ProofTrail</td><td>Hash-chained or Merkle agent audit trails.</td><td>TrustChain combines audit trails with local signing, receipts, Tool PKI, and offline verification.</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section id="compliance">
+                    <h2>6. Compliance surface</h2>
+                    <p>
+                        TrustChain should be sold to security and compliance teams as evidence infrastructure, not as model monitoring.
+                        It can help with automatic logging, traceability, audit integrity, provenance, and third-party verification.
+                    </p>
+                    <table>
+                        <thead>
+                            <tr><th>Need</th><th>TrustChain capability</th><th>Tier</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>EU AI Act Article 12 logging</td><td>Automatic signed records, chain verification, exportable evidence.</td><td>OSS + Pro reports</td></tr>
+                            <tr><td>Auditor-readable proof</td><td><code>.tcreceipt</code>, CLI verification, standards exports.</td><td>OSS</td></tr>
+                            <tr><td>Tamper-evident custody</td><td><code>tc anchor export</code>, witnesses, verifiable log, external anchoring path.</td><td>OSS + Pro / Enterprise</td></tr>
+                            <tr><td>Organizational identity</td><td>Tool and agent certificates, revocation, public key discovery.</td><td>OSS + Platform</td></tr>
+                            <tr><td>Enterprise governance</td><td>KMS/HSM, retention, SSO, policy, tenant controls.</td><td>Enterprise</td></tr>
+                        </tbody>
+                    </table>
+                    <p>
+                        Legal compliance still depends on deployment, retention policy, risk classification, and counsel review.
+                        TrustChain provides technical evidence primitives, not legal advice.
+                    </p>
+                </section>
+
+                <section id="tiers">
+                    <h2>7. What stays free and what stays paid</h2>
+                    <p>
+                        The OSS package must remain useful: signatures, receipts, offline verification, basic chain checks, CLI, SDKs, and standards export.
+                        Paid tiers should monetize operational scale, governance, custody, reporting, and enterprise identity.
+                    </p>
+                    <table>
+                        <thead>
+                            <tr><th>Tier</th><th>Functional boundary</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>OSS</td><td>Developer trust primitives: sign, verify, receipt, chain, basic storage, standards export.</td></tr>
+                            <tr><td>Pro</td><td>Team productivity and compliance: explorer, reports, advanced exports, scheduled checks, better UX.</td></tr>
+                            <tr><td>Enterprise</td><td>Custody and governance: KMS/HSM, transparency service, policy, SSO, tenancy, retention, support.</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <a href="index.html">Home</a>
+        <a href="technology.html">Technology</a>
+        <a href="standards.html">Standards</a>
+        <a href="tool-pki.html">Tool PKI</a>
+        <a href="compliance.html">Compliance</a>
+        <a href="https://github.com/petro1eum/trust_chain">GitHub</a>
+        <a href="https://pypi.org/project/trustchain">PyPI</a>
+    </footer>
+</body>
+
+</html>

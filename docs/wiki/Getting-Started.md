@@ -97,8 +97,59 @@ new_key = tc.rotate_keys()
 public_key = tc.export_public_key()
 ```
 
+## Portable Receipts
+
+Use `.tcreceipt` when a signed fact must leave your process and be verified by
+another team, customer, auditor, or browser.
+
+```python
+from trustchain import build_receipt
+
+signed = tc.sign("calculator", {"result": 5})
+receipt = build_receipt(
+    signed,
+    tc.export_public_key(),
+    key_id=tc.get_key_id(),
+)
+receipt.save("calculator_result.tcreceipt")
+
+assert receipt.verify(expected_public_key_b64=tc.export_public_key()).valid
+```
+
+CLI:
+
+```bash
+tc receipt show calculator_result.tcreceipt
+tc receipt verify calculator_result.tcreceipt --pin BASE64_PUBLIC_KEY
+```
+
+## Standards Export
+
+The native `.tcreceipt` remains the source of truth. Export it for standards
+ecosystems when needed:
+
+```bash
+tc standards export calculator_result.tcreceipt --format scitt -o result.air.json
+tc standards export calculator_result.tcreceipt --format w3c-vc -o result.vc.json
+tc standards export calculator_result.tcreceipt --format intoto -o result.intoto.json
+```
+
+## Chain Anchoring
+
+Store a chain-head checkpoint outside `.trustchain/` so later rewrites are
+detectable:
+
+```bash
+tc anchor export -d .trustchain -o chain.anchor.json
+tc anchor verify chain.anchor.json -d .trustchain
+```
+
 ## Next Steps
 
 - [API Reference](API-Reference) - Full API documentation
 - [Examples](Examples) - Ready-to-use code examples
 - [Architecture](Architecture) - Technical deep dive
+- [Receipt Spec](../RECEIPTS.md) - `.tcreceipt` format
+- [Standards & Positioning](../STANDARDS.md) - SCITT / W3C VC / in-toto
+- [Tool PKI](../TOOL_PKI.md) - Tool certificates and code hash integrity
+- [Compliance Evidence](../COMPLIANCE.md) - audit/compliance evidence kit

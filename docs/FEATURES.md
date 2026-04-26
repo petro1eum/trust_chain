@@ -22,6 +22,10 @@ TrustChain is like a **digital notary for AI**. When an AI assistant uses tools 
 | **pytest plugin** | Testing made easy. Write tests with built-in signature verification fixtures. |
 | **FastAPI/Flask/Django middleware** | Add to your web app with 2 lines of code. All API responses become signed. |
 | **Basic ReasoningChain** | Track AI's "thinking process". Each reasoning step is signed and connected. |
+| **`.tcreceipt` portable proofs** | Package a signed tool output into a JSON receipt that customers or auditors can verify offline. |
+| **Standards export** | Export receipts as SCITT-shaped JSON, W3C VC envelopes, or in-toto Statements. |
+| **Chain anchoring** | Export a chain-head checkpoint with `tc anchor export` and verify it later with `tc anchor verify`. |
+| **Tool PKI** | Certify tools with source-code hashes, permissions, expiry, and revocation checks before execution. |
 
 ---
 
@@ -74,6 +78,10 @@ TrustChain — это **цифровой нотариус для ИИ**. Ког�
 | **pytest плагин** | Простое тестирование. Готовые фикстуры для проверки подписей. |
 | **Middleware для FastAPI/Flask/Django** | Добавляется в приложение за 2 строки. Все API-ответы становятся подписанными. |
 | **Basic ReasoningChain** | Отслеживает "процесс мышления" ИИ. Каждый шаг рассуждения подписан и связан. |
+| **`.tcreceipt` переносимые доказательства** | Упаковывает подписанный результат инструмента в JSON-квитанцию для офлайн-проверки клиентом или аудитором. |
+| **Экспорт в стандарты** | Экспортирует квитанции как SCITT-shaped JSON, W3C VC envelope или in-toto Statement. |
+| **Anchoring цепочки** | Создаёт checkpoint HEAD цепочки через `tc anchor export` и проверяет его позже через `tc anchor verify`. |
+| **Tool PKI** | Сертифицирует инструменты: hash исходного кода, permissions, срок действия и revocation перед выполнением. |
 
 ---
 

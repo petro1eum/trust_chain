@@ -7,6 +7,10 @@ TrustChain is a cryptographic verification layer for AI agent tool calls. It add
 - **Cryptographic Signatures**: Every tool response is signed with Ed25519
 - **Replay Protection**: Nonce-based protection against replay attacks
 - **Chain of Trust**: Link operations cryptographically to prove execution order
+- **Portable Receipts**: `.tcreceipt` files can be verified offline by customers, auditors, or other agents
+- **Standards Export**: SCITT-shaped JSON, W3C VC envelopes, and in-toto Statements
+- **Anchoring**: `tc anchor export` creates chain-head checkpoints for external evidence stores
+- **Tool PKI**: Tool certificates bind source-code hashes, permissions, and revocation to tool identity
 - **Key Rotation**: Seamless key management with persistence
 - **Merkle Trees**: Verify large documents with compact proofs
 - **CloudEvents**: Standard event format for Kafka and other systems
@@ -28,6 +32,10 @@ TrustChain is a cryptographic verification layer for AI agent tool calls. It add
 - [Architecture](Architecture)
 - [Security](Security)
 - [FAQ](FAQ)
+- [Receipt Spec](../RECEIPTS.md)
+- [Standards & Positioning](../STANDARDS.md)
+- [Tool PKI](../TOOL_PKI.md)
+- [Compliance Evidence](../COMPLIANCE.md)
 
 ## Installation
 

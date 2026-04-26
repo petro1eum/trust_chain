@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrustChain Compliance Evidence</title>
+    <meta name="description"
+        content="TrustChain compliance evidence mapping for EU AI Act, SOC 2, HIPAA, DORA, and audit workflows.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #070712;
+            --card: rgba(255, 255, 255, 0.04);
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --cyan: #22d3ee;
+            --green: #10b981;
+            --amber: #f59e0b;
+            --rose: #fb7185;
+            --text: #f8fafc;
+            --muted: #cbd5e1;
+            --faint: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+            --border-strong: rgba(255, 255, 255, 0.16);
+            --r: 18px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; scroll-padding-top: 96px; }
+        body {
+            font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.65;
+            -webkit-font-smoothing: antialiased;
+        }
+        a { color: var(--accent-light); text-decoration: none; }
+        a:hover { color: var(--text); }
+        code {
+            font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+            background: rgba(99, 102, 241, 0.14);
+            color: var(--accent-light);
+            border: 1px solid rgba(99, 102, 241, 0.22);
+            border-radius: 6px;
+            padding: 0.12em 0.38em;
+            font-size: 0.88em;
+        }
+        pre {
+            overflow-x: auto;
+            margin: 1rem 0 1.4rem;
+            padding: 1.1rem 1.2rem;
+            background: rgba(7, 7, 18, 0.86);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            color: #dbeafe;
+        }
+        pre code { background: none; border: 0; padding: 0; color: inherit; }
+        .bg {
+            position: fixed; inset: 0; z-index: -2;
+            background:
+                radial-gradient(circle 740px at 12% -8%, rgba(99, 102, 241, 0.24), transparent 60%),
+                radial-gradient(circle 620px at 90% 10%, rgba(34, 211, 238, 0.12), transparent 55%),
+                radial-gradient(circle 720px at 48% 112%, rgba(16, 185, 129, 0.10), transparent 60%),
+                #070712;
+        }
+        .grid {
+            position: fixed; inset: 0; z-index: -1;
+            background-image:
+                linear-gradient(rgba(99, 102, 241, 0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.025) 1px, transparent 1px);
+            background-size: 64px 64px;
+            mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 85%);
+            pointer-events: none;
+        }
+        nav {
+            position: fixed; inset: 0 0 auto 0; z-index: 1000;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.9rem 2rem;
+            background: rgba(7, 7, 18, 0.78);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(22px) saturate(160%);
+        }
+        .logo a {
+            display: flex; align-items: center; gap: 0.6rem;
+            font-weight: 700; font-size: 1.35rem;
+            background: linear-gradient(135deg, var(--accent-light), var(--accent));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .logo svg { width: 30px; height: 30px; filter: drop-shadow(0 0 14px rgba(99, 102, 241, 0.35)); }
+        .nav-links { display: flex; gap: 1.25rem; list-style: none; }
+        .nav-links a { color: var(--muted); font-size: 0.88rem; font-weight: 500; position: relative; }
+        .nav-links a.active, .nav-links a:hover { color: var(--text); }
+        .nav-links a.active::after, .nav-links a:hover::after {
+            content: ""; position: absolute; left: 0; right: 0; bottom: -6px; height: 2px;
+            background: linear-gradient(90deg, var(--accent-light), var(--cyan));
+        }
+        .btn {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            border: 1px solid var(--border-strong);
+            border-radius: 999px;
+            padding: 0.72rem 1.2rem;
+            color: var(--text);
+            font-weight: 700;
+            font-size: 0.86rem;
+        }
+        .btn-primary {
+            border-color: transparent;
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            box-shadow: 0 12px 34px rgba(99, 102, 241, 0.34);
+            color: #fff;
+        }
+        main { max-width: 1120px; margin: 0 auto; padding: 7.2rem 2rem 5rem; }
+        .hero { padding: 2.5rem 0 3rem; border-bottom: 1px solid var(--border); margin-bottom: 3rem; }
+        .eyebrow {
+            display: inline-flex;
+            padding: 0.4rem 0.9rem;
+            border-radius: 999px;
+            border: 1px solid rgba(99, 102, 241, 0.32);
+            background: rgba(99, 102, 241, 0.12);
+            color: var(--accent-light);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.76rem;
+            font-weight: 700;
+            margin-bottom: 1.4rem;
+        }
+        h1 {
+            font-size: clamp(2.2rem, 5vw, 3.8rem);
+            line-height: 1.08;
+            letter-spacing: -0.03em;
+            margin-bottom: 1.1rem;
+            background: linear-gradient(180deg, #fff, #cbd5e1);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        h1 span {
+            background: linear-gradient(135deg, var(--accent-light), var(--cyan));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .lede { max-width: 790px; color: var(--muted); font-size: clamp(1.05rem, 1.6vw, 1.22rem); margin-bottom: 1.6rem; }
+        .hero-actions { display: flex; flex-wrap: wrap; gap: 0.8rem; }
+        .layout { display: grid; grid-template-columns: 230px 1fr; gap: 3rem; align-items: start; }
+        .toc { position: sticky; top: 100px; font-size: 0.9rem; }
+        .toc h4 { color: var(--faint); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.72rem; margin-bottom: 0.8rem; }
+        .toc ul { list-style: none; }
+        .toc li { margin-bottom: 0.45rem; }
+        .toc a { display: block; color: var(--faint); padding-left: 0.8rem; border-left: 2px solid transparent; }
+        .toc a:hover { color: var(--text); border-left-color: var(--accent); }
+        section { margin-bottom: 3.3rem; scroll-margin-top: 96px; }
+        h2 { font-size: clamp(1.55rem, 3vw, 2.15rem); line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 1rem; }
+        h3 { font-size: 1.16rem; margin: 1.4rem 0 0.55rem; }
+        p { color: var(--muted); margin-bottom: 1rem; }
+        ul { color: var(--muted); margin: 0.4rem 0 1rem 1.2rem; }
+        li { margin-bottom: 0.38rem; }
+        strong { color: var(--text); }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            margin: 1rem 0 1.6rem;
+            font-size: 0.9rem;
+        }
+        th, td { text-align: left; padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+        th { color: var(--text); background: rgba(255, 255, 255, 0.045); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        tr:last-child td { border-bottom: 0; }
+        td { color: var(--muted); }
+        .callout {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(34, 211, 238, 0.04));
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: var(--r);
+            padding: 1.2rem;
+            margin: 1.2rem 0 1.6rem;
+        }
+        .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1.2rem 0 1.8rem; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 1.2rem; }
+        .card b { display: block; color: var(--green); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.75rem; margin-bottom: 0.5rem; }
+        footer { text-align: center; color: var(--faint); border-top: 1px solid var(--border); padding: 2.4rem 2rem; font-size: 0.9rem; }
+        footer a { margin: 0 0.65rem; color: var(--muted); }
+        @media (max-width: 940px) {
+            .nav-links { display: none; }
+            .layout { grid-template-columns: 1fr; gap: 1.2rem; }
+            .toc { position: static; }
+            .cards { grid-template-columns: 1fr; }
+            main { padding-inline: 1.1rem; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg" aria-hidden="true"></div>
+    <div class="grid" aria-hidden="true"></div>
+
+    <nav>
+        <div class="logo">
+            <a href="index.html">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M16 2L4 8v8c0 7.5 5.1 14.5 12 16 6.9-1.5 12-8.5 12-16V8L16 2z" stroke="url(#grad)" stroke-width="2" fill="none" />
+                    <path d="M12 16l3 3 6-6" stroke="url(#grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    <defs><linearGradient id="grad" x1="4" y1="2" x2="28" y2="26"><stop stop-color="#818cf8" /><stop offset="1" stop-color="#6366f1" /></linearGradient></defs>
+                </svg>
+                TrustChain
+            </a>
+        </div>
+        <ul class="nav-links">
+            <li><a href="receipts.html">.tcreceipt</a></li>
+            <li><a href="technology.html">Technology</a></li>
+            <li><a href="standards.html">Standards</a></li>
+            <li><a href="tool-pki.html">Tool PKI</a></li>
+            <li><a href="compliance.html" class="active">Compliance</a></li>
+            <li><a href="index.html#pricing">Pricing</a></li>
+        </ul>
+        <a href="https://pypi.org/project/trustchain" class="btn btn-primary">Install</a>
+    </nav>
+
+    <main>
+        <section class="hero">
+            <div class="eyebrow">Compliance evidence</div>
+            <h1>Cryptographic logs are not compliance by themselves.<br><span>They are the evidence layer compliance needs.</span></h1>
+            <p class="lede">
+                TrustChain helps high-risk AI teams produce automatic records, portable receipts, chain integrity proofs,
+                standards exports, and externally anchored checkpoints. The legal conclusion still depends on deployment,
+                risk classification, retention, and counsel review.
+            </p>
+            <div class="hero-actions">
+                <a href="#eu-ai-act" class="btn btn-primary">EU AI Act map</a>
+                <a href="#evidence" class="btn">Evidence kit</a>
+                <a href="#limits" class="btn">Limits</a>
+            </div>
+        </section>
+
+        <div class="layout">
+            <aside class="toc" aria-label="Table of contents">
+                <h4>On this page</h4>
+                <ul>
+                    <li><a href="#stance">Compliance stance</a></li>
+                    <li><a href="#eu-ai-act">EU AI Act</a></li>
+                    <li><a href="#evidence">Evidence kit</a></li>
+                    <li><a href="#controls">Control mapping</a></li>
+                    <li><a href="#tiers">Tier boundaries</a></li>
+                    <li><a href="#commands">Commands</a></li>
+                    <li><a href="#limits">Limits</a></li>
+                </ul>
+            </aside>
+
+            <div>
+                <section id="stance">
+                    <h2>1. Compliance stance</h2>
+                    <p>
+                        TrustChain provides technical evidence primitives: signed tool outputs, replay-aware envelopes,
+                        `.tcreceipt` portable proofs, chain verification, standards exports, and external anchors.
+                        It does not replace a compliance program, risk management process, or legal review.
+                    </p>
+                    <div class="callout">
+                        <p><strong>Honest claim:</strong> TrustChain makes AI execution evidence verifiable. It does not automatically make a system SOC 2, HIPAA, DORA, FDA, or EU AI Act compliant.</p>
+                    </div>
+                </section>
+
+                <section id="eu-ai-act">
+                    <h2>2. EU AI Act mapping</h2>
+                    <table>
+                        <thead><tr><th>Article</th><th>Need</th><th>TrustChain evidence</th><th>Tier</th></tr></thead>
+                        <tbody>
+                            <tr><td>Art. 9</td><td>Risk management</td><td>Policy hooks in OSS; Pro PolicyEngine and signed decision trails.</td><td>OSS + Pro</td></tr>
+                            <tr><td>Art. 12</td><td>Automatic logging</td><td>Signed responses, ChainStore, `tc chain-verify`, `.tcreceipt`, `tc anchor`.</td><td>OSS</td></tr>
+                            <tr><td>Art. 13</td><td>Transparency</td><td>Receipts, standards exports, public verifier, registry metadata.</td><td>OSS + Platform</td></tr>
+                            <tr><td>Art. 14</td><td>Human oversight</td><td>Pro reports, policy decisions, revocation workflows, dashboards.</td><td>Pro + Enterprise</td></tr>
+                            <tr><td>Art. 15</td><td>Cybersecurity</td><td>Ed25519 signatures, nonce freshness, Tool PKI, X.509, CRL, KMS/HSM path.</td><td>OSS + Enterprise</td></tr>
+                            <tr><td>Art. 17</td><td>Quality management</td><td>Evidence bundles, reports, retention, incident review artifacts.</td><td>Pro + Enterprise</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section id="evidence">
+                    <h2>3. Evidence kit</h2>
+                    <div class="cards">
+                        <div class="card"><b>Receipt</b><p><code>.tcreceipt</code> proves a specific tool output was signed by a key and can be checked offline.</p></div>
+                        <div class="card"><b>Chain</b><p><code>tc chain-verify</code> detects broken parent links and historical tampering inside the local chain.</p></div>
+                        <div class="card"><b>Anchor</b><p><code>tc anchor export</code> stores a chain-head checkpoint outside the agent's writable environment.</p></div>
+                        <div class="card"><b>Standards</b><p><code>tc standards export</code> emits SCITT-shaped JSON, W3C VC envelopes, or in-toto Statements.</p></div>
+                        <div class="card"><b>Identity</b><p>Tool and agent certificates bind signatures to organizational identity and revocation state.</p></div>
+                        <div class="card"><b>Report</b><p>Pro/Enterprise can package receipts, anchors, policy decisions, and CRL snapshots for auditors.</p></div>
+                    </div>
+                </section>
+
+                <section id="controls">
+                    <h2>4. Control mapping</h2>
+                    <table>
+                        <thead><tr><th>Control family</th><th>TrustChain artifact</th><th>Residual requirement</th></tr></thead>
+                        <tbody>
+                            <tr><td>Integrity</td><td>Ed25519 signature, canonical envelope, receipt verification.</td><td>Protect private keys and runtime.</td></tr>
+                            <tr><td>Traceability</td><td>Signed chain, operation timestamps, parent signatures.</td><td>Define what events must be captured fail-closed.</td></tr>
+                            <tr><td>Retention</td><td>Receipts, chain exports, anchors, standards exports.</td><td>Retention schedule and immutable storage policy.</td></tr>
+                            <tr><td>Identity</td><td>Public key pinning, X.509 chain, CRL, registry.</td><td>Enrollment, revocation, ownership review.</td></tr>
+                            <tr><td>Auditability</td><td>CLI verification, reports, evidence bundles.</td><td>Auditor process, access control, incident response.</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section id="tiers">
+                    <h2>5. Tier boundaries</h2>
+                    <table>
+                        <thead><tr><th>Tier</th><th>Compliance role</th></tr></thead>
+                        <tbody>
+                            <tr><td>OSS</td><td>Evidence primitives: sign, verify, receipt, chain, standards export, anchor.</td></tr>
+                            <tr><td>Pro</td><td>Team workflows: PolicyEngine, reports, scheduled checks, explorer, airgap bundles.</td></tr>
+                            <tr><td>Enterprise</td><td>Custody: KMS/HSM, public registry, CRL, transparency service, SSO, retention, support.</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section id="commands">
+                    <h2>6. Commands</h2>
+                    <pre><code>tc receipt verify result.tcreceipt --pin BASE64_PUBLIC_KEY
+tc chain-verify -d .trustchain
+tc anchor export -d .trustchain -o chain.anchor.json
+tc anchor verify chain.anchor.json -d .trustchain
+tc standards export result.tcreceipt --format scitt -o result.air.json
+tc standards export result.tcreceipt --format w3c-vc -o result.vc.json
+tc standards export result.tcreceipt --format intoto -o result.intoto.json
+tc-verify trustchain_chain.jsonl.gz --pubkey BASE64_PUBLIC_KEY</code></pre>
+                </section>
+
+                <section id="limits">
+                    <h2>7. Limits</h2>
+                    <ul>
+                        <li>A valid signature proves origin and integrity of bytes, not real-world truth.</li>
+                        <li>A local chain is tamper-evident, not globally tamper-proof, unless anchored externally.</li>
+                        <li>Receipts without pinned keys prove internal consistency, not organizational identity.</li>
+                        <li>Regulatory compliance depends on deployment, controls, documentation, and legal interpretation.</li>
+                    </ul>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <a href="index.html">Home</a>
+        <a href="receipts.html">.tcreceipt</a>
+        <a href="standards.html">Standards</a>
+        <a href="tool-pki.html">Tool PKI</a>
+        <a href="technology.html">Technology</a>
+    </footer>
+</body>
+
+</html>

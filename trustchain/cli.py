@@ -5,6 +5,8 @@ Usage:
     tc log --graph                  # ASCII graph (линейная цепь + подсказки разрыва)
     tc log --v3                     # лог v3 CAS-коммитов (refs/v3/main)
     tc manifest hash tool.json      # SHA-256 канонического manifest (tc.manifestHash)
+    tc standards export receipt.tcreceipt --format=scitt
+    tc anchor export -o chain.anchor.json
     tc log --limit 5                # last 5 operations
     tc log --tool bash_tool         # filter by tool
     tc status                       # chain health summary
@@ -30,12 +32,13 @@ Usage:
     tc verify response.json         # verify a signed JSON file
 """
 
+import hashlib
 import json
 import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import typer
 from rich.console import Console
@@ -1588,6 +1591,230 @@ def receipt_build(
 
 
 app.add_typer(receipt_app, name="receipt")
+
+
+# --------------------------------------------------------------------------- #
+# `tc standards …` — interoperability exports                                 #
+# --------------------------------------------------------------------------- #
+
+standards_app = typer.Typer(
+    name="standards",
+    help="Export TrustChain receipts to SCITT/W3C VC/in-toto JSON shapes.",
+    add_completion=False,
+    no_args_is_help=True,
+)
+
+
+def _write_json_document(document: dict[str, Any], output: Optional[Path]) -> None:
+    text = json.dumps(document, indent=2, sort_keys=True, ensure_ascii=False)
+    if output:
+        output.write_text(text + "\n", encoding="utf-8")
+        console.print(f"[green]Wrote standards export:[/green] {output}")
+    else:
+        print(text)
+
+
+@standards_app.command("export")
+def standards_export(
+    receipt_file: Path = typer.Argument(..., help="Path to .tcreceipt file"),
+    format: str = typer.Option(
+        "scitt",
+        "--format",
+        "-f",
+        help="Export format: scitt, w3c-vc, or intoto",
+    ),
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o", help="Write JSON to this file instead of stdout"
+    ),
+    agent_id: Optional[str] = typer.Option(
+        None,
+        "--agent-id",
+        help="SCITT agent_id. Defaults to receipt key_id or tool_id.",
+    ),
+    sequence_number: int = typer.Option(
+        0,
+        "--sequence",
+        min=0,
+        help="SCITT sequence number for this record.",
+    ),
+    previous_chain_hash: Optional[str] = typer.Option(
+        None,
+        "--prev-chain-hash",
+        help="SCITT previous chain hash, if known.",
+    ),
+    issuer: str = typer.Option(
+        "did:web:trust-chain.ai",
+        "--issuer",
+        help="W3C VC issuer identifier.",
+    ),
+    subject_id: Optional[str] = typer.Option(
+        None,
+        "--subject-id",
+        help="W3C VC credentialSubject.id. Defaults to a TrustChain tool subject.",
+    ),
+    subject_name: Optional[str] = typer.Option(
+        None,
+        "--subject-name",
+        help="in-toto subject name. Defaults to trustchain:tool:<tool_id>.",
+    ),
+):
+    """Export a native receipt into a standards-oriented JSON document.
+
+    The native `.tcreceipt` remains the source of truth. These exports are
+    interoperability envelopes for SCITT, W3C VC, and in-toto/Sigstore tooling.
+    """
+    receipt = _load_receipt_or_exit(receipt_file)
+    fmt = format.strip().lower()
+    env = receipt.envelope
+    tool_id = str(env.get("tool_id") or "unknown")
+
+    if fmt == "scitt":
+        from trustchain.standards import to_scitt_air_json
+
+        resolved_agent_id = agent_id or receipt.key.get("key_id") or f"tool:{tool_id}"
+        document = to_scitt_air_json(
+            receipt,
+            agent_id=str(resolved_agent_id),
+            sequence_number=sequence_number,
+            previous_chain_hash=previous_chain_hash,
+        )
+    elif fmt in {"w3c-vc", "vc", "w3c"}:
+        from trustchain.standards import to_w3c_vc
+
+        document = to_w3c_vc(
+            receipt,
+            issuer=issuer,
+            subject_id=subject_id or f"urn:trustchain:tool:{tool_id}",
+        )
+    elif fmt in {"intoto", "in-toto", "slsa"}:
+        from trustchain.standards import to_intoto_statement
+
+        document = to_intoto_statement(receipt, subject_name=subject_name)
+    else:
+        console.print(
+            "[red]Unknown standards format:[/red] "
+            f"{format}. Use scitt, w3c-vc, or intoto."
+        )
+        raise typer.Exit(1)
+
+    _write_json_document(document, output)
+
+
+app.add_typer(standards_app, name="standards")
+
+
+# --------------------------------------------------------------------------- #
+# `tc anchor …` — portable chain-head checkpoints                              #
+# --------------------------------------------------------------------------- #
+
+anchor_app = typer.Typer(
+    name="anchor",
+    help="Export/verify portable chain-head checkpoints for external anchoring.",
+    add_completion=False,
+    no_args_is_help=True,
+)
+
+
+def _chain_anchor_document(chain_dir: str) -> dict[str, Any]:
+    chain = _get_chain(chain_dir)
+    verify_result = chain.verify()
+    ops = chain.log(limit=999999)
+    canonical = json.dumps(
+        ops,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        default=str,
+    ).encode("utf-8")
+    root = _effective_chain_dir(chain_dir)
+    return {
+        "format": "tc-anchor",
+        "version": 1,
+        "profile": "trustchain.anchor.chain-head.v1",
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "chain_dir": str(root),
+        "length": len(ops),
+        "head": verify_result.get("head"),
+        "chain_valid": bool(verify_result.get("valid")),
+        "chain_sha256": hashlib.sha256(canonical).hexdigest(),
+        "merkle_root": getattr(chain, "merkle_root", None),
+    }
+
+
+@anchor_app.command("export")
+def anchor_export(
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o", help="Write anchor JSON to this file instead of stdout"
+    ),
+    chain_dir: str = typer.Option(".trustchain", "--dir", "-d", help="Chain directory"),
+):
+    """Export the current chain HEAD and canonical chain digest.
+
+    Store the resulting JSON outside the TrustChain directory: Git commit, ticket,
+    S3 object lock, transparency log, timestamping service, or a customer system.
+    Later, `tc anchor verify` can prove the local chain still matches that anchor.
+    """
+    document = _chain_anchor_document(chain_dir)
+    if not document["chain_valid"]:
+        console.print("[red]Cannot anchor an invalid chain. Run tc chain-verify.[/red]")
+        raise typer.Exit(2)
+    _write_json_document(document, output)
+
+
+@anchor_app.command("verify")
+def anchor_verify(
+    anchor_file: Path = typer.Argument(
+        ..., help="Anchor JSON created by tc anchor export"
+    ),
+    chain_dir: str = typer.Option(".trustchain", "--dir", "-d", help="Chain directory"),
+    json_output: bool = typer.Option(
+        False, "--json", help="Machine-readable verification result"
+    ),
+):
+    """Verify that the current chain still matches a previously exported anchor."""
+    try:
+        anchor = json.loads(anchor_file.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        console.print(f"[red]File not found:[/red] {anchor_file}")
+        raise typer.Exit(1)
+    except json.JSONDecodeError as exc:
+        console.print(f"[red]Invalid anchor JSON:[/red] {exc}")
+        raise typer.Exit(1)
+
+    if anchor.get("format") != "tc-anchor" or int(anchor.get("version", 0)) != 1:
+        console.print("[red]Not a TrustChain anchor v1 document[/red]")
+        raise typer.Exit(1)
+
+    current = _chain_anchor_document(chain_dir)
+    checks = {
+        "head": anchor.get("head") == current.get("head"),
+        "length": anchor.get("length") == current.get("length"),
+        "chain_sha256": anchor.get("chain_sha256") == current.get("chain_sha256"),
+        "chain_valid": current.get("chain_valid") is True,
+    }
+    result = {
+        "valid": all(checks.values()),
+        "checks": checks,
+        "anchor": anchor,
+        "current": current,
+    }
+
+    if json_output:
+        print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
+    elif result["valid"]:
+        console.print("[green]Anchor VALID[/green] — current chain matches checkpoint")
+    else:
+        console.print(
+            "[red]Anchor MISMATCH[/red] — current chain differs from checkpoint"
+        )
+        for name, ok in checks.items():
+            if not ok:
+                console.print(f"  [red]•[/red] {name}")
+
+    raise typer.Exit(0 if result["valid"] else 2)
+
+
+app.add_typer(anchor_app, name="anchor")
 
 
 def main():

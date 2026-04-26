@@ -5,7 +5,7 @@
 **SSL for AI + Undo for AI** — cryptographic identity for agents/tools/skills and a **git-like audit chain** (roadmap: full CAS, branches, revert).  
 **Cryptographic verification layer for AI agents** — every tool result can be proven, not hallucinated.
 
-> **Quick start:** [QUICK_START.md](QUICK_START.md) · **Product map:** [docs/PRODUCT_MATRIX.md](docs/PRODUCT_MATRIX.md)
+> **Quick start:** [QUICK_START.md](QUICK_START.md) · **Product map:** [docs/PRODUCT_MATRIX.md](docs/PRODUCT_MATRIX.md) · **Receipts:** [docs/RECEIPTS.md](docs/RECEIPTS.md) · **Standards:** [docs/STANDARDS.md](docs/STANDARDS.md) · **Tool PKI:** [docs/TOOL_PKI.md](docs/TOOL_PKI.md) · **Compliance:** [docs/COMPLIANCE.md](docs/COMPLIANCE.md)
 
 > **AI either hallucinates facts or gets them from tools. TrustChain signs facts from real tool execution. Signature = trust.**
 
@@ -23,6 +23,8 @@ TrustChain gives you:
 - **Proof of execution** — data came from a real tool, not hallucinated
 - **Chain of Trust** — cryptographically linked operation sequences
 - **Persistent storage** — Git-like `.trustchain/` directory with auditable history
+- **Standards export** — SCITT-shaped AIR JSON, W3C VC envelope, and in-toto Statement adapters
+- **Anchoring** — portable chain-head checkpoints via `tc anchor export` / `tc anchor verify`
 - **CLI** — `tc` (`log`, `migrate-v3`, `manifest hash`, …) и отдельная команда **`tc-verify`** (тот же пакет, entry point в `pyproject`)
 - **Tool certificates (PKI)** — SSL-like certificates for AI tools, code tamper detection
 - **Replay attack protection** — nonce-based anti-replay
@@ -55,6 +57,10 @@ TrustChain itself is a library. The hosted registry is an **optional certificate
 - [Architecture](https://github.com/petro1eum/trust_chain/wiki/Architecture)
 - [Examples](https://github.com/petro1eum/trust_chain/wiki/Examples)
 - [FAQ](https://github.com/petro1eum/trust_chain/wiki/FAQ)
+- [Receipt Spec](docs/RECEIPTS.md)
+- [Standards & Positioning](docs/STANDARDS.md)
+- [Tool PKI](docs/TOOL_PKI.md)
+- [Compliance Evidence](docs/COMPLIANCE.md)
 
 Repository docs are supplementary reference material and local snapshots. The wiki is the source of truth for public documentation.
 

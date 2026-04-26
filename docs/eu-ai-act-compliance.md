@@ -8,13 +8,14 @@
 
 The EU AI Act establishes mandatory requirements for high-risk AI systems, 
 including logging, transparency, human oversight, and cybersecurity. 
-**TrustChain provides a ready-made technical implementation** for the key 
-compliance articles, reducing the engineering effort for EU AI Act conformance 
-from months to days.
+**TrustChain provides technical evidence primitives** for key compliance
+articles: signed tool outputs, portable `.tcreceipt` files, chain verification,
+standards exports, and external anchors.
 
 This document maps TrustChain capabilities to specific EU AI Act articles, 
-demonstrating coverage across logging (Art. 12), transparency (Art. 13), 
-human oversight (Art. 14), cybersecurity (Art. 15), and quality management (Art. 17).
+demonstrating support across logging (Art. 12), transparency (Art. 13), human
+oversight (Art. 14), cybersecurity (Art. 15), and quality management (Art. 17).
+It is not legal advice and does not make a deployment compliant by itself.
 
 ---
 
@@ -42,15 +43,15 @@ human oversight (Art. 14), cybersecurity (Art. 15), and quality management (Art.
 
 | Requirement | TrustChain Coverage |
 |---|---|
-| Automatic recording of events | **Merkle audit log**: Every tool call → append to SHA-256 hash chain |
-| Periods of use (start/end) | **Operation timestamps**: Each log entry includes `created_at` with precise timing |
-| Input data recording | **Signed results**: Full tool input/output preserved with Ed25519 signature |
-| Traceability of functioning | **Chain ID**: Operations linked via `chain_id` for session-level traceability |
-| Tamper detection | **Merkle tree**: Any modification to historical logs is cryptographically detectable |
+| Automatic recording of events | **Signed responses + ChainStore**: every material tool call can be recorded |
+| Periods of use (start/end) | **Operation timestamps**: each record includes signed `response_timestamp` and store timestamp |
+| Input/output evidence | **`.tcreceipt`**: portable proof of a specific signed tool output |
+| Traceability of functioning | **Parent signatures / chain HEAD**: ordered operations are linked |
+| Tamper detection | **`tc chain-verify` + `tc anchor`**: detect local link breaks and whole-chain rewrites against external checkpoints |
 
-**TrustChain component**: `trustchain.MerkleAuditLog`, Platform `log_service.py`
+**TrustChain component**: `SignedResponse`, `ChainStore`, `.tcreceipt`, `tc anchor`
 
-**CLI verification**: `tc verify-chain --full` — validates entire log integrity
+**CLI verification**: `tc chain-verify`, `tc receipt verify`, `tc anchor verify`
 
 **Key advantage**: The EU AI Act does not mandate cryptographic logging, but legal 
 experts recommend it as best practice for evidentiary value. TrustChain's Merkle tree 
@@ -67,9 +68,9 @@ minimum requirements.
 
 | Requirement | TrustChain Coverage |
 |---|---|
-| Interpret system output | **FactSeal v2 manifest**: Lists exactly which data points in the output are from verified sources vs. LLM-generated |
-| Appropriate level of transparency | **Public registry** (`keys.trust-chain.ai`): Agent identities, certificates, and verification status are publicly auditable |
-| Inform deployers about characteristics | **Certificate metadata**: Each agent's cert contains org, role, tier info — visible in portal |
+| Interpret system output | **Receipts and standards export**: a verifier can inspect signed envelope, signer, timestamp, and chain metadata |
+| Appropriate level of transparency | **Public registry** (`keys.trust-chain.ai`): agent/tool identities, certificates, and revocation status are auditable |
+| Inform deployers about characteristics | **Certificate metadata + Tool PKI**: signer identity, tool code hash, permissions, and version can be attached |
 
 **TrustChain component**: `__fact_manifest__`, `KeysPortalPage.tsx`, `/api/pub/agents`
 
@@ -105,10 +106,11 @@ level, not just the system level.
 
 | Requirement | TrustChain Coverage |
 |---|---|
-| Resilient against manipulation | **Ed25519 digital signatures**: 128-bit security level, quantum-aware |
+| Resilient against manipulation | **Ed25519 digital signatures**: strong modern signature primitive |
 | Cybersecurity measures | **X.509 PKI**: Same trust model as TLS/HTTPS (Root CA → Intermediate → Agent) |
 | Key management | **Certificate lifecycle**: Issue → rotate → revoke, with CRL distribution |
-| Error/inconsistency detection | **Missing critical fact detection**: FactSeal alerts when LLM distorts signed data |
+| Tool integrity | **Tool PKI**: source-code hash binding catches unexpected tool changes |
+| Error/inconsistency detection | **Receipts + chain verification**: tampering, wrong key, stale evidence, and broken parent links are detectable |
 
 **TrustChain component**: `TrustChainCA`, `CRL`, `FactSeal v2`
 
@@ -138,15 +140,16 @@ near-zero overhead for production AI systems.
 
 | Article | Title | Coverage | Tier |
 |---------|-------|----------|------|
-| Art. 9 | Risk Management | ✅ Full | Pro |
-| Art. 12 | Record-Keeping | ✅ Full | OSS |
-| Art. 13 | Transparency | ✅ Full | OSS + Pro |
-| Art. 14 | Human Oversight | ✅ Partial (approval workflow planned) | Platform |
-| Art. 15 | Cybersecurity | ✅ Full | OSS |
-| Art. 17 | Quality Management | ✅ Full | Pro |
+| Art. 9 | Risk Management | Technical support | Pro |
+| Art. 12 | Record-Keeping | Strong evidence primitives | OSS |
+| Art. 13 | Transparency | Strong evidence primitives | OSS + Platform |
+| Art. 14 | Human Oversight | Partial / workflow-dependent | Pro + Enterprise |
+| Art. 15 | Cybersecurity | Strong evidence primitives | OSS + Enterprise |
+| Art. 17 | Quality Management | Report/workflow support | Pro + Enterprise |
 
-**Result**: TrustChain covers **6 out of 6** key compliance articles for high-risk 
-AI systems, with the OSS tier covering Articles 12, 13, and 15 at no cost.
+**Result**: TrustChain provides strong technical evidence for the main logging,
+traceability, transparency, and integrity requirements. Final compliance depends
+on deployment, retention, access control, risk management, and legal review.
 
 ---
 
@@ -158,7 +161,8 @@ AI systems, with the OSS tier covering Articles 12, 13, and 15 at no cost.
 pip install trustchain
 ```
 
-Provides: Ed25519 signing, Merkle audit log, CLI verification, chain integrity.
+Provides: Ed25519 signing, `.tcreceipt`, chain verification, standards export,
+basic anchoring, and offline verification.
 
 ### Full Compliance (Pro + Platform)
 
@@ -174,11 +178,13 @@ public certificate registry, real-time monitoring dashboard.
 
 For auditors, TrustChain provides:
 
-1. **`tc verify-chain --full`** — cryptographic integrity verification
-2. **`keys.trust-chain.ai`** — public, browsable agent registry
-3. **Merkle root hash** — single hash proving entire log integrity
-4. **X.509 certificate chain** — downloadable, offline-verifiable
-5. **ComplianceReport** — formatted SOC2/HIPAA output
+1. **`tc chain-verify`** — local chain integrity verification
+2. **`tc receipt verify`** — portable proof verification
+3. **`tc anchor verify`** — compare current chain to an external checkpoint
+4. **`tc standards export`** — SCITT/W3C VC/in-toto evidence exports
+5. **`keys.trust-chain.ai`** — public certificate and revocation registry
+6. **X.509 certificate chain** — downloadable, offline-verifiable identity
+7. **ComplianceReport** — formatted SOC2/HIPAA/EU AI Act output (Pro)
 
 ---
 

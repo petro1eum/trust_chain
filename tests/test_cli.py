@@ -427,3 +427,157 @@ class TestRevert:
         ).sign("orphan_tool", {})
         r = runner.invoke(app, ["revert", "HEAD", "-d", ".trustchain"])
         assert r.exit_code == 1
+
+
+class TestStandardsExport:
+    """tc standards export."""
+
+    def _receipt_file(self, tmp_path: Path) -> Path:
+        from trustchain import build_receipt
+        from trustchain.v2.signer import Signer
+
+        signer = Signer()
+        response = signer.sign("standards_tool", {"answer": 42})
+        receipt = build_receipt(
+            response,
+            signer.get_public_key(),
+            key_id=signer.get_key_id(),
+        )
+        path = tmp_path / "sample.tcreceipt"
+        path.write_text(receipt.to_json(), encoding="utf-8")
+        return path
+
+    def test_export_scitt_json(self, tmp_path: Path) -> None:
+        path = self._receipt_file(tmp_path)
+
+        result = runner.invoke(
+            app,
+            [
+                "standards",
+                "export",
+                str(path),
+                "--format",
+                "scitt",
+                "--agent-id",
+                "agent:test",
+                "--sequence",
+                "2",
+            ],
+        )
+
+        assert result.exit_code == 0, result.stdout + result.stderr
+        data = json.loads(result.stdout)
+        assert data["profile"] == "trustchain.scitt.air-json.v1"
+        assert data["protected_headers"]["agent_id"] == "agent:test"
+        assert data["protected_headers"]["sequence_number"] == 2
+
+    def test_export_w3c_vc_json(self, tmp_path: Path) -> None:
+        path = self._receipt_file(tmp_path)
+
+        result = runner.invoke(
+            app,
+            [
+                "standards",
+                "export",
+                str(path),
+                "--format",
+                "w3c-vc",
+                "--subject-id",
+                "did:example:agent",
+            ],
+        )
+
+        assert result.exit_code == 0, result.stdout + result.stderr
+        data = json.loads(result.stdout)
+        assert "TrustChainReceiptCredential" in data["type"]
+        assert data["credentialSubject"]["id"] == "did:example:agent"
+
+    def test_export_intoto_to_file(self, tmp_path: Path) -> None:
+        path = self._receipt_file(tmp_path)
+        output = tmp_path / "statement.intoto.json"
+
+        result = runner.invoke(
+            app,
+            [
+                "standards",
+                "export",
+                str(path),
+                "--format",
+                "intoto",
+                "--output",
+                str(output),
+            ],
+        )
+
+        assert result.exit_code == 0, result.stdout + result.stderr
+        data = json.loads(output.read_text(encoding="utf-8"))
+        assert data["_type"] == "https://in-toto.io/Statement/v1"
+        assert data["predicate"]["tool_id"] == "standards_tool"
+
+
+class TestAnchor:
+    """tc anchor export / verify."""
+
+    def test_anchor_export_and_verify(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert runner.invoke(app, ["init", "-o", "."]).exit_code == 0
+
+        from trustchain import TrustChain, TrustChainConfig
+
+        tc = TrustChain(
+            TrustChainConfig(
+                enable_chain=True,
+                chain_storage="file",
+                chain_dir=".trustchain",
+            )
+        )
+        tc.sign("anchor_tool", {"step": 1})
+        anchor = tmp_path / "chain.anchor.json"
+
+        exported = runner.invoke(
+            app, ["anchor", "export", "-d", ".trustchain", "-o", str(anchor)]
+        )
+        assert exported.exit_code == 0, exported.stdout + exported.stderr
+
+        data = json.loads(anchor.read_text(encoding="utf-8"))
+        assert data["format"] == "tc-anchor"
+        assert data["length"] == 1
+        assert len(data["chain_sha256"]) == 64
+
+        verified = runner.invoke(
+            app, ["anchor", "verify", str(anchor), "-d", ".trustchain"]
+        )
+        assert verified.exit_code == 0, verified.stdout + verified.stderr
+        assert "Anchor VALID" in verified.stdout
+
+    def test_anchor_verify_detects_mismatch(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert runner.invoke(app, ["init", "-o", "."]).exit_code == 0
+
+        from trustchain import TrustChain, TrustChainConfig
+
+        tc = TrustChain(
+            TrustChainConfig(
+                enable_chain=True,
+                chain_storage="file",
+                chain_dir=".trustchain",
+            )
+        )
+        tc.sign("anchor_tool", {"step": 1})
+        anchor = tmp_path / "chain.anchor.json"
+        assert (
+            runner.invoke(
+                app, ["anchor", "export", "-d", ".trustchain", "-o", str(anchor)]
+            ).exit_code
+            == 0
+        )
+
+        data = json.loads(anchor.read_text(encoding="utf-8"))
+        data["head"] = "tampered"
+        anchor.write_text(json.dumps(data), encoding="utf-8")
+
+        verified = runner.invoke(
+            app, ["anchor", "verify", str(anchor), "-d", ".trustchain"]
+        )
+        assert verified.exit_code == 2
+        assert "Anchor MISMATCH" in verified.stdout
