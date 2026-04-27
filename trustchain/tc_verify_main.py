@@ -42,8 +42,13 @@ from trustchain.v2.signer import SignedResponse
 
 
 def _http_get(url: str, timeout_s: float = 20.0) -> str:
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in ("https", "http"):
+        raise ValueError(
+            f"Unsupported URL scheme: {parsed.scheme!r} (only https/http allowed)"
+        )
     req = urllib.request.Request(url, headers={"User-Agent": "trustchain-tc-verify/3"})
-    with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+    with urllib.request.urlopen(req, timeout=timeout_s) as resp:  # nosec B310
         return resp.read().decode("utf-8")
 
 

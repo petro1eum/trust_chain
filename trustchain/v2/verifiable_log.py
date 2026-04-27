@@ -147,11 +147,18 @@ class VerifiableChainStore:
         session_id: Optional[str] = None,
         nonce: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        response_timestamp: Optional[float] = None,
+        certificate: Optional[Dict[str, Any]] = None,
     ) -> dict:
         """Append an operation to the verifiable log.
 
         Write path: chain.log → Merkle tree → index.db → HEAD.
         Returns the full commit record with content-addressable ID.
+
+        ``response_timestamp`` — exact float timestamp covered by the
+        Ed25519 signature (see ``SignedResponse.timestamp``).
+
+        ``certificate`` — identity material covered by the signature.
         """
         with self._lock:
             timestamp = datetime.now(timezone.utc).isoformat()
@@ -164,7 +171,7 @@ class VerifiableChainStore:
             if parent_hash is None and self._merkle_tree is not None:
                 parent_hash = self._merkle_tree.root
 
-            record = {
+            record: Dict[str, Any] = {
                 "id": op_id,
                 "seq": seq,
                 "tool": tool,
@@ -180,6 +187,10 @@ class VerifiableChainStore:
                 "nonce": nonce,
                 "metadata": metadata or {},
             }
+            if response_timestamp is not None:
+                record["response_timestamp"] = float(response_timestamp)
+            if certificate is not None:
+                record["certificate"] = certificate
 
             # 1. Append to chain.log (source of truth)
             record_json = json.dumps(record, sort_keys=True, default=str)
