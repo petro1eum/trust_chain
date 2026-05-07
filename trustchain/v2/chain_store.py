@@ -79,6 +79,7 @@ class ChainStore:
         signature_id: str,
         nonce: Optional[str] = None,
         parent_signature: Optional[str] = None,
+        parent_signatures: Optional[list[str]] = None,
         key_id: str = "",
         algorithm: str = "Ed25519",
         latency_ms: float = 0,
@@ -148,6 +149,8 @@ class ChainStore:
             "key_id": key_id,
             "algorithm": algorithm,
         }
+        if parent_signatures is not None:
+            record["parent_signatures"] = parent_signatures
         if metadata:
             record["metadata"] = metadata
         if response_timestamp is not None:
@@ -239,17 +242,45 @@ class ChainStore:
             }
 
         for i in range(1, len(all_ops)):
-            prev_sig = all_ops[i - 1].get("signature")
+            all_ops[i - 1].get("signature")
             this_parent = all_ops[i].get("parent_signature")
-            if this_parent != prev_sig:
-                broken.append(
-                    {
-                        "index": i,
-                        "id": all_ops[i].get("id"),
-                        "expected_parent": prev_sig,
-                        "actual_parent": this_parent,
-                    }
-                )
+            this_parents = all_ops[i].get("parent_signatures")
+
+            if this_parents is not None:
+                # DAG Verification: ensure all declared parent signatures exist in the chain
+                for p in this_parents:
+                    found = False
+                    for j in range(0, i):
+                        if all_ops[j].get("signature") == p:
+                            found = True
+                            break
+                    if not found:
+                        broken.append(
+                            {
+                                "index": i,
+                                "id": all_ops[i].get("id"),
+                                "expected_parent": p,
+                                "actual_parent": "Missing in DAG",
+                            }
+                        )
+            else:
+                # Tree/Branch Verification
+                if this_parent is not None:
+                    found = False
+                    for j in range(0, i):
+                        if all_ops[j].get("signature") == this_parent:
+                            found = True
+                            break
+                    if not found:
+                        broken.append(
+                            {
+                                "index": i,
+                                "id": all_ops[i].get("id"),
+                                "expected_parent": "Existing signature in DAG",
+                                "actual_parent": this_parent,
+                            }
+                        )
+                # If this_parent is None, it is a new root (orphan branch), which is allowed in DAGs.
 
         return {
             "valid": len(broken) == 0,

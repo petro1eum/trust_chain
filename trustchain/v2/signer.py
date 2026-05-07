@@ -27,6 +27,7 @@ class SignedResponse:
     timestamp: float = field(default_factory=time.time)
     nonce: Optional[str] = None
     parent_signature: Optional[str] = None  # Chain of Trust: link to previous step
+    parent_signatures: Optional[list[str]] = None  # DAG Merges: multiple parents
     metadata: Optional[Dict[str, Any]] = None  # Signed contextual metadata
     certificate: Optional[Dict[str, Any]] = None  # Identity metadata
 
@@ -52,6 +53,8 @@ class SignedResponse:
             "nonce": self.nonce,
             "parent_signature": self.parent_signature,
         }
+        if self.parent_signatures is not None:
+            result["parent_signatures"] = self.parent_signatures
         if self.metadata is not None:
             result["metadata"] = self.metadata
         if self.certificate is not None:
@@ -67,6 +70,7 @@ def _build_canonical_data(
     timestamp: float,
     nonce: Optional[str],
     parent_signature: Optional[str],
+    parent_signatures: Optional[list[str]] = None,
     metadata: Optional[Dict[str, Any]] = None,
     certificate: Optional[Dict[str, Any]] = None,
     tsa_proof: Optional[Dict[str, Any]] = None,
@@ -80,6 +84,8 @@ def _build_canonical_data(
         "parent_signature": parent_signature,
     }
 
+    if parent_signatures is not None:
+        canonical_data["parent_signatures"] = parent_signatures
     if metadata is not None:
         canonical_data["metadata"] = metadata
     if certificate is not None:
@@ -113,6 +119,7 @@ class Signer:
         data: Any,
         nonce: Optional[str] = None,
         parent_signature: Optional[str] = None,
+        parent_signatures: Optional[list[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         certificate: Optional[Dict[str, Any]] = None,
         tsa_proof: Optional[Dict[str, Any]] = None,
@@ -163,6 +170,7 @@ class Signer:
                 timestamp=response.timestamp,
                 nonce=response.nonce,
                 parent_signature=response.parent_signature,
+                parent_signatures=response.parent_signatures,
                 metadata=response.metadata,
                 certificate=response.certificate,
                 tsa_proof=response.tsa_proof,

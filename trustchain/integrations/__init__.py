@@ -72,10 +72,12 @@ except ImportError:
 # MCP (optional)
 try:
     from .mcp import TrustChainMCPServer, create_mcp_server, serve_mcp
+    from .mcp_proxy import run_proxy
 except ImportError:
     serve_mcp = None
     create_mcp_server = None
     TrustChainMCPServer = None
+    run_proxy = None
 
 # OnaiDocs bridge (optional)
 try:
@@ -153,6 +155,7 @@ __all__ = [
     "serve_mcp",
     "create_mcp_server",
     "TrustChainMCPServer",
+    "run_proxy",
     # OnaiDocs
     "OnaiDocsTrustClient",
 ]

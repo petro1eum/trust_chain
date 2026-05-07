@@ -26,6 +26,7 @@ Usage:
     tc cert request --platform https://keys.trust-chain.ai   # X.509 enrollment steps (human path)
     tc migrate-v3 --apply          # v2 op_*.json → v3 CAS commits + v3/migration_state.json
     tc v3-merge A B "сообщение"    # merge-коммит с двумя родителями (CAS) + refs/v3/main
+    tc proxy -- npx @composio/mcp  # Wrap standard MCP server in TrustChain proxy
     tc init                         # initialize .trustchain/ directory
     tc info                         # key + version info
     tc export-key --format=json     # export public key
@@ -49,7 +50,6 @@ from rich.text import Text
 from trustchain import TrustChain, TrustChainConfig, __version__
 from trustchain.v2.chain_store import ChainStore
 from trustchain.v2.storage import FileStorage
-from trustchain.v3.compensations import reverse_tool_for_chain
 
 app = typer.Typer(
     name="tc",
@@ -577,6 +577,56 @@ def export_cmd(
 
 
 # ── Original commands (preserved) ──
+
+
+@app.command("revert")
+def revert_cmd(
+    op_id: str = typer.Argument(..., help="Operation ID to revert"),
+    reason: str = typer.Option(..., "-m", "--message", help="Reason for reverting"),
+    chain_dir: str = typer.Option(".trustchain", "--dir", "-d", help="Chain directory"),
+):
+    """Revert a previous operation (create a compensatory transaction).
+
+    Examples:
+        tc revert op_0005 -m "Agent hallucinated the database drop"
+    """
+    tc = _get_tc(chain_dir)
+    try:
+        signed_revert = tc.revert(op_id=op_id, reason=reason)
+        console.print(
+            f"[green]Successfully reverted {op_id}. New operation: {signed_revert.signature_id}[/green]"
+        )
+    except Exception as e:
+        console.print(f"[red]Failed to revert: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command(
+    "proxy",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def proxy_cmd(
+    ctx: typer.Context,
+):
+    """Wrap any MCP server in a TrustChain verifiable audit trail.
+
+    Examples:
+        tc proxy -- npx -y @composio/mcp
+        tc proxy -- python my_mcp_server.py
+    """
+    target_cmd = ctx.args
+    if not target_cmd:
+        console.print("[red]Error: You must provide a target MCP command.[/red]")
+        console.print("Example: tc proxy -- npx -y @composio/mcp")
+        raise typer.Exit(1)
+
+    try:
+        from trustchain.integrations.mcp_proxy import run_proxy
+
+        run_proxy(target_cmd)
+    except ImportError as e:
+        console.print(f"[red]Error loading MCP proxy: {e}[/red]")
+        raise typer.Exit(1)
 
 
 @app.command("export-key")
@@ -1230,97 +1280,6 @@ def reset_cmd(
             summary + "\n\n[green]HEAD[/green] и строка в reflog.txt",
             title="tc reset --soft",
         )
-    )
-
-
-@app.command("revert")
-def revert_cmd(
-    op: str = typer.Argument(
-        "HEAD",
-        metavar="[OP|HEAD]",
-        help="HEAD = newest operation; else concrete op id from ``tc log``",
-    ),
-    chain_dir: str = typer.Option(".trustchain", "--dir", "-d", help="Chain directory"),
-    dry_run: bool = typer.Option(
-        False,
-        "--dry-run",
-        help="Print reverse mapping only; do not sign",
-    ),
-    reverse_tool: Optional[str] = typer.Option(
-        None,
-        "--reverse-tool",
-        "-r",
-        help="Override reverse tool id (skips reversibles.json / registry lookup)",
-    ),
-):
-    """Append a signed **revert_intent** row (does not execute the reverse tool).
-
-    Resolve ``forward_tool → reverse_tool`` via ``trustchain.v3.compensations`` or
-    ``.trustchain/reversibles.json``. Your agent/runtime must still invoke the
-    reverse tool to apply compensating side-effects.
-    """
-    _warn_cli_storage_mismatch()
-    chain = _get_chain(chain_dir)
-    root = _effective_chain_dir(chain_dir)
-
-    target: Optional[dict] = None
-    sel = (op or "HEAD").strip()
-    if sel.upper() == "HEAD":
-        ops = chain.log_reverse(limit=1)
-        target = ops[0] if ops else None
-    else:
-        shown = chain.show(sel)
-        if isinstance(shown, dict):
-            target = shown
-        else:
-            for row in chain.log_reverse(limit=2000):
-                if isinstance(row, dict) and row.get("id") == sel:
-                    target = row
-                    break
-
-    if not target or not isinstance(target, dict):
-        console.print(f"[red]Operation not found: {sel!r}[/red]")
-        raise typer.Exit(1)
-
-    forward_tool = str(target.get("tool") or target.get("tool_id") or "").strip()
-    if not forward_tool:
-        console.print("[red]Target op has no tool id[/red]")
-        raise typer.Exit(1)
-
-    rev = (reverse_tool or "").strip() or reverse_tool_for_chain(root, forward_tool)
-    if not rev:
-        console.print(
-            f"[red]No reverse tool for {forward_tool!r}.[/red]\n"
-            "[dim]Add .trustchain/reversibles.json (JSON object: forward_tool_id → reverse_tool_id) "
-            "or pass --reverse-tool.[/dim]\n"
-            "[dim]In-process: trustchain.v3.compensations.register_reversible(...)[/dim]"
-        )
-        raise typer.Exit(1)
-
-    if dry_run:
-        console.print(
-            Panel.fit(
-                f"[bold]Would sign[/bold] tool_id={rev!r}\n"
-                f"forward_tool={forward_tool!r}\n"
-                f"revert_of={target.get('id')!r}",
-                title="tc revert --dry-run",
-            )
-        )
-        return
-
-    tc = _get_tc(chain_dir)
-    out = tc.sign(
-        rev,
-        {
-            "kind": "revert_intent",
-            "revert_of": target.get("id"),
-            "forward_tool": forward_tool,
-            "note": "tc revert — execute reverse tool in runtime for real undo",
-        },
-    )
-    console.print(
-        f"[green]revert_intent signed[/green] reverse_tool={rev!r} revert_of={target.get('id')!r} "
-        f"sig={str(out.signature)[:40]}…"
     )
 
 

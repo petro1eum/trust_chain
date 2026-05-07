@@ -379,6 +379,7 @@ class TrustChain:
         data: Any,
         metadata: Optional[Dict[str, Any]] = None,
         parent_signature=_UNSET,
+        parent_signatures: Optional[list[str]] = None,
         latency_ms: float = 0,
         session_id: Optional[str] = None,
     ) -> SignedResponse:
@@ -391,12 +392,16 @@ class TrustChain:
           - None: explicitly no parent (first step in a session)
           - str: use this exact parent signature
 
+        parent_signatures behaviour:
+          - list[str]: explicit multiple parents for DAG merges
+
         Args:
             tool_id: Identifier for this signed data
             data: Data to sign
             metadata: Optional metadata to include
             parent_signature: Parent signature for chaining. Omit for
                 auto-chaining, pass None for no parent.
+            parent_signatures: Multiple parents for DAG merges
             latency_ms: Tool execution latency (for analytics)
             session_id: Session ID for ref tracking
 
@@ -404,11 +409,15 @@ class TrustChain:
             SignedResponse with cryptographic signature
         """
         # Auto-chain: use chain HEAD only if parent was not specified at all
-        if parent_signature is _UNSET:
+        # and no explicit parent_signatures list was provided
+        if parent_signature is _UNSET and parent_signatures is None:
             if self.config.enable_chain:
                 parent_signature = self.chain.parent_signature()
             else:
                 parent_signature = None
+        elif parent_signature is _UNSET:
+            # If parent_signatures is provided but parent_signature is _UNSET, clear it
+            parent_signature = None
 
         # Generate nonce if enabled
         nonce = None
@@ -421,6 +430,7 @@ class TrustChain:
             data=data,
             nonce=nonce,
             parent_signature=parent_signature,
+            parent_signatures=parent_signatures,
             metadata=metadata,
             certificate=self.config.certificate,
         )
@@ -436,6 +446,7 @@ class TrustChain:
                 signature_id=signed.signature_id,
                 nonce=signed.nonce,
                 parent_signature=signed.parent_signature,
+                parent_signatures=signed.parent_signatures,
                 key_id=self._signer.get_key_id(),
                 algorithm=self.config.algorithm,
                 latency_ms=latency_ms,
@@ -446,6 +457,45 @@ class TrustChain:
             )
 
         return signed
+
+    def revert(
+        self,
+        op_id: str,
+        reason: str,
+        session_id: Optional[str] = None,
+    ) -> SignedResponse:
+        """Create a compensatory transaction to revert a previous action.
+
+        This implements 'Undo for AI' by appending a new commit that explicitly
+        invalidates a previous action, preserving the cryptographic audit trail
+        (as required for financial clearing/forensics).
+
+        Args:
+            op_id: The ID of the operation to revert (e.g. 'op_0001').
+            reason: The reason for reverting the action.
+            session_id: Optional session tracking.
+
+        Returns:
+            SignedResponse containing the revert action.
+        """
+        if not self.config.enable_chain:
+            raise ValueError("Cannot revert without an enabled chain storage.")
+
+        target_op = self.chain.show(op_id)
+        if not target_op:
+            raise ValueError(f"Cannot revert: Operation {op_id} not found in chain.")
+
+        data = {
+            "action": "revert",
+            "target_op": op_id,
+            "reason": reason,
+        }
+
+        return self.sign(
+            tool_id="tc_revert",
+            data=data,
+            session_id=session_id,
+        )
 
     def session(
         self,

@@ -2,7 +2,7 @@
 
 > **TrustChain** is **SSL for AI**: every agent, subagent, tool, skill and data artifact carries a verifiable X.509 certificate chain anchored in a public CA. Combined with a **git-like context layer**, it lets you checkpoint, branch, and roll back agent actions — so AI mistakes become undoable, and trust becomes provable offline.
 
-**SSL for AI + Undo for AI** — cryptographic identity for agents/tools/skills and a **git-like audit chain** (roadmap: full CAS, branches, revert).  
+**SSL for AI + Undo for AI** — cryptographic identity for agents/tools/skills and a **git-like audit chain** (DAG merges, branches, revert).  
 **Cryptographic verification layer for AI agents** — every tool result can be proven, not hallucinated.
 
 > **Quick start:** [QUICK_START.md](QUICK_START.md) · **Product map:** [docs/PRODUCT_MATRIX.md](docs/PRODUCT_MATRIX.md) · **Receipts:** [docs/RECEIPTS.md](docs/RECEIPTS.md) · **Standards:** [docs/STANDARDS.md](docs/STANDARDS.md) · **Tool PKI:** [docs/TOOL_PKI.md](docs/TOOL_PKI.md) · **Compliance:** [docs/COMPLIANCE.md](docs/COMPLIANCE.md)
@@ -246,6 +246,36 @@ step3 = tc._signer.sign("report", {"text": "Done"}, parent_signature=step2.signa
 assert tc.verify_chain([step1, step2, step3]) == True
 ```
 
+### Swarm Architecture (DAG Merges)
+
+For multi-agent systems (like OpenSwarm), orchestrators can merge contexts from multiple agents into a single signed commit. TrustChain verifies the entire Directed Acyclic Graph (DAG) to ensure all parent signatures are valid:
+
+```python
+# Branch 1 (Data Analyst)
+sig1 = tc.sign("data_analyst", {"metrics": "A"}, parent_signature=None)
+# Branch 2 (Docs Agent)
+sig2 = tc.sign("docs_agent", {"draft": "B"}, parent_signature=None)
+
+# Orchestrator merges them
+merged = tc.sign(
+    "orchestrator", 
+    {"action": "merge"}, 
+    parent_signatures=[sig1.signature, sig2.signature]
+)
+
+# Verify the full DAG
+tc.chain.verify()
+```
+
+### Undo for AI (Compensatory Transactions)
+
+In financial clearing and forensics, you cannot delete history. TrustChain implements `Undo for AI` via compensatory transactions, allowing an agent or security officer to explicitly revert an operation while preserving the immutable audit trail:
+
+```python
+# Target a malicious or erroneous operation
+tc.revert(op_id="op_0005", reason="Hallucinated database drop command")
+```
+
 ### Git-like Persistent Storage (v3.0.0)
 
 Every signed operation is stored in a `.trustchain/` directory — like Git for AI:
@@ -292,6 +322,7 @@ tc blame bash_tool            # forensics: all ops by this tool
 tc status                     # chain health summary
 tc show op_0003               # single commit detail
 tc diff op_0001 op_0005       # compare two operations
+tc revert op_0005 -m "Reason" # revert operation via compensatory transaction
 tc export audit.json          # export full chain
 tc init                       # initialize .trustchain/
 tc info                       # key + version
@@ -644,4 +675,4 @@ Ed Cherednik
 
 ## Version
 
-3.0.0
+3.1.0

@@ -1,14 +1,130 @@
-# TrustChain vs Git — honest mapping
+# TrustChain: "Git for AI" (Audit & Context Layer)
 
-TrustChain reuses **Git ergonomics** (`tc log`, `tc status`, `HEAD`, `.trustchain/`) but is **not** a Git reimplementation.
+TrustChain не просто ставит криптографические подписи на результаты работы AI. Он связывает их в **иммутабельный, проверяемый граф истории** — прямо как Git, но специально адаптированный для мульти-агентных систем и роевого интеллекта (OpenSwarm).
 
-| Git concept | In TrustChain today |
+Эта концепция решает две фундаментальные задачи для Enterprise, финтеха и форензики:
+1. **Проверяемость (Auditability):** Как доказать, что агент не придумал этот факт?
+2. **Откат (Rollback/Clearing):** Как отменить ошибочное действие агента, не нарушая банковский/системный лог аудита?
+
+---
+
+## 🗺️ TrustChain vs Git — Честное сравнение
+
+TrustChain использует **эргономику Git** (команды `tc log`, `tc status`, понятие `HEAD`, папка `.trustchain/`), но внутри работает как криптографический Directed Acyclic Graph (DAG) для вызовов функций (Tool Calls).
+
+| Концепция Git | Реализация в TrustChain |
 |-------------|---------------------|
-| `HEAD` | Points at the latest chain tip (often last signature / Merkle root depending on storage mode). |
-| `tc log`, `tc status`, `tc blame`, `tc diff`, `tc show` | Implemented for the **audit chain** of signed tool operations. |
-| Blob / tree / commit objects (SHA-1 content) | **v2 file chain:** JSON records keyed by operation id. **v3 (planned):** true CAS `objects/ab/cdef…` — see [ADR-016_Context_Layer.md](ADR-016_Context_Layer.md). |
-| DAG commits, merge, branches | **v2:** linear `parent_signature` links. **v3:** DAG + branches + revert — see context-layer ADR. |
-| `git clone` / remotes | Not applicable; export signed **JSONL** / reports instead. |
-| Index / staging | No staging area; each `sign()` commits an operation (optional Merkle log in verifiable mode). |
+| `HEAD` | Указывает на последнюю сигнатуру (или корень сессии/чека). |
+| `git log`, `status`, `blame`, `diff`, `show` | Полностью реализованы для аудита вызовов инструментов: `tc log`, `tc blame db_query` и т.д. |
+| Коммиты (`commit`) | Каждое действие подписывается Ed25519 и ссылается на `parent_signatures`. Хранится в виде JSON-объектов. |
+| Ветки (`branches`) | Орфанные ветки (параллельные агенты) создаются автоматически при передаче `parent_signature=None`. |
+| Слияния (`merge`) | **Поддерживаются нативно (DAG).** Оркестратор роя (OpenSwarm) может свести работу Data Analyst и Docs Agent в один коммит, передав массив `parent_signatures`. |
+| Отмена (`revert`) | **Undo for AI:** реализована как компенсационная транзакция (`tc.revert(op_id)` / `tc revert`), которая не удаляет данные, а добавляет новый коммит отмены. |
+| `git clone` / remotes | Реализовано через платформу Клиринга (TrustChain Platform) для верификации "вне-базы" (offline verification). |
 
-**Positioning:** *Signed, verifiable audit trail for AI tools with Git-like CLI* — plus (roadmap) **SSL-for-AI style PKI** and **undo / rollback** for agent actions.
+---
+
+## 🏗️ Ключевые возможности
+
+### 1. Persistent Storage (Локальный аудит)
+Вместо того, чтобы просто возвращать подписи в памяти, TrustChain ведет локальную базу данных (файловую или SQLite) в директории `.trustchain/`:
+```bash
+.trustchain/
+├── HEAD              # Указатель на последнюю сигнатуру
+├── config.json       # Метаданные цепи
+├── objects/          # JSON файлы с подписанными операциями (коммиты)
+│   ├── op_0001.json
+│   └── op_0002.json
+└── certs/            # PKI сертификаты инструментов
+```
+
+### 2. DAG Merges (Архитектура Роя)
+В классических скриптах цепь линейна. В мульти-агентных системах (OpenSwarm) несколько агентов могут работать параллельно.
+Оркестратор может принять их результаты и "склеить" в один итоговый вывод, создав Merge-коммит:
+```python
+# Агент 1 (Data) делает ветку
+sig1 = tc.sign("data_tool", {"metrics": 42}, parent_signature=None)
+
+# Агент 2 (Docs) делает ветку
+sig2 = tc.sign("docs_tool", {"text": "Ок"}, parent_signature=None)
+
+# Оркестратор делает Merge-коммит (DAG)
+tc.sign("merge_tool", {"status": "done"}, parent_signatures=[sig1.signature, sig2.signature])
+```
+При запуске `tc.chain.verify()`, TrustChain пройдет по всему графу (DAG) и убедится, что **все** родительские сигнатуры криптографически достоверны.
+
+### 3. Компенсационные Транзакции (Undo for AI)
+Системы финансового клиринга и юридического аудита запрещают `DELETE` или `UPDATE` в логах. 
+Если агент ошибся (например, отправил не тот email), история должна быть сохранена, но действие — отменено.
+
+TrustChain решает это через `tc revert` — механизм, создающий новый противовесный коммит:
+```bash
+# Находим ошибочную операцию (например, op_0042)
+tc log --tool bash_tool
+
+# Отменяем её с сохранением аудиторского следа
+tc revert op_0042 -m "Агент сгаллюцинировал опасную команду"
+```
+Этот откат будет подписан ключом (офицера безопасности или самого Оркестратора) и станет частью цепи (`HEAD`).
+
+### 4. Криминалистика (Forensics) через CLI
+TrustChain предоставляет инструменты разработчика и аудитора прямо в терминале. В отличие от сырых логов, CLI `tc` визуализирует криптографические цепочки.
+
+---
+
+## 🛠 Полный справочник CLI (`tc` command)
+
+Все команды запускаются в вашем системном терминале (bash/zsh) точно так же, как обычный `git`.
+
+**Как установить:**
+```bash
+pip install trustchain
+```
+
+**Где живет хранилище:**
+По умолчанию все команды `tc` ищут директорию `.trustchain/` в текущей папке. Если вы хотите запустить команду для другого проекта, используйте флаг `--dir`:
+```bash
+tc log --dir /path/to/project
+```
+
+### Инспекция и Аудит (Inspection)
+
+| Команда TrustChain | Аналог в Git | Описание и примеры |
+|--------------------|--------------|-------------------|
+| `tc log` | `git log` | Показывает историю выполнения инструментов. Новые сверху.<br>`tc log -n 5` — последние 5 операций.<br>`tc log --graph` — отрисовывает дерево веток (DAG).<br>`tc log --tool bash_tool` — фильтр по конкретному инструменту. |
+| `tc status` | `git status` | Сводка по текущему состоянию хранилища: количество коммитов, текущий HEAD, движок БД (файловый/postgres), средняя задержка (latency) агента. |
+| `tc show <id>` | `git show` | Детальная информация об одной операции (JSON полезная нагрузка, время, подписи).<br>Пример: `tc show op_0003` |
+| `tc blame <tool>` | `git blame` | Форензика. Показывает абсолютно **все** разы, когда агент использовал конкретный инструмент.<br>Пример: `tc blame bash_tool` |
+| `tc diff <A> <B>` | `git diff` | Сравнивает payload двух операций. Помогает понять, почему агент изменил своё решение.<br>Пример: `tc diff op_0001 op_0002` |
+
+### Безопасность и Целостность (Security)
+
+| Команда TrustChain | Аналог в Git | Описание и примеры |
+|--------------------|--------------|-------------------|
+| `tc chain-verify` | `git fsck` | **Самая важная команда.** Проходит по всему графу `.trustchain/` и математически проверяет каждую подпись (Ed25519) и целостность связей (DAG). Обнаружит, если лог был подделан вручную. |
+| `tc verify <file>` | `git verify-commit` | Проверяет валидность экспортированного `.json` или `.tcreceipt` чека в отрыве от общей цепи. |
+
+### Управление состоянием (State & Rollback)
+
+| Команда TrustChain | Аналог в Git | Описание и примеры |
+|--------------------|--------------|-------------------|
+| `tc revert <id>` | `git revert` | Создает новую "компенсационную транзакцию", которая официально отменяет предыдущее действие. Не удаляет историю.<br>Пример: `tc revert op_0042 -m "Откат действия"` |
+| `tc proxy` | - | Запускает любой стандартный сервер (например MCP) через прокси-слой TrustChain для автоматического логирования и подписи всех вызовов (Zero-Code Audit).<br>Пример: `tc proxy -- npx @composio/mcp` |
+| `tc init` | `git init` | Создает пустую директорию `.trustchain/` для старта записи. |
+
+### Управление ключами и PKI (Keys)
+
+| Команда TrustChain | Аналог в Git | Описание и примеры |
+|--------------------|--------------|-------------------|
+| `tc info` | - | Показывает текущий сгенерированный публичный ключ, его ID и версию библиотеки. |
+| `tc export-key` | - | Экспортирует ваш публичный ключ, чтобы вы могли передать его другой стороне для верификации ваших логов.<br>Пример: `tc export-key --format=pem -o public.pem` |
+
+### Экспорт
+
+| Команда TrustChain | Аналог в Git | Описание и примеры |
+|--------------------|--------------|-------------------|
+| `tc export <file>` | `git bundle` | Выгружает всю историю цепи в единый JSON файл для отправки аудиторам.<br>Пример: `tc export audit_2026.json` |
+
+---
+
+*Используйте `tc --help` в терминале для получения справки по любым флагам и аргументам.*
