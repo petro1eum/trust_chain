@@ -16,7 +16,7 @@ except ImportError:
     HAS_CRYPTOGRAPHY = False
 
 
-@dataclass
+@dataclass(frozen=True)
 class SignedResponse:
     """A cryptographically signed response."""
 
@@ -157,7 +157,7 @@ class Signer:
             certificate=certificate,
             tsa_proof=tsa_proof,
         )
-        response._verified = True
+        object.__setattr__(response, "_verified", True)
         return response
 
     def verify(self, response: SignedResponse) -> bool:

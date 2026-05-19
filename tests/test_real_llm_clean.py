@@ -260,6 +260,10 @@ async def test_anthropic_integration():
 async def test_anthropic_picks_openrouter_when_native_key_missing(monkeypatch):
     """Если нативного ANTHROPIC_API_KEY нет, но есть OPENROUTER_API_KEY,
     AnthropicClient ДОЛЖЕН переключиться в openrouter-режим (без skip)."""
+    try:
+        import openai
+    except ImportError:
+        pytest.skip("openai package not installed")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-fake-not-called")
     client = AnthropicClient()
@@ -271,6 +275,10 @@ async def test_anthropic_picks_openrouter_when_native_key_missing(monkeypatch):
 @pytest.mark.asyncio
 async def test_openai_picks_openrouter_when_native_key_missing(monkeypatch):
     """Аналогично для OpenAIClient: OPENROUTER_API_KEY как fallback."""
+    try:
+        import openai
+    except ImportError:
+        pytest.skip("openai package not installed")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-fake-not-called")
     client = OpenAIClient()

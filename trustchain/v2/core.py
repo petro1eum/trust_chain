@@ -613,10 +613,10 @@ class TrustChain:
         if self.config.enable_nonce and response.timestamp:
             now = time.time()
             if response.timestamp > now + 30:
-                response._verified = False
+                object.__setattr__(response, "_verified", False)
                 return False
             if now - response.timestamp > self.config.nonce_ttl:
-                response._verified = False
+                object.__setattr__(response, "_verified", False)
                 return False
 
         # Check nonce for replay protection (if enabled)
@@ -634,7 +634,7 @@ class TrustChain:
         is_valid = self._signer.verify(response)
 
         # Cache verification result
-        response._verified = is_valid
+        object.__setattr__(response, "_verified", is_valid)
 
         return is_valid
 

@@ -127,11 +127,17 @@ class TestChainOfTrustVerification:
         step1 = tc._signer.sign("step1", {"data": 1})
         step2 = tc._signer.sign("step2", {"data": 2}, parent_signature=step1.signature)
 
-        # Tamper with step2's data
-        step2.data = {"data": 999}
+        # Tamper with step2's data directly to verify immutability
+        import dataclasses
+
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            step2.data = {"data": 999}
+
+        # Verify that verification fails with copy-constructed tampered step
+        tampered_step2 = dataclasses.replace(step2, data={"data": 999})
 
         # Chain should fail verification
-        assert tc.verify_chain([step1, step2]) is False
+        assert tc.verify_chain([step1, tampered_step2]) is False
 
     def test_chain_integrity(self, tc):
         """Test that you can't insert/remove steps."""
