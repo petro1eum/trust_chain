@@ -33,13 +33,10 @@ Usage:
     tc verify response.json         # verify a signed JSON file
 """
 
-import hashlib
 import json
 import os
-import re
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any, Optional
 
 import typer
 from rich.console import Console
@@ -114,15 +111,6 @@ def _get_tc(chain_dir: str = ".trustchain") -> TrustChain:
     )
 
 
-def _safe_ref_segment(name: str) -> str:
-    """Sanitize user-supplied ref / checkpoint / branch label for filesystem."""
-    s = name.strip().replace("..", "_")
-    s = re.sub(r"[^a-zA-Z0-9_.-]+", "_", s)
-    if not s or s in (".", "_"):
-        raise typer.BadParameter("invalid name: use letters, digits, ._-")
-    return s[:120]
-
-
 def _graph_prefixes(ops: list, *, newest_first: bool) -> list[str]:
     """Left column for ``tc log --graph`` (linear parent_signature chain).
 
@@ -147,40 +135,6 @@ def _graph_prefixes(ops: list, *, newest_first: bool) -> list[str]:
             ok = newer.get("parent_signature") == older.get("signature")
         out.append("* " if ok else "| * ")
     return out
-
-
-def _signature_to_op_map(ops: List[dict]) -> dict[str, dict]:
-    m: dict[str, dict] = {}
-    for o in ops:
-        if isinstance(o, dict):
-            sig = o.get("signature")
-            if isinstance(sig, str) and sig:
-                m[sig] = o
-    return m
-
-
-def _detach_ids_tip_down_to_target(
-    sig_to_op: dict[str, dict], tip_sig: str, target_id: str
-) -> Tuple[List[str], Optional[dict]]:
-    """Ids strictly newer than ``target_id`` on the path from current tip (HEAD sig).
-
-    Returns ``([], target_op)`` if tip is already the target. ``(None, None)``
-    if ``target_id`` is not on the ancestry path from tip.
-    """
-    detach: List[str] = []
-    cur: Optional[dict] = sig_to_op.get(tip_sig)
-    if not cur:
-        return detach, None
-    while cur:
-        oid = cur.get("id")
-        if oid == target_id:
-            return detach, cur
-        detach.append(str(oid))
-        parent = cur.get("parent_signature")
-        if not isinstance(parent, str) or not parent:
-            break
-        cur = sig_to_op.get(parent)
-    return [], None
 
 
 def _truncate(s: Optional[str], n: int = 12) -> str:
@@ -973,18 +927,12 @@ def checkpoint_cmd(
     """
     _warn_cli_storage_mismatch()
     chain = _get_chain(chain_dir)
-    h = chain.head()
-    if not h:
-        console.print(
-            "[red]HEAD is empty — nothing to checkpoint. Sign at least one operation first.[/red]"
-        )
+    try:
+        h = chain.checkpoint(name)
+        console.print(f"[green]checkpoint[/green] {name} → HEAD {h[:40]}…")
+    except Exception as e:
+        console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
-    root = _effective_chain_dir(chain_dir)
-    seg = _safe_ref_segment(name)
-    path = root / "refs" / "checkpoints" / f"{seg}.ref"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(h.strip() + "\n", encoding="utf-8")
-    console.print(f"[green]checkpoint[/green] {seg} → HEAD {h[:40]}…")
 
 
 @app.command("tag")
@@ -995,16 +943,12 @@ def tag_cmd(
     """Сохранить текущий HEAD в ``refs/tags/<name>.ref`` (как лёгкий git tag)."""
     _warn_cli_storage_mismatch()
     chain = _get_chain(chain_dir)
-    h = chain.head()
-    if not h:
-        console.print("[red]HEAD is empty — сначала подпиши операцию.[/red]")
+    try:
+        h = chain.tag(name)
+        console.print(f"[green]tag[/green] {name} → HEAD {h[:40]}…")
+    except Exception as e:
+        console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
-    root = _effective_chain_dir(chain_dir)
-    seg = _safe_ref_segment(name)
-    path = root / "refs" / "tags" / f"{seg}.ref"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(h.strip() + "\n", encoding="utf-8")
-    console.print(f"[green]tag[/green] {seg} → HEAD {h[:40]}…")
 
 
 @app.command("branch")
@@ -1017,16 +961,12 @@ def branch_cmd(
     """Create ``refs/heads/<name>.ref`` pointing at the current HEAD (cheap branch pointer)."""
     _warn_cli_storage_mismatch()
     chain = _get_chain(chain_dir)
-    h = chain.head()
-    if not h:
-        console.print("[red]HEAD is empty — create commits before branching.[/red]")
+    try:
+        h = chain.branch(name)
+        console.print(f"[green]branch[/green] {name} @ HEAD {h[:40]}…")
+    except Exception as e:
+        console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
-    root = _effective_chain_dir(chain_dir)
-    seg = _safe_ref_segment(name)
-    path = root / "refs" / "heads" / f"{seg}.ref"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(h.strip() + "\n", encoding="utf-8")
-    console.print(f"[green]branch[/green] {seg} @ HEAD {h[:40]}…")
 
 
 @app.command("checkout")
@@ -1048,62 +988,25 @@ def checkout_cmd(
     """
     _warn_cli_storage_mismatch()
     chain = _get_chain(chain_dir)
-    if getattr(chain, "_vlog", None):
-        console.print("[red]tc checkout не поддержан для verifiable / PG chain.[/red]")
-        raise typer.Exit(1)
-
-    root = _effective_chain_dir(chain_dir)
-    seg = _safe_ref_segment(name)
-    ref_path = root / "refs" / "heads" / f"{seg}.ref"
-    if not ref_path.is_file():
-        console.print(f"[red]Нет refs/heads/{seg}.ref — сначала tc branch {seg}[/red]")
-        raise typer.Exit(1)
-
-    lines = ref_path.read_text(encoding="utf-8").strip().splitlines()
-    tip_sig = (lines[0] if lines else "").strip()
-    if not tip_sig:
-        console.print(f"[red]Пустой ref {ref_path.name}[/red]")
-        raise typer.Exit(1)
-
     max_scan = int(os.environ.get("TC_RESET_MAX_SCAN", "50000"))
-    chrono = chain.log(limit=max_scan, offset=0)
-    sig_map = _signature_to_op_map([o for o in chrono if isinstance(o, dict)])
-    if tip_sig not in sig_map:
-        console.print(
-            "[red]Подпись из ref не найдена среди операций цепи.[/red]\n"
-            "[dim]Увеличь TC_RESET_MAX_SCAN или обнови ветку (tc branch).[/dim]"
-        )
-        raise typer.Exit(1)
 
-    op = sig_map[tip_sig]
-    op_id = str(op.get("id", "?"))
-
-    if dry_run:
-        console.print(
-            Panel.fit(
-                f"Ветка [bold]{seg}[/bold] → {op_id}\nHEAD …{tip_sig[:48]}…",
-                title="tc checkout --dry-run",
+    try:
+        res = chain.checkout(name, dry_run=dry_run, max_scan=max_scan)
+        if dry_run:
+            console.print(
+                Panel.fit(
+                    f"Ветка [bold]{res['branch']}[/bold] → {res['op_id']}\nHEAD …{res['head'][:48]}…",
+                    title="tc checkout --dry-run",
+                )
             )
-        )
-        return
-
-    old = chain.head() or ""
-    head_path = root / "HEAD"
-    head_path.parent.mkdir(parents=True, exist_ok=True)
-    head_path.write_text(tip_sig + "\n", encoding="utf-8")
-
-    reflog = root / "reflog.txt"
-    line = (
-        f"{datetime.now(timezone.utc).isoformat()}\tcheckout\t{seg}\t"
-        f"{old[:64]}\t{tip_sig[:64]}\t{op_id}\n"
-    )
-    with reflog.open("a", encoding="utf-8") as rf:
-        rf.write(line)
-
-    console.print(
-        f"[green]checkout[/green] {seg} → {op_id}  HEAD …{tip_sig[:40]}…\n"
-        f"[dim]Строка в reflog.txt[/dim]"
-    )
+        else:
+            console.print(
+                f"[green]checkout[/green] {res['branch']} → {res['op_id']}  HEAD …{res['head'][:40]}…\n"
+                f"[dim]Строка в reflog.txt[/dim]"
+            )
+    except Exception as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
 
 
 @app.command("refs")
@@ -1111,44 +1014,26 @@ def refs_cmd(
     chain_dir: str = typer.Option(".trustchain", "--dir", "-d", help="Chain directory"),
 ):
     """List checkpoint and heads ref files (first line = HEAD signature)."""
-    root = _effective_chain_dir(chain_dir)
-    if not root.exists():
-        console.print(f"[red]No chain at {root}[/red]")
+    chain = _get_chain(chain_dir)
+    try:
+        refs = chain.list_refs()
+    except Exception as e:
+        console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
+
     table = Table(title="refs", show_header=True, header_style="bold")
     table.add_column("kind", style="cyan")
     table.add_column("name", style="white")
     table.add_column("HEAD (trunc)", style="dim")
 
-    for kind, sub in (
-        ("checkpoint", "refs/checkpoints"),
-        ("tag", "refs/tags"),
-        ("head", "refs/heads"),
-    ):
-        d = root / sub
-        if not d.is_dir():
-            continue
-        for f in sorted(d.glob("*.ref")):
-            try:
-                txt = f.read_text(encoding="utf-8").strip().splitlines()
-                tip = (txt[0] if txt else "")[:48]
-            except OSError:
-                tip = "?"
-            table.add_row(kind, f.stem, tip + ("…" if len(tip) == 48 else ""))
+    has_refs = False
+    for kind in ["checkpoint", "tag", "head", "v3"]:
+        for ref in refs.get(kind, []):
+            tip = ref["head"][:48]
+            table.add_row(kind, ref["name"], tip + ("…" if len(tip) == 48 else ""))
+            has_refs = True
 
-    v3d = root / "refs" / "v3"
-    if v3d.is_dir():
-        for f in sorted(v3d.iterdir()):
-            if not f.is_file():
-                continue
-            try:
-                txt = f.read_text(encoding="utf-8").strip().splitlines()
-                tip = (txt[0] if txt else "")[:48]
-            except OSError:
-                tip = "?"
-            table.add_row("v3", f.name, tip + ("…" if len(tip) == 48 else ""))
-
-    if table.row_count == 0:
+    if not has_refs:
         console.print("[dim]No refs/checkpoints or refs/heads/*.ref yet.[/dim]")
     else:
         console.print(table)
@@ -1187,100 +1072,43 @@ def reset_cmd(
 
     _warn_cli_storage_mismatch()
     chain = _get_chain(chain_dir)
-    if getattr(chain, "_vlog", None):
-        console.print(
-            "[red]tc reset is not supported for this chain backend (verifiable / PG).[/red]\n"
-            "[dim]Use a file-only .trustchain/ from ``tc init`` + file ChainStore.[/dim]"
-        )
-        raise typer.Exit(1)
-
-    root = _effective_chain_dir(chain_dir)
-    target_id = op.strip()
-    if not target_id or target_id.upper() == "HEAD":
-        console.print("[red]Pass a concrete op id (e.g. op_0002), not HEAD.[/red]")
-        raise typer.Exit(1)
-
-    shown = chain.show(target_id)
-    if not isinstance(shown, dict):
-        console.print(f"[red]Operation not found: {target_id!r}[/red]")
-        raise typer.Exit(1)
-
     max_scan = int(os.environ.get("TC_RESET_MAX_SCAN", "50000"))
-    chrono = chain.log(limit=max_scan, offset=0)
-    if len(chrono) >= max_scan:
-        console.print(
-            f"[yellow]Warning:[/yellow] only scanned first {max_scan} ops "
-            "(raise TC_RESET_MAX_SCAN if needed)."
+
+    try:
+        res = chain.reset(op, soft=soft, dry_run=dry_run, max_scan=max_scan)
+
+        if not res["changed"]:
+            console.print(
+                Panel.fit(
+                    f"[bold]Already at[/bold] {res['target_id']}\nHEAD already points to this commit.",
+                    title="tc reset",
+                )
+            )
+            return
+
+        summary = (
+            f"HEAD … → {res['new_head'][:48]}…\n"
+            f"Цель: [bold]{res['target_id']}[/bold]\n"
+            f"[dim]Записи после цели в objects/:[/dim] {res['detached_count']} — "
+            f"{', '.join(res['detached_ids'][:12])}"
+            + (" …" if res["detached_count"] > 12 else "")
         )
 
-    tip_sig = chain.head()
-    if not tip_sig:
-        console.print("[red]HEAD is empty — nothing to reset.[/red]")
-        raise typer.Exit(1)
+        if dry_run:
+            console.print(Panel.fit(summary, title="tc reset --dry-run"))
+            if soft:
+                console.print("[dim]Убери --dry-run чтобы применить --soft.[/dim]")
+            return
 
-    sig_map = _signature_to_op_map([o for o in chrono if isinstance(o, dict)])
-    if tip_sig not in sig_map:
-        console.print(
-            "[red]HEAD signature not found among scanned operations.[/red]\n"
-            "[dim]Try ``tc chain-verify``, increase TC_RESET_MAX_SCAN, or repair HEAD.[/dim]"
-        )
-        raise typer.Exit(1)
-
-    detach_ids, target_op = _detach_ids_tip_down_to_target(sig_map, tip_sig, target_id)
-    if target_op is None:
-        console.print(
-            f"[red]{target_id!r} is not on the ancestry path from current HEAD[/red]\n"
-            "[dim]Only reset to an ancestor of the tip (linear parent_signature chain).[/dim]"
-        )
-        raise typer.Exit(1)
-
-    new_head = target_op.get("signature")
-    if not isinstance(new_head, str) or not new_head:
-        console.print("[red]Target op has no signature[/red]")
-        raise typer.Exit(1)
-
-    if not detach_ids:
         console.print(
             Panel.fit(
-                f"[bold]Already at[/bold] {target_id}\nHEAD already points to this commit.",
-                title="tc reset",
+                summary + "\n\n[green]HEAD[/green] и строка в reflog.txt",
+                title="tc reset --soft",
             )
         )
-        return
-
-    summary = (
-        f"HEAD {tip_sig[:48]}… → {new_head[:48]}…\n"
-        f"Цель: [bold]{target_id}[/bold]\n"
-        f"[dim]Записи после цели в objects/:[/dim] {len(detach_ids)} — "
-        f"{', '.join(detach_ids[:12])}" + (" …" if len(detach_ids) > 12 else "")
-    )
-
-    if dry_run:
-        console.print(Panel.fit(summary, title="tc reset --dry-run"))
-        if soft:
-            console.print("[dim]Убери --dry-run чтобы применить --soft.[/dim]")
-        return
-
-    # --soft
-    head_path = root / "HEAD"
-    head_path.parent.mkdir(parents=True, exist_ok=True)
-    old_tip = tip_sig
-    head_path.write_text(new_head.strip() + "\n", encoding="utf-8")
-
-    reflog = root / "reflog.txt"
-    line = (
-        f"{datetime.now(timezone.utc).isoformat()}\treset-soft\t"
-        f"{old_tip[:64]}\t{new_head[:64]}\t{target_id}\tafter={len(detach_ids)}\n"
-    )
-    with reflog.open("a", encoding="utf-8") as rf:
-        rf.write(line)
-
-    console.print(
-        Panel.fit(
-            summary + "\n\n[green]HEAD[/green] и строка в reflog.txt",
-            title="tc reset --soft",
-        )
-    )
+    except Exception as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
 
 
 @app.command("version")
@@ -1674,32 +1502,6 @@ anchor_app = typer.Typer(
 )
 
 
-def _chain_anchor_document(chain_dir: str) -> dict[str, Any]:
-    chain = _get_chain(chain_dir)
-    verify_result = chain.verify()
-    ops = chain.log(limit=999999)
-    canonical = json.dumps(
-        ops,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-        default=str,
-    ).encode("utf-8")
-    root = _effective_chain_dir(chain_dir)
-    return {
-        "format": "tc-anchor",
-        "version": 1,
-        "profile": "trustchain.anchor.chain-head.v1",
-        "exported_at": datetime.now(timezone.utc).isoformat(),
-        "chain_dir": str(root),
-        "length": len(ops),
-        "head": verify_result.get("head"),
-        "chain_valid": bool(verify_result.get("valid")),
-        "chain_sha256": hashlib.sha256(canonical).hexdigest(),
-        "merkle_root": getattr(chain, "merkle_root", None),
-    }
-
-
 @anchor_app.command("export")
 def anchor_export(
     output: Optional[Path] = typer.Option(
@@ -1713,7 +1515,9 @@ def anchor_export(
     S3 object lock, transparency log, timestamping service, or a customer system.
     Later, `tc anchor verify` can prove the local chain still matches that anchor.
     """
-    document = _chain_anchor_document(chain_dir)
+    chain = _get_chain(chain_dir)
+    document = chain.generate_anchor()
+
     if not document["chain_valid"]:
         console.print("[red]Cannot anchor an invalid chain. Run tc chain-verify.[/red]")
         raise typer.Exit(2)
@@ -1744,7 +1548,7 @@ def anchor_verify(
         console.print("[red]Not a TrustChain anchor v1 document[/red]")
         raise typer.Exit(1)
 
-    current = _chain_anchor_document(chain_dir)
+    current = _get_chain(chain_dir).generate_anchor()
     checks = {
         "head": anchor.get("head") == current.get("head"),
         "length": anchor.get("length") == current.get("length"),

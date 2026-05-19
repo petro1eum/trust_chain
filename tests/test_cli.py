@@ -350,43 +350,11 @@ class TestResetSoft:
 
 
 class TestRevert:
-    """tc revert — signed revert_intent."""
-
-    def test_revert_dry_run_override(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
-        assert runner.invoke(app, ["init", "-o", "."]).exit_code == 0
-        from trustchain import TrustChain, TrustChainConfig
-
-        tc = TrustChain(
-            TrustChainConfig(
-                enable_chain=True,
-                chain_storage="file",
-                chain_dir=".trustchain",
-            )
-        )
-        tc.sign("demo_tool", {"x": 1})
-        r = runner.invoke(
-            app,
-            [
-                "revert",
-                "HEAD",
-                "-d",
-                ".trustchain",
-                "--dry-run",
-                "--reverse-tool",
-                "demo_undo",
-            ],
-        )
-        assert r.exit_code == 0, r.stdout + r.stderr
-        assert "demo_undo" in r.stdout
+    """tc revert — compensatory transaction."""
 
     def test_revert_signs_chain(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         assert runner.invoke(app, ["init", "-o", "."]).exit_code == 0
-        td = tmp_path / ".trustchain"
-        td.joinpath("reversibles.json").write_text(
-            '{"demo_tool":"demo_undo"}', encoding="utf-8"
-        )
         from trustchain import TrustChain, TrustChainConfig
 
         tc = TrustChain(
@@ -397,9 +365,11 @@ class TestRevert:
             )
         )
         tc.sign("demo_tool", {"x": 1})
-        r = runner.invoke(app, ["revert", "HEAD", "-d", ".trustchain"])
+        op_id = tc.chain.log()[0]["id"]
+
+        r = runner.invoke(app, ["revert", op_id, "-m", "Mistake", "-d", ".trustchain"])
         assert r.exit_code == 0, r.stdout + r.stderr
-        assert "revert_intent" in r.stdout.lower() or "signed" in r.stdout.lower()
+        assert "Successfully reverted" in r.stdout
 
         tc2 = TrustChain(
             TrustChainConfig(
@@ -410,10 +380,10 @@ class TestRevert:
         )
         tail = tc2.chain.log_reverse(limit=2)
         assert len(tail) >= 2
-        assert tail[0].get("tool") == "demo_undo"
-        assert (tail[0].get("data") or {}).get("kind") == "revert_intent"
+        assert tail[0].get("tool") == "tc_revert"
+        assert (tail[0].get("data") or {}).get("target_op") == op_id
 
-    def test_revert_fails_without_mapping(self, tmp_path, monkeypatch):
+    def test_revert_fails_invalid_op(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         assert runner.invoke(app, ["init", "-o", "."]).exit_code == 0
         from trustchain import TrustChain, TrustChainConfig
@@ -425,8 +395,11 @@ class TestRevert:
                 chain_dir=".trustchain",
             )
         ).sign("orphan_tool", {})
-        r = runner.invoke(app, ["revert", "HEAD", "-d", ".trustchain"])
+        r = runner.invoke(
+            app, ["revert", "BAD_ID", "-m", "Mistake", "-d", ".trustchain"]
+        )
         assert r.exit_code == 1
+        assert "Failed to revert" in r.stdout
 
 
 class TestStandardsExport:
