@@ -31,7 +31,7 @@ All endpoints are public. No API key required.
 Returns the PEM-encoded X.509 certificate issued to the agent.
 
 ```bash
-curl https://app.trust-chain.ai/api/pub/agents/my-agent/cert
+curl https://keys.trust-chain.ai/api/pub/agents/my-agent/cert
 ```
 
 ```
@@ -46,7 +46,7 @@ Returns the PEM-encoded TrustChain Platform CA **intermediate** certificate.
 Use this together with `GET /api/pub/root-ca`.
 
 ```bash
-curl https://app.trust-chain.ai/api/pub/ca
+curl https://keys.trust-chain.ai/api/pub/ca
 ```
 
 ### `GET /api/pub/root-ca`
@@ -55,7 +55,7 @@ Returns the PEM-encoded TrustChain Root CA certificate.
 This is the trust anchor you should pin in high-security deployments.
 
 ```bash
-curl https://app.trust-chain.ai/api/pub/root-ca
+curl https://keys.trust-chain.ai/api/pub/root-ca
 ```
 
 ### `GET /api/pub/crl`
@@ -64,7 +64,17 @@ Returns the current PEM-encoded Certificate Revocation List.
 Refresh periodically (recommended: every 5 minutes in production).
 
 ```bash
-curl https://app.trust-chain.ai/api/pub/crl
+curl https://keys.trust-chain.ai/api/pub/crl
+```
+
+### `POST /api/pub/verify` (optional, online)
+
+Convenience online check: the Platform looks up the agent's certificate and verifies the Ed25519 signature for you. This trusts the server's response — for strict, zero-trust assurance use the offline flow below. Full `.tcreceipt` verification (chain links, parent, nonce) is done offline via `tc-verify`.
+
+```bash
+curl -X POST https://keys.trust-chain.ai/api/pub/verify \
+  -H 'Content-Type: application/json' \
+  -d '{"agent_id":"my-agent","signature":"<base64>","data":"..."}'
 ```
 
 ---
@@ -77,7 +87,7 @@ from cryptography.x509 import load_pem_x509_certificate, load_pem_x509_crl
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.x509.ocsp import OCSPCertStatus
 
-BASE = "https://app.trust-chain.ai/api/pub"
+BASE = "https://keys.trust-chain.ai/api/pub"
 
 # 1. Download certificates (cache root_ca_pem, ca_pem, and crl_pem in production)
 agent_cert_pem = httpx.get(f"{BASE}/agents/my-agent/cert").text
@@ -123,7 +133,7 @@ public_key.verify(signature_bytes, data_bytes)
 ```typescript
 import { X509Certificate } from 'crypto'; // Node 15+
 
-const BASE = 'https://app.trust-chain.ai/api/pub';
+const BASE = 'https://keys.trust-chain.ai/api/pub';
 
 const [agentCertPem, rootCaPem, caPem] = await Promise.all([
   fetch(`${BASE}/agents/my-agent/cert`).then(r => r.text()),
@@ -176,6 +186,6 @@ This is the same model used by:
 
 ## Security Notes
 
-- **No server-side verification:** Do not send your data or signatures to our servers. Verify locally.
+- **Offline-first verification:** for maximum assurance, verify locally without sending data to our servers. The optional `POST /api/pub/verify` endpoint exists for convenient online signature checks and UI badges, but it trusts the server's response — it is a convenience, not a zero-trust path.
 - **CRL freshness:** A revoked agent's certificate is added to the CRL immediately. Check CRL on every session, not every request.
 - **CA pinning:** For high-security deployments, pin the Root CA certificate hash and alert on changes.

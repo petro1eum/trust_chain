@@ -48,10 +48,15 @@ class TestTrustChainVerifier:
         """Test that tampered data fails verification."""
         signed = tc._signer.sign("test", {"original": True})
 
-        # Tamper with data
-        signed.data = {"tampered": True}
+        # Tamper with data directly to assert immutability
+        import dataclasses
 
-        result = verifier.verify(signed)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            signed.data = {"tampered": True}
+
+        # Verify that verification fails with copy-constructed tampered step
+        tampered_signed = dataclasses.replace(signed, data={"tampered": True})
+        result = verifier.verify(tampered_signed)
 
         assert result.valid is False
 
@@ -59,20 +64,35 @@ class TestTrustChainVerifier:
         """Test that wrong signature fails verification."""
         signed = tc._signer.sign("test", {"value": 1})
 
-        # Replace with invalid signature
-        signed.signature = "invalid_signature_base64"
+        # Replace with invalid signature directly to assert immutability
+        import dataclasses
 
-        result = verifier.verify(signed)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            signed.signature = "invalid_signature_base64"
+
+        # Verify that verification fails with copy-constructed wrong signature
+        tampered_signed = dataclasses.replace(
+            signed, signature="invalid_signature_base64"
+        )
+        result = verifier.verify(tampered_signed)
 
         assert result.valid is False
 
     def test_verify_rejects_stale_response(self, tc):
         """External verifier should reject stale signed responses by default."""
         signed = tc._signer.sign("test", {"value": 42})
-        signed.timestamp = time.time() - 301
+
+        # Tamper with timestamp directly to assert immutability
+        import dataclasses
+
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            signed.timestamp = time.time() - 301
+
+        # Verify that verification fails with copy-constructed stale timestamp
+        stale_signed = dataclasses.replace(signed, timestamp=time.time() - 301)
 
         verifier = TrustChainVerifier(tc.export_public_key())
-        result = verifier.verify(signed)
+        result = verifier.verify(stale_signed)
 
         assert result.valid is False
 

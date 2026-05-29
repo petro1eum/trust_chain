@@ -31,12 +31,92 @@ Usage:
     tc.chain.status()                # chain health summary
 """
 
+import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .storage import Storage
+
+
+def _safe_ref_segment(name: str) -> str:
+    s = name.strip().replace("..", "_")
+    s = re.sub(r"[^a-zA-Z0-9_.-]+", "_", s)
+    if not s or s in (".", "_"):
+        raise ValueError("invalid name: use letters, digits, ._-")
+    return s[:120]
+
+
+def reconstruct_signed_response(record: Dict[str, Any]):
+    """Rebuild a :class:`SignedResponse` from a persisted chain record.
+
+    The signed Ed25519 payload covers the *float* ``response_timestamp`` (not
+    the rounded ISO ``timestamp``), so that field is required to reconstruct
+    the canonical bytes byte-for-byte. Returns ``None`` if the record lacks the
+    data needed to re-verify the signature.
+    """
+    from .signer import SignedResponse
+
+    if "response_timestamp" not in record:
+        # Pre-3.x records did not persist the exact signed timestamp, so the
+        # signature cannot be cryptographically re-derived from storage.
+        return None
+
+    return SignedResponse(
+        tool_id=record.get("tool", ""),
+        data=record.get("data"),
+        signature=record.get("signature", ""),
+        timestamp=float(record["response_timestamp"]),
+        nonce=record.get("nonce"),
+        parent_signature=record.get("parent_signature"),
+        parent_signatures=record.get("parent_signatures"),
+        metadata=record.get("metadata"),
+        certificate=record.get("certificate"),
+        tsa_proof=record.get("tsa_proof"),
+    )
+
+
+def verify_record_signature(record: Dict[str, Any], verifier) -> Optional[bool]:
+    """Re-verify a single chain record's Ed25519 signature.
+
+    Returns ``True``/``False`` for a verifiable record, or ``None`` when the
+    record cannot be reconstructed (and therefore cannot be re-verified).
+    """
+    signed = reconstruct_signed_response(record)
+    if signed is None:
+        return None
+    return bool(verifier.verify(signed).valid)
+
+
+def _signature_to_op_map(ops: List[dict]) -> dict[str, dict]:
+    m: dict[str, dict] = {}
+    for o in ops:
+        if isinstance(o, dict):
+            sig = o.get("signature")
+            if isinstance(sig, str) and sig:
+                m[sig] = o
+    return m
+
+
+def _detach_ids_tip_down_to_target(
+    sig_to_op: dict[str, dict], tip_sig: str, target_id: str
+) -> Tuple[List[str], Optional[dict]]:
+    detach: List[str] = []
+    cur: Optional[dict] = sig_to_op.get(tip_sig)
+    if not cur:
+        return detach, None
+    while cur:
+        oid = cur.get("id")
+        if oid == target_id:
+            return detach, cur
+        detach.append(str(oid))
+        parent = cur.get("parent_signature")
+        if not isinstance(parent, str) or not parent:
+            break
+        cur = sig_to_op.get(parent)
+    return detach, None
 
 
 class ChainStore:
@@ -79,6 +159,7 @@ class ChainStore:
         signature_id: str,
         nonce: Optional[str] = None,
         parent_signature: Optional[str] = None,
+        parent_signatures: Optional[list[str]] = None,
         key_id: str = "",
         algorithm: str = "Ed25519",
         latency_ms: float = 0,
@@ -115,6 +196,7 @@ class ChainStore:
                 signature=signature,
                 signature_id=signature_id,
                 parent_hash=parent_signature,
+                parent_signatures=parent_signatures,
                 key_id=key_id,
                 algorithm=algorithm,
                 latency_ms=latency_ms,
@@ -148,6 +230,8 @@ class ChainStore:
             "key_id": key_id,
             "algorithm": algorithm,
         }
+        if parent_signatures is not None:
+            record["parent_signatures"] = parent_signatures
         if metadata:
             record["metadata"] = metadata
         if response_timestamp is not None:
@@ -217,14 +301,29 @@ class ChainStore:
         ]
         return results[:limit]
 
-    def verify(self) -> Dict[str, Any]:
+    def verify(self, public_key: Optional[str] = None) -> Dict[str, Any]:
         """Verify the integrity of the entire chain (like `git fsck`).
 
-        With VerifiableChainStore: O(1) Merkle root comparison.
-        Without: O(n) linear chain walk.
+        Structural checks (always run):
+          * each ``parent_signature`` / ``parent_signatures`` link references
+            an earlier operation in the chain/DAG.
+
+        Cryptographic checks (only when ``public_key`` is provided):
+          * each operation's Ed25519 signature is re-verified against the
+            base64 signer ``public_key`` by reconstructing the canonical
+            payload from the stored record. Without a public key the chain
+            store has no key material, so signatures are NOT re-verified —
+            the result then reflects link/structure integrity only.
+
+        With VerifiableChainStore/Postgres: O(1) Merkle root comparison plus
+        optional per-record signature re-verification.
         """
         if self._vlog:
-            return self._vlog.verify()  # type: ignore[no-any-return]
+            try:
+                return self._vlog.verify(public_key=public_key)  # type: ignore[call-arg,no-any-return]
+            except TypeError:
+                # Backend without signature re-verification support.
+                return self._vlog.verify()  # type: ignore[no-any-return]
 
         all_ops = self.log(limit=999999)
         broken = []
@@ -235,27 +334,86 @@ class ChainStore:
                 "length": 0,
                 "head": None,
                 "broken_links": [],
+                "signatures_verified": 0,
+                "signatures_checked": bool(public_key),
                 "verified_at": datetime.now(timezone.utc).isoformat(),
             }
 
+        # Optional cryptographic re-verification of every record's signature.
+        verifier = None
+        sigs_verified = 0
+        sigs_unverifiable = 0
+        if public_key:
+            from .verifier import TrustChainVerifier
+
+            # Chain records are persistent and may be arbitrarily old; disable
+            # the freshness/age window for re-verification.
+            verifier = TrustChainVerifier(public_key, max_age_seconds=None)
+            for op in all_ops:
+                res = verify_record_signature(op, verifier)
+                if res is True:
+                    sigs_verified += 1
+                elif res is None:
+                    sigs_unverifiable += 1
+                else:
+                    broken.append(
+                        {
+                            "index": all_ops.index(op),
+                            "id": op.get("id"),
+                            "error": "invalid_signature",
+                            "signature": op.get("signature"),
+                        }
+                    )
+
         for i in range(1, len(all_ops)):
-            prev_sig = all_ops[i - 1].get("signature")
+            all_ops[i - 1].get("signature")
             this_parent = all_ops[i].get("parent_signature")
-            if this_parent != prev_sig:
-                broken.append(
-                    {
-                        "index": i,
-                        "id": all_ops[i].get("id"),
-                        "expected_parent": prev_sig,
-                        "actual_parent": this_parent,
-                    }
-                )
+            this_parents = all_ops[i].get("parent_signatures")
+
+            if this_parents is not None:
+                # DAG Verification: ensure all declared parent signatures exist in the chain
+                for p in this_parents:
+                    found = False
+                    for j in range(0, i):
+                        if all_ops[j].get("signature") == p:
+                            found = True
+                            break
+                    if not found:
+                        broken.append(
+                            {
+                                "index": i,
+                                "id": all_ops[i].get("id"),
+                                "expected_parent": p,
+                                "actual_parent": "Missing in DAG",
+                            }
+                        )
+            else:
+                # Tree/Branch Verification
+                if this_parent is not None:
+                    found = False
+                    for j in range(0, i):
+                        if all_ops[j].get("signature") == this_parent:
+                            found = True
+                            break
+                    if not found:
+                        broken.append(
+                            {
+                                "index": i,
+                                "id": all_ops[i].get("id"),
+                                "expected_parent": "Existing signature in DAG",
+                                "actual_parent": this_parent,
+                            }
+                        )
+                # If this_parent is None, it is a new root (orphan branch), which is allowed in DAGs.
 
         return {
             "valid": len(broken) == 0,
             "length": len(all_ops),
             "head": all_ops[-1].get("signature") if all_ops else None,
             "broken_links": broken,
+            "signatures_checked": bool(public_key),
+            "signatures_verified": sigs_verified,
+            "signatures_unverifiable": sigs_unverifiable,
             "verified_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -370,6 +528,259 @@ class ChainStore:
     def length(self) -> int:
         """Number of operations in the chain."""
         return self._length
+
+    # ── Git-like Refs API ──
+
+    def checkpoint(self, name: str) -> str:
+        """Save current HEAD to refs/checkpoints/<name>.ref (git-like tag)."""
+        if self._vlog:
+            raise NotImplementedError(
+                "checkpoint is not supported for verifiable/PG backend."
+            )
+        h = self.head()
+        if not h:
+            raise ValueError("HEAD is empty — nothing to checkpoint.")
+        if not self._root:
+            raise ValueError("Chain root directory is required.")
+
+        seg = _safe_ref_segment(name)
+        path = self._root / "refs" / "checkpoints" / f"{seg}.ref"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(h.strip() + "\n", encoding="utf-8")
+        return h
+
+    def tag(self, name: str) -> str:
+        """Save current HEAD to refs/tags/<name>.ref."""
+        if self._vlog:
+            raise NotImplementedError("tag is not supported for verifiable/PG backend.")
+        h = self.head()
+        if not h:
+            raise ValueError("HEAD is empty — nothing to tag.")
+        if not self._root:
+            raise ValueError("Chain root directory is required.")
+
+        seg = _safe_ref_segment(name)
+        path = self._root / "refs" / "tags" / f"{seg}.ref"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(h.strip() + "\n", encoding="utf-8")
+        return h
+
+    def branch(self, name: str) -> str:
+        """Create refs/heads/<name>.ref pointing at the current HEAD."""
+        if self._vlog:
+            raise NotImplementedError(
+                "branch is not supported for verifiable/PG backend."
+            )
+        h = self.head()
+        if not h:
+            raise ValueError("HEAD is empty — create commits before branching.")
+        if not self._root:
+            raise ValueError("Chain root directory is required.")
+
+        seg = _safe_ref_segment(name)
+        path = self._root / "refs" / "heads" / f"{seg}.ref"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(h.strip() + "\n", encoding="utf-8")
+        return h
+
+    def list_refs(self) -> Dict[str, List[Dict[str, str]]]:
+        """List checkpoint, tags, and heads ref files."""
+        if not self._root or not self._root.exists():
+            raise ValueError(f"No chain at {self._root}")
+
+        result = {"checkpoint": [], "tag": [], "head": [], "v3": []}
+
+        for kind, sub in (
+            ("checkpoint", "refs/checkpoints"),
+            ("tag", "refs/tags"),
+            ("head", "refs/heads"),
+        ):
+            d = self._root / sub
+            if not d.is_dir():
+                continue
+            for f in sorted(d.glob("*.ref")):
+                try:
+                    txt = f.read_text(encoding="utf-8").strip().splitlines()
+                    tip = txt[0] if txt else ""
+                except OSError:
+                    tip = ""
+                result[kind].append({"name": f.stem, "head": tip})
+
+        v3d = self._root / "refs" / "v3"
+        if v3d.is_dir():
+            for f in sorted(v3d.iterdir()):
+                if not f.is_file():
+                    continue
+                try:
+                    txt = f.read_text(encoding="utf-8").strip().splitlines()
+                    tip = txt[0] if txt else ""
+                except OSError:
+                    tip = ""
+                result["v3"].append({"name": f.name, "head": tip})
+
+        return result
+
+    def checkout(
+        self, name: str, dry_run: bool = False, max_scan: int = 50000
+    ) -> Dict[str, Any]:
+        """Switch HEAD to signature from refs/heads/<name>.ref."""
+        if self._vlog:
+            raise NotImplementedError(
+                "checkout is not supported for verifiable/PG chain."
+            )
+        if not self._root:
+            raise ValueError("Chain root directory is required.")
+
+        seg = _safe_ref_segment(name)
+        ref_path = self._root / "refs" / "heads" / f"{seg}.ref"
+        if not ref_path.is_file():
+            raise ValueError(f"Branch not found: {seg}")
+
+        lines = ref_path.read_text(encoding="utf-8").strip().splitlines()
+        tip_sig = (lines[0] if lines else "").strip()
+        if not tip_sig:
+            raise ValueError(f"Empty ref {ref_path.name}")
+
+        chrono = self.log(limit=max_scan, offset=0)
+        sig_map = _signature_to_op_map([o for o in chrono if isinstance(o, dict)])
+        if tip_sig not in sig_map:
+            raise ValueError(
+                "Signature from ref not found among operations. Try increasing max_scan."
+            )
+
+        op = sig_map[tip_sig]
+        op_id = str(op.get("id", "?"))
+
+        if dry_run:
+            return {"branch": seg, "op_id": op_id, "head": tip_sig, "dry_run": True}
+
+        old = self.head() or ""
+        self._head = tip_sig
+        self._last_parent_sig = tip_sig
+        self._save_head()
+
+        reflog = self._root / "reflog.txt"
+        line = (
+            f"{datetime.now(timezone.utc).isoformat()}\tcheckout\t{seg}\t"
+            f"{old[:64]}\t{tip_sig[:64]}\t{op_id}\n"
+        )
+        with reflog.open("a", encoding="utf-8") as rf:
+            rf.write(line)
+
+        return {"branch": seg, "op_id": op_id, "head": tip_sig, "dry_run": False}
+
+    def reset(
+        self,
+        target_id: str,
+        soft: bool = True,
+        dry_run: bool = False,
+        max_scan: int = 50000,
+    ) -> Dict[str, Any]:
+        """Move HEAD backwards to a specific target_id (must be ancestor)."""
+        if not soft and not dry_run:
+            raise NotImplementedError("Only --soft reset is currently supported.")
+        if self._vlog:
+            raise NotImplementedError(
+                "reset is not supported for verifiable/PG backend."
+            )
+        if not self._root:
+            raise ValueError("Chain root directory is required.")
+
+        target_id = target_id.strip()
+        if not target_id or target_id.upper() == "HEAD":
+            raise ValueError("Pass a concrete op id (e.g. op_0002), not HEAD.")
+
+        shown = self.show(target_id)
+        if not isinstance(shown, dict):
+            raise ValueError(f"Operation not found: {target_id!r}")
+
+        chrono = self.log(limit=max_scan, offset=0)
+        tip_sig = self.head()
+        if not tip_sig:
+            raise ValueError("HEAD is empty — nothing to reset.")
+
+        sig_map = _signature_to_op_map([o for o in chrono if isinstance(o, dict)])
+        if tip_sig not in sig_map:
+            raise ValueError("HEAD signature not found among scanned operations.")
+
+        detach_ids, target_op = _detach_ids_tip_down_to_target(
+            sig_map, tip_sig, target_id
+        )
+        if target_op is None:
+            raise ValueError(
+                f"{target_id!r} is not on the ancestry path from current HEAD"
+            )
+
+        new_head = target_op.get("signature")
+        if not isinstance(new_head, str) or not new_head:
+            raise ValueError("Target op has no signature")
+
+        if not detach_ids:
+            return {
+                "target_id": target_id,
+                "new_head": new_head,
+                "detached_count": 0,
+                "detached_ids": [],
+                "dry_run": dry_run,
+                "changed": False,
+            }
+
+        if dry_run:
+            return {
+                "target_id": target_id,
+                "new_head": new_head,
+                "detached_count": len(detach_ids),
+                "detached_ids": detach_ids,
+                "dry_run": True,
+                "changed": True,
+            }
+
+        old_tip = tip_sig
+        self._head = new_head
+        self._last_parent_sig = new_head
+        self._save_head()
+
+        reflog = self._root / "reflog.txt"
+        line = (
+            f"{datetime.now(timezone.utc).isoformat()}\treset-soft\t"
+            f"{old_tip[:64]}\t{new_head[:64]}\t{target_id}\tafter={len(detach_ids)}\n"
+        )
+        with reflog.open("a", encoding="utf-8") as rf:
+            rf.write(line)
+
+        return {
+            "target_id": target_id,
+            "new_head": new_head,
+            "detached_count": len(detach_ids),
+            "detached_ids": detach_ids,
+            "dry_run": False,
+            "changed": True,
+        }
+
+    def generate_anchor(self) -> Dict[str, Any]:
+        """Export the current chain HEAD and canonical chain digest for anchoring."""
+        verify_result = self.verify()
+        ops = self.log(limit=999999)
+        canonical = json.dumps(
+            ops,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            default=str,
+        ).encode("utf-8")
+
+        return {
+            "format": "tc-anchor",
+            "version": 1,
+            "profile": "trustchain.anchor.chain-head.v1",
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "chain_dir": str(self._root) if self._root else None,
+            "length": len(ops),
+            "head": verify_result.get("head"),
+            "chain_valid": bool(verify_result.get("valid")),
+            "chain_sha256": hashlib.sha256(canonical).hexdigest(),
+            "merkle_root": self.merkle_root,
+        }
 
     # ── Internal ──
 

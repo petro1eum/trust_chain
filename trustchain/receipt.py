@@ -463,6 +463,7 @@ def _canonical_envelope_bytes(envelope: dict[str, Any]) -> bytes:
         timestamp=envelope.get("timestamp"),
         nonce=envelope.get("nonce"),
         parent_signature=envelope.get("parent_signature"),
+        parent_signatures=envelope.get("parent_signatures"),
         metadata=envelope.get("metadata"),
         certificate=envelope.get("certificate"),
         tsa_proof=envelope.get("tsa_proof"),

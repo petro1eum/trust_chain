@@ -32,7 +32,12 @@ from .tenants import TenantInfo, TenantManager
 from .tsa import TSAClient, TSAError, TSAResponse, TSAVerifyResult, get_tsa_client
 from .verifiable_log import InclusionProof, VerifiableChainStore
 from .verifier import TrustChainVerifier, VerificationResult
-from .x509_pki import AgentCertificate, CertVerifyResult, TrustChainCA
+
+# NOTE: X.509 CA / agent PKI (`trustchain.v2.x509_pki`) is intentionally NOT
+# re-exported here. The internal CA hierarchy is a TrustChain Platform
+# (Enterprise) capability; the OSS core operates with bare Ed25519 public keys.
+# The module remains importable directly (e.g. by the Platform CA service and
+# for certificate verification) but is not part of the public OSS surface.
 
 __version__ = "3.0.0"
 
@@ -76,10 +81,6 @@ __all__ = [
     "RedisNonceStorage",
     "AdapterNonceStorage",
     "adapt_nonce_storage",
-    # X.509 PKI for AI Agents
-    "TrustChainCA",
-    "AgentCertificate",
-    "CertVerifyResult",
 ]
 
 

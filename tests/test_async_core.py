@@ -46,13 +46,19 @@ class TestAsyncTrustChain:
     @pytest.mark.asyncio
     async def test_verify_invalid(self):
         """Test verification of tampered data."""
+        import dataclasses
+
         async with AsyncTrustChain() as tc:
             result = await tc.sign("test", {"data": "original"})
 
-            # Tamper with data
-            result.data = {"data": "tampered"}
+            # In-memory mutation is prohibited by frozen dataclass (TC-01)
+            with pytest.raises(dataclasses.FrozenInstanceError):
+                result.data = {"data": "tampered"}
 
-            is_valid = await tc.verify(result)
+            # Reconstruct a tampered response to test verifier signature checks
+            tampered = dataclasses.replace(result, data={"data": "tampered"})
+
+            is_valid = await tc.verify(tampered)
             assert is_valid is False
 
     @pytest.mark.asyncio

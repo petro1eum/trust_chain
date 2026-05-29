@@ -254,11 +254,11 @@ assert verifier.verify(response)
 
 ---
 
-## 11. Future Work
+## 11. Future Work & Implementation Status
 
-- **Phase 13:** Policy Layer (YAML-based deny/allow/require)
-- **Phase 14:** Execution Graph (DAG analysis, fork detection)
-- **Phase 15:** Hardware attestation integration
+- **Phase 13:** Policy Layer (YAML-based deny/allow/require) — *Implemented in TrustChain Enterprise (trust_chain_pro)*
+- **Phase 14:** Execution Graph (DAG analysis, fork detection) — *✅ Completed in TrustChain OSS v3.0*
+- **Phase 15:** Hardware attestation integration — *Future Roadmap*
 
 ---
 

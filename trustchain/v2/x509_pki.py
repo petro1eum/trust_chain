@@ -64,6 +64,7 @@ OID_PROMPT_HASH = x509.ObjectIdentifier(f"{AI_OID_BASE}.2")
 OID_TOOL_VERSIONS = x509.ObjectIdentifier(f"{AI_OID_BASE}.3")
 OID_AGENT_CAPABILITIES = x509.ObjectIdentifier(f"{AI_OID_BASE}.4")
 OID_PARENT_AGENT_SERIAL = x509.ObjectIdentifier(f"{AI_OID_BASE}.5")
+OID_ORG_ID = x509.ObjectIdentifier(f"{AI_OID_BASE}.6")
 
 
 def _is_ca_certificate(cert: x509.Certificate) -> bool:
@@ -104,7 +105,7 @@ class TrustChainCA:
     def __init__(
         self,
         name: str,
-        private_key: Ed25519PrivateKey,
+        private_key: Optional[Ed25519PrivateKey],
         certificate: x509.Certificate,
         parent: Optional["TrustChainCA"] = None,
     ):
@@ -124,6 +125,7 @@ class TrustChainCA:
         name: str = "TrustChain Root CA",
         organization: str = "TrustChain",
         validity_days: int = 3650,
+        path_length: int = 2,
     ) -> "TrustChainCA":
         """Create a self-signed Root Certificate Authority.
 
@@ -151,7 +153,7 @@ class TrustChainCA:
             .not_valid_before(now)
             .not_valid_after(now + timedelta(days=validity_days))
             .add_extension(
-                x509.BasicConstraints(ca=True, path_length=1),
+                x509.BasicConstraints(ca=True, path_length=path_length),
                 critical=True,
             )
             .add_extension(
@@ -182,27 +184,41 @@ class TrustChainCA:
         name: str = "TrustChain Platform CA",
         organization: str = "TrustChain",
         validity_days: int = 365,
+        path_length: int = 0,
+        public_key_b64: Optional[str] = None,
+        org_id: Optional[str] = None,
     ) -> "TrustChainCA":
         """Issue an Intermediate CA certificate, signed by this CA.
 
-        The Intermediate CA issues agent certificates. This limits
-        exposure of the Root CA private key.
+        When ``public_key_b64`` is supplied the private key stays with the
+        caller (org custody). ``path_length=1`` for Platform CA, ``0`` for org CA.
         """
-        int_key = Ed25519PrivateKey.generate()
-        int_public = int_key.public_key()
+        import base64
 
-        subject = x509.Name(
-            [
-                x509.NameAttribute(NameOID.COMMON_NAME, name),
-                x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization),
-                x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, "AI Platform"),
-            ]
-        )
+        if public_key_b64:
+            raw = base64.b64decode(public_key_b64)
+            int_public = Ed25519PublicKey.from_public_bytes(raw)
+            int_key = None
+        else:
+            int_key = Ed25519PrivateKey.generate()
+            int_public = int_key.public_key()
+
+        ou = "Org Intermediate CA" if org_id else "AI Platform"
+        subject_attrs = [
+            x509.NameAttribute(NameOID.COMMON_NAME, name),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization),
+            x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, ou),
+        ]
+        if org_id:
+            subject_attrs.append(
+                x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, f"org:{org_id}")
+            )
+        subject = x509.Name(subject_attrs)
 
         now = datetime.now(timezone.utc)
         serial = self._next_serial_number()
 
-        cert = (
+        builder = (
             x509.CertificateBuilder()
             .subject_name(subject)
             .issuer_name(self._certificate.subject)
@@ -211,7 +227,7 @@ class TrustChainCA:
             .not_valid_before(now)
             .not_valid_after(now + timedelta(days=validity_days))
             .add_extension(
-                x509.BasicConstraints(ca=True, path_length=0),
+                x509.BasicConstraints(ca=True, path_length=path_length),
                 critical=True,
             )
             .add_extension(
@@ -238,8 +254,13 @@ class TrustChainCA:
                 ),
                 critical=False,
             )
-            .sign(self._private_key, algorithm=None)
         )
+        if org_id:
+            builder = builder.add_extension(
+                x509.UnrecognizedExtension(OID_ORG_ID, org_id.encode("utf-8")),
+                critical=False,
+            )
+        cert = builder.sign(self._private_key, algorithm=None)
 
         return TrustChainCA(
             name=name,
@@ -292,6 +313,11 @@ class TrustChainCA:
         Returns:
             AgentCertificate wrapping the X.509 cert
         """
+        if self._private_key is None:
+            raise ValueError(
+                "This CA certificate is held in verify-only mode (external private key); "
+                "cannot issue child certificates from the platform."
+            )
         agent_key: Optional[Ed25519PrivateKey]
         if public_key_b64:
             public_key_bytes = base64.b64decode(public_key_b64)

@@ -213,3 +213,19 @@ def test_signed_response_serialization():
     new_response = SignedResponse(**response_dict)
     assert new_response.tool_id == response.tool_id
     assert new_response.data == response.data
+
+
+def test_signed_response_immutability():
+    """Verify that SignedResponse dataclass fields are frozen and cannot be mutated (TC-01)."""
+    response = SignedResponse(
+        tool_id="immutable_test", data={"ok": True}, signature="sig123"
+    )
+
+    with pytest.raises(AttributeError):
+        response.tool_id = "hacked_id"
+
+    with pytest.raises(AttributeError):
+        response.data = {"hacked": True}
+
+    with pytest.raises(AttributeError):
+        response.signature = "new_signature"

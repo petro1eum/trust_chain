@@ -26,19 +26,20 @@ Usage:
     tc cert request --platform https://keys.trust-chain.ai   # X.509 enrollment steps (human path)
     tc migrate-v3 --apply          # v2 op_*.json → v3 CAS commits + v3/migration_state.json
     tc v3-merge A B "сообщение"    # merge-коммит с двумя родителями (CAS) + refs/v3/main
+    tc proxy -- npx @composio/mcp  # Wrap standard MCP server in TrustChain proxy
     tc init                         # initialize .trustchain/ directory
     tc info                         # key + version info
     tc export-key --format=json     # export public key
     tc verify response.json         # verify a signed JSON file
 """
 
-import hashlib
+import base64
 import json
 import os
-import re
-from datetime import datetime, timezone
+import urllib.error
+import urllib.request
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any, Optional
 
 import typer
 from rich.console import Console
@@ -49,7 +50,6 @@ from rich.text import Text
 from trustchain import TrustChain, TrustChainConfig, __version__
 from trustchain.v2.chain_store import ChainStore
 from trustchain.v2.storage import FileStorage
-from trustchain.v3.compensations import reverse_tool_for_chain
 
 app = typer.Typer(
     name="tc",
@@ -114,15 +114,6 @@ def _get_tc(chain_dir: str = ".trustchain") -> TrustChain:
     )
 
 
-def _safe_ref_segment(name: str) -> str:
-    """Sanitize user-supplied ref / checkpoint / branch label for filesystem."""
-    s = name.strip().replace("..", "_")
-    s = re.sub(r"[^a-zA-Z0-9_.-]+", "_", s)
-    if not s or s in (".", "_"):
-        raise typer.BadParameter("invalid name: use letters, digits, ._-")
-    return s[:120]
-
-
 def _graph_prefixes(ops: list, *, newest_first: bool) -> list[str]:
     """Left column for ``tc log --graph`` (linear parent_signature chain).
 
@@ -147,40 +138,6 @@ def _graph_prefixes(ops: list, *, newest_first: bool) -> list[str]:
             ok = newer.get("parent_signature") == older.get("signature")
         out.append("* " if ok else "| * ")
     return out
-
-
-def _signature_to_op_map(ops: List[dict]) -> dict[str, dict]:
-    m: dict[str, dict] = {}
-    for o in ops:
-        if isinstance(o, dict):
-            sig = o.get("signature")
-            if isinstance(sig, str) and sig:
-                m[sig] = o
-    return m
-
-
-def _detach_ids_tip_down_to_target(
-    sig_to_op: dict[str, dict], tip_sig: str, target_id: str
-) -> Tuple[List[str], Optional[dict]]:
-    """Ids strictly newer than ``target_id`` on the path from current tip (HEAD sig).
-
-    Returns ``([], target_op)`` if tip is already the target. ``(None, None)``
-    if ``target_id`` is not on the ancestry path from tip.
-    """
-    detach: List[str] = []
-    cur: Optional[dict] = sig_to_op.get(tip_sig)
-    if not cur:
-        return detach, None
-    while cur:
-        oid = cur.get("id")
-        if oid == target_id:
-            return detach, cur
-        detach.append(str(oid))
-        parent = cur.get("parent_signature")
-        if not isinstance(parent, str) or not parent:
-            break
-        cur = sig_to_op.get(parent)
-    return [], None
 
 
 def _truncate(s: Optional[str], n: int = 12) -> str:
@@ -382,14 +339,60 @@ def chain_verify_cmd(
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Show broken links detail"
     ),
+    pubkey: Optional[str] = typer.Option(
+        None,
+        "--pubkey",
+        "-k",
+        help=(
+            "Base64 Ed25519 signer public key (or path to a JSON key file with "
+            "a public_key/public_key_b64 field). When provided, every operation's "
+            "signature is cryptographically re-verified. Without it, only chain "
+            "link/structure integrity is checked."
+        ),
+    ),
 ):
     """Verify chain integrity (like `git fsck`).
 
-    Checks that each operation's parent_signature matches the
-    previous operation's signature.
+    Always checks that each operation's parent_signature(s) reference an
+    earlier operation in the chain/DAG (link/structure integrity).
+
+    When --pubkey is provided, additionally re-verifies every operation's
+    Ed25519 signature by reconstructing the canonical signed payload from the
+    stored record. Without a public key the chain store has no key material,
+    so signatures are NOT cryptographically re-verified.
     """
     chain = _get_chain(chain_dir)
-    result = chain.verify()
+
+    pk_b64: Optional[str] = None
+    if pubkey:
+        pk_path = Path(pubkey).expanduser()
+        if pk_path.exists():
+            try:
+                key_data = json.loads(pk_path.read_text())
+                pk_b64 = key_data.get("public_key") or key_data.get("public_key_b64")
+                if not pk_b64:
+                    console.print(
+                        "[red]Key file has no public_key/public_key_b64 field[/red]"
+                    )
+                    raise typer.Exit(2)
+            except json.JSONDecodeError:
+                console.print(f"[red]Could not parse key file: {pubkey}[/red]")
+                raise typer.Exit(2)
+        else:
+            pk_b64 = pubkey
+
+    result = chain.verify(public_key=pk_b64)
+
+    if pk_b64:
+        sig_line = f"Signatures: {result.get('signatures_verified', 0)} verified"
+        unver = result.get("signatures_unverifiable", 0)
+        if unver:
+            sig_line += f", {unver} unverifiable (no signed timestamp on record)"
+    else:
+        sig_line = (
+            "[yellow]Signatures NOT re-verified[/yellow] "
+            "(structure/links only — pass --pubkey to re-verify crypto)"
+        )
 
     if result["valid"]:
         console.print(
@@ -397,6 +400,7 @@ def chain_verify_cmd(
                 f"[bold green]Chain VALID[/bold green]\n"
                 f"Length: {result['length']} operations\n"
                 f"HEAD: {_truncate(result.get('head'), 24)}\n"
+                f"{sig_line}\n"
                 f"Verified: {result.get('verified_at', '')}",
                 title="tc verify",
                 border_style="green",
@@ -408,16 +412,23 @@ def chain_verify_cmd(
             Panel(
                 f"[bold red]Chain INVALID[/bold red]\n"
                 f"Length: {result['length']} operations\n"
-                f"Broken links: {len(broken)}",
+                f"Broken links: {len(broken)}\n"
+                f"{sig_line}",
                 title="tc verify",
                 border_style="red",
             )
         )
         if verbose:
             for bl in broken:
-                console.print(
-                    f"  [red]Break at {bl.get('id', bl.get('index'))}: expected {_truncate(bl.get('expected_parent'), 16)}, got {_truncate(bl.get('actual_parent'), 16)}[/red]"
-                )
+                if bl.get("error") == "invalid_signature":
+                    console.print(
+                        f"  [red]Invalid signature at {bl.get('id', bl.get('index'))}: "
+                        f"{_truncate(bl.get('signature'), 16)}[/red]"
+                    )
+                else:
+                    console.print(
+                        f"  [red]Break at {bl.get('id', bl.get('index'))}: expected {_truncate(bl.get('expected_parent'), 16)}, got {_truncate(bl.get('actual_parent'), 16)}[/red]"
+                    )
         raise typer.Exit(1)
 
 
@@ -577,6 +588,56 @@ def export_cmd(
 
 
 # ── Original commands (preserved) ──
+
+
+@app.command("revert")
+def revert_cmd(
+    op_id: str = typer.Argument(..., help="Operation ID to revert"),
+    reason: str = typer.Option(..., "-m", "--message", help="Reason for reverting"),
+    chain_dir: str = typer.Option(".trustchain", "--dir", "-d", help="Chain directory"),
+):
+    """Revert a previous operation (create a compensatory transaction).
+
+    Examples:
+        tc revert op_0005 -m "Agent hallucinated the database drop"
+    """
+    tc = _get_tc(chain_dir)
+    try:
+        signed_revert = tc.revert(op_id=op_id, reason=reason)
+        console.print(
+            f"[green]Successfully reverted {op_id}. New operation: {signed_revert.signature_id}[/green]"
+        )
+    except Exception as e:
+        console.print(f"[red]Failed to revert: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command(
+    "proxy",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def proxy_cmd(
+    ctx: typer.Context,
+):
+    """Wrap any MCP server in a TrustChain verifiable audit trail.
+
+    Examples:
+        tc proxy -- npx -y @composio/mcp
+        tc proxy -- python my_mcp_server.py
+    """
+    target_cmd = ctx.args
+    if not target_cmd:
+        console.print("[red]Error: You must provide a target MCP command.[/red]")
+        console.print("Example: tc proxy -- npx -y @composio/mcp")
+        raise typer.Exit(1)
+
+    try:
+        from trustchain.integrations.mcp_proxy import run_proxy
+
+        run_proxy(target_cmd)
+    except ImportError as e:
+        console.print(f"[red]Error loading MCP proxy: {e}[/red]")
+        raise typer.Exit(1)
 
 
 @app.command("export-key")
@@ -743,43 +804,68 @@ def config_show(
 @cert_app.command("request")
 def cert_request(
     platform: str = typer.Option(
-        "https://keys.trust-chain.ai",
+        "https://trust-chain.ai",
         "--platform",
         "-p",
-        help="Public registry / onboarding base URL",
+        help="Enrollment base (trust-chain.ai → /api/enroll/*; pub reads from keys.trust-chain.ai)",
     ),
     scope: str = typer.Option(
         "chat,tool_execution",
         "--scope",
         "-s",
-        help="Comma-separated capability labels for the future CSR",
+        help="Comma-separated capability labels for the CSR",
+    ),
+    auto: bool = typer.Option(
+        False,
+        "--auto",
+        help="Automated enrollment via POST /api/enroll/csr (requires --invitation)",
+    ),
+    invitation: str = typer.Option(
+        "",
+        "--invitation",
+        "-i",
+        help="HMAC invitation token from POST /api/enroll/invite",
+    ),
+    save_dir: Path = typer.Option(
+        Path("trustchain_identity"),
+        "--save-dir",
+        "-o",
+        help="Directory for agent.key / agent.crt / ca.pem / root-ca.pem",
     ),
 ):
-    """Print the exact operator steps to obtain an agent leaf cert from Platform CA.
+    """Obtain an agent leaf cert from TrustChain Platform.
 
-    Full automation (local key → CSR → signed PEM) is tracked with TrustChain_Platform
-    admin + public APIs; this command is the **documented entrypoint** so scripts and
-    README stay aligned.
+    Without ``--auto``: prints operator steps and public registry URLs.
+    With ``--auto`` and ``--invitation``: generates Ed25519 key locally,
+    submits CSR to ``POST /api/enroll/csr``, and saves PEM files.
     """
     base = platform.rstrip("/")
+    caps = [c.strip() for c in scope.split(",") if c.strip()]
+
+    if auto:
+        if not invitation.strip():
+            console.print("[red]--auto requires --invitation from tenant admin[/red]")
+            raise typer.Exit(1)
+        _cert_request_auto(base, invitation.strip(), caps, save_dir)
+        return
+
     console.print(
         Panel.fit(
-            "[bold]Листовой сертификат агента — ручной путь (сейчас)[/bold]\n\n"
-            "1. Сгенерируй или переиспользуй ключ Ed25519 для агента (тот же семейство, что и подпись инструментов).\n"
-            "2. В админке TrustChain Platform: зарегистрируй агента и выпусти лист, подписанный промежуточным CA.\n"
-            "3. Скачай PEM: [cyan]agent.crt[/cyan], [cyan]ca.pem[/cyan] (промежуточный), [cyan]root-ca.pem[/cyan].\n"
-            "4. Зафиксируй корень для офлайн-верификаторов (см. TrustChain_Platform docs/PUBLIC_CERT_REGISTRY.md).\n\n"
-            f"[dim]Запрошенный scope (для будущего CSR):[/dim] {scope}\n"
+            "[bold]Листовой сертификат агента[/bold]\n\n"
+            "1. Tenant admin: ``POST /api/enroll/invite`` → invitation token.\n"
+            "2. Агент: ``tc cert request --auto -i <token> -p {base}``\n"
+            "   (локальный Ed25519 → ``POST /api/enroll/csr`` → PEM на диск).\n"
+            "3. Альтернатива: вручную в админке Platform выпустить лист и скачать PEM.\n"
+            "4. Зафиксируй корень для офлайн-верификаторов "
+            "(см. TrustChain_Platform docs/PUBLIC_CERT_REGISTRY.md).\n\n"
+            f"[dim]Scope:[/dim] {scope}\n"
             f"[dim]База реестра:[/dim] {base}",
             title="tc cert request",
         )
     )
     console.print(
-        "\n[bold]Черновик CSR (локально, до публичного enrollment API):[/bold]\n"
-        '  [cyan]openssl req -new -key agent.key -out agent.csr -subj "/O=TrustChain/CN=trustchain-agent"[/cyan]\n'
-        "  Дальше: отправить ``agent.csr`` оператору платформы или в будущий "
-        "``POST …/enroll`` (см. ADR-SEC-003); пока — вручную.\n"
-        f"  Проверка корня реестра: [dim]curl -fsS {base}/api/pub/root-ca | openssl x509 -text -noout[/dim]"
+        "\n[bold]Проверка корня реестра:[/bold]\n"
+        f"  [dim]curl -fsS {base}/api/pub/root-ca | openssl x509 -text -noout[/dim]"
     )
     console.print(
         "\n[dim]Публичные read-only якоря (без API key):[/dim]\n"
@@ -787,10 +873,107 @@ def cert_request(
         f"  GET {base}/api/pub/ca\n"
         f"  GET {base}/api/pub/crl\n"
         f"  GET {base}/api/pub/agents/{{id}}/cert\n"
+        f"  POST {base}/api/enroll/csr  (invitation + public_key_b64)\n"
     )
     console.print(
-        "\n[yellow]Автоматизация:[/yellow] после стабильного публичного enrollment в Platform "
-        "появится неинтерактивный ``POST`` CSR; следи за ADR-SEC-003 в TrustChain_Platform."
+        "\n[dim]Онлайн verify receipt (UC-40):[/dim]\n"
+        f"  POST {base}/api/pub/verify-receipt\n"
+        f"  GET  {base}/api/pub/log/proof/{{op_id}}\n"
+    )
+
+
+def _http_json(method: str, url: str, body: Optional[dict] = None) -> dict:
+    data = None
+    headers = {"Accept": "application/json"}
+    if body is not None:
+        data = json.dumps(body).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _http_text(url: str) -> str:
+    req = urllib.request.Request(url, headers={"Accept": "text/plain"}, method="GET")
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return resp.read().decode("utf-8")
+
+
+def _cert_request_auto(
+    base: str,
+    invitation: str,
+    capabilities: list[str],
+    save_dir: Path,
+) -> None:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding,
+        NoEncryption,
+        PrivateFormat,
+        PublicFormat,
+    )
+
+    private_key = Ed25519PrivateKey.generate()
+    public_key_b64 = base64.b64encode(
+        private_key.public_key().public_bytes(
+            encoding=Encoding.Raw,
+            format=PublicFormat.Raw,
+        )
+    ).decode("ascii")
+
+    try:
+        enroll = _http_json(
+            "POST",
+            f"{base}/api/enroll/csr",
+            {
+                "invitation": invitation,
+                "public_key_b64": public_key_b64,
+                "capabilities": capabilities or None,
+            },
+        )
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        console.print(f"[red]Enrollment failed ({exc.code}):[/red] {detail}")
+        raise typer.Exit(1) from exc
+    except urllib.error.URLError as exc:
+        console.print(f"[red]Cannot reach platform:[/red] {exc.reason}")
+        raise typer.Exit(1) from exc
+
+    agent_id = (enroll.get("agent") or {}).get("agent_id") or enroll.get("agent_id")
+    cert_pem = enroll.get("cert_pem")
+    pub_base = "https://keys.trust-chain.ai" if "trust-chain.ai" in base else base
+    if not cert_pem and agent_id:
+        try:
+            cert_pem = _http_text(f"{pub_base}/api/pub/agents/{agent_id}/cert")
+        except urllib.error.URLError:
+            cert_pem = None
+
+    save_dir.mkdir(parents=True, exist_ok=True)
+    key_pem = private_key.private_bytes(
+        encoding=Encoding.PEM,
+        format=PrivateFormat.PKCS8,
+        encryption_algorithm=NoEncryption(),
+    )
+    (save_dir / "agent.key").write_bytes(key_pem)
+    if cert_pem:
+        (save_dir / "agent.crt").write_text(cert_pem.strip() + "\n", encoding="utf-8")
+    try:
+        (save_dir / "ca.pem").write_text(
+            _http_text(f"{pub_base}/api/pub/ca").strip() + "\n"
+        )
+        (save_dir / "root-ca.pem").write_text(
+            _http_text(f"{pub_base}/api/pub/root-ca").strip() + "\n"
+        )
+    except urllib.error.URLError:
+        pass
+
+    console.print(
+        Panel.fit(
+            f"[green]Enrolled[/green] tenant={enroll.get('tenant_id')} agent={agent_id}\n"
+            f"Saved identity to [cyan]{save_dir.resolve()}[/cyan]\n"
+            "Set APATCH_AGENT_KEY to agent.key and APATCH_AGENT_ID when using apatch bridge.",
+            title="tc cert request --auto",
+        )
     )
 
 
@@ -923,18 +1106,12 @@ def checkpoint_cmd(
     """
     _warn_cli_storage_mismatch()
     chain = _get_chain(chain_dir)
-    h = chain.head()
-    if not h:
-        console.print(
-            "[red]HEAD is empty — nothing to checkpoint. Sign at least one operation first.[/red]"
-        )
+    try:
+        h = chain.checkpoint(name)
+        console.print(f"[green]checkpoint[/green] {name} → HEAD {h[:40]}…")
+    except Exception as e:
+        console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
-    root = _effective_chain_dir(chain_dir)
-    seg = _safe_ref_segment(name)
-    path = root / "refs" / "checkpoints" / f"{seg}.ref"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(h.strip() + "\n", encoding="utf-8")
-    console.print(f"[green]checkpoint[/green] {seg} → HEAD {h[:40]}…")
 
 
 @app.command("tag")
@@ -945,16 +1122,12 @@ def tag_cmd(
     """Сохранить текущий HEAD в ``refs/tags/<name>.ref`` (как лёгкий git tag)."""
     _warn_cli_storage_mismatch()
     chain = _get_chain(chain_dir)
-    h = chain.head()
-    if not h:
-        console.print("[red]HEAD is empty — сначала подпиши операцию.[/red]")
+    try:
+        h = chain.tag(name)
+        console.print(f"[green]tag[/green] {name} → HEAD {h[:40]}…")
+    except Exception as e:
+        console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
-    root = _effective_chain_dir(chain_dir)
-    seg = _safe_ref_segment(name)
-    path = root / "refs" / "tags" / f"{seg}.ref"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(h.strip() + "\n", encoding="utf-8")
-    console.print(f"[green]tag[/green] {seg} → HEAD {h[:40]}…")
 
 
 @app.command("branch")
@@ -967,16 +1140,12 @@ def branch_cmd(
     """Create ``refs/heads/<name>.ref`` pointing at the current HEAD (cheap branch pointer)."""
     _warn_cli_storage_mismatch()
     chain = _get_chain(chain_dir)
-    h = chain.head()
-    if not h:
-        console.print("[red]HEAD is empty — create commits before branching.[/red]")
+    try:
+        h = chain.branch(name)
+        console.print(f"[green]branch[/green] {name} @ HEAD {h[:40]}…")
+    except Exception as e:
+        console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
-    root = _effective_chain_dir(chain_dir)
-    seg = _safe_ref_segment(name)
-    path = root / "refs" / "heads" / f"{seg}.ref"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(h.strip() + "\n", encoding="utf-8")
-    console.print(f"[green]branch[/green] {seg} @ HEAD {h[:40]}…")
 
 
 @app.command("checkout")
@@ -998,62 +1167,25 @@ def checkout_cmd(
     """
     _warn_cli_storage_mismatch()
     chain = _get_chain(chain_dir)
-    if getattr(chain, "_vlog", None):
-        console.print("[red]tc checkout не поддержан для verifiable / PG chain.[/red]")
-        raise typer.Exit(1)
-
-    root = _effective_chain_dir(chain_dir)
-    seg = _safe_ref_segment(name)
-    ref_path = root / "refs" / "heads" / f"{seg}.ref"
-    if not ref_path.is_file():
-        console.print(f"[red]Нет refs/heads/{seg}.ref — сначала tc branch {seg}[/red]")
-        raise typer.Exit(1)
-
-    lines = ref_path.read_text(encoding="utf-8").strip().splitlines()
-    tip_sig = (lines[0] if lines else "").strip()
-    if not tip_sig:
-        console.print(f"[red]Пустой ref {ref_path.name}[/red]")
-        raise typer.Exit(1)
-
     max_scan = int(os.environ.get("TC_RESET_MAX_SCAN", "50000"))
-    chrono = chain.log(limit=max_scan, offset=0)
-    sig_map = _signature_to_op_map([o for o in chrono if isinstance(o, dict)])
-    if tip_sig not in sig_map:
-        console.print(
-            "[red]Подпись из ref не найдена среди операций цепи.[/red]\n"
-            "[dim]Увеличь TC_RESET_MAX_SCAN или обнови ветку (tc branch).[/dim]"
-        )
-        raise typer.Exit(1)
 
-    op = sig_map[tip_sig]
-    op_id = str(op.get("id", "?"))
-
-    if dry_run:
-        console.print(
-            Panel.fit(
-                f"Ветка [bold]{seg}[/bold] → {op_id}\nHEAD …{tip_sig[:48]}…",
-                title="tc checkout --dry-run",
+    try:
+        res = chain.checkout(name, dry_run=dry_run, max_scan=max_scan)
+        if dry_run:
+            console.print(
+                Panel.fit(
+                    f"Ветка [bold]{res['branch']}[/bold] → {res['op_id']}\nHEAD …{res['head'][:48]}…",
+                    title="tc checkout --dry-run",
+                )
             )
-        )
-        return
-
-    old = chain.head() or ""
-    head_path = root / "HEAD"
-    head_path.parent.mkdir(parents=True, exist_ok=True)
-    head_path.write_text(tip_sig + "\n", encoding="utf-8")
-
-    reflog = root / "reflog.txt"
-    line = (
-        f"{datetime.now(timezone.utc).isoformat()}\tcheckout\t{seg}\t"
-        f"{old[:64]}\t{tip_sig[:64]}\t{op_id}\n"
-    )
-    with reflog.open("a", encoding="utf-8") as rf:
-        rf.write(line)
-
-    console.print(
-        f"[green]checkout[/green] {seg} → {op_id}  HEAD …{tip_sig[:40]}…\n"
-        f"[dim]Строка в reflog.txt[/dim]"
-    )
+        else:
+            console.print(
+                f"[green]checkout[/green] {res['branch']} → {res['op_id']}  HEAD …{res['head'][:40]}…\n"
+                f"[dim]Строка в reflog.txt[/dim]"
+            )
+    except Exception as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
 
 
 @app.command("refs")
@@ -1061,44 +1193,26 @@ def refs_cmd(
     chain_dir: str = typer.Option(".trustchain", "--dir", "-d", help="Chain directory"),
 ):
     """List checkpoint and heads ref files (first line = HEAD signature)."""
-    root = _effective_chain_dir(chain_dir)
-    if not root.exists():
-        console.print(f"[red]No chain at {root}[/red]")
+    chain = _get_chain(chain_dir)
+    try:
+        refs = chain.list_refs()
+    except Exception as e:
+        console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
+
     table = Table(title="refs", show_header=True, header_style="bold")
     table.add_column("kind", style="cyan")
     table.add_column("name", style="white")
     table.add_column("HEAD (trunc)", style="dim")
 
-    for kind, sub in (
-        ("checkpoint", "refs/checkpoints"),
-        ("tag", "refs/tags"),
-        ("head", "refs/heads"),
-    ):
-        d = root / sub
-        if not d.is_dir():
-            continue
-        for f in sorted(d.glob("*.ref")):
-            try:
-                txt = f.read_text(encoding="utf-8").strip().splitlines()
-                tip = (txt[0] if txt else "")[:48]
-            except OSError:
-                tip = "?"
-            table.add_row(kind, f.stem, tip + ("…" if len(tip) == 48 else ""))
+    has_refs = False
+    for kind in ["checkpoint", "tag", "head", "v3"]:
+        for ref in refs.get(kind, []):
+            tip = ref["head"][:48]
+            table.add_row(kind, ref["name"], tip + ("…" if len(tip) == 48 else ""))
+            has_refs = True
 
-    v3d = root / "refs" / "v3"
-    if v3d.is_dir():
-        for f in sorted(v3d.iterdir()):
-            if not f.is_file():
-                continue
-            try:
-                txt = f.read_text(encoding="utf-8").strip().splitlines()
-                tip = (txt[0] if txt else "")[:48]
-            except OSError:
-                tip = "?"
-            table.add_row("v3", f.name, tip + ("…" if len(tip) == 48 else ""))
-
-    if table.row_count == 0:
+    if not has_refs:
         console.print("[dim]No refs/checkpoints or refs/heads/*.ref yet.[/dim]")
     else:
         console.print(table)
@@ -1137,191 +1251,43 @@ def reset_cmd(
 
     _warn_cli_storage_mismatch()
     chain = _get_chain(chain_dir)
-    if getattr(chain, "_vlog", None):
-        console.print(
-            "[red]tc reset is not supported for this chain backend (verifiable / PG).[/red]\n"
-            "[dim]Use a file-only .trustchain/ from ``tc init`` + file ChainStore.[/dim]"
-        )
-        raise typer.Exit(1)
-
-    root = _effective_chain_dir(chain_dir)
-    target_id = op.strip()
-    if not target_id or target_id.upper() == "HEAD":
-        console.print("[red]Pass a concrete op id (e.g. op_0002), not HEAD.[/red]")
-        raise typer.Exit(1)
-
-    shown = chain.show(target_id)
-    if not isinstance(shown, dict):
-        console.print(f"[red]Operation not found: {target_id!r}[/red]")
-        raise typer.Exit(1)
-
     max_scan = int(os.environ.get("TC_RESET_MAX_SCAN", "50000"))
-    chrono = chain.log(limit=max_scan, offset=0)
-    if len(chrono) >= max_scan:
-        console.print(
-            f"[yellow]Warning:[/yellow] only scanned first {max_scan} ops "
-            "(raise TC_RESET_MAX_SCAN if needed)."
+
+    try:
+        res = chain.reset(op, soft=soft, dry_run=dry_run, max_scan=max_scan)
+
+        if not res["changed"]:
+            console.print(
+                Panel.fit(
+                    f"[bold]Already at[/bold] {res['target_id']}\nHEAD already points to this commit.",
+                    title="tc reset",
+                )
+            )
+            return
+
+        summary = (
+            f"HEAD … → {res['new_head'][:48]}…\n"
+            f"Цель: [bold]{res['target_id']}[/bold]\n"
+            f"[dim]Записи после цели в objects/:[/dim] {res['detached_count']} — "
+            f"{', '.join(res['detached_ids'][:12])}"
+            + (" …" if res["detached_count"] > 12 else "")
         )
 
-    tip_sig = chain.head()
-    if not tip_sig:
-        console.print("[red]HEAD is empty — nothing to reset.[/red]")
-        raise typer.Exit(1)
+        if dry_run:
+            console.print(Panel.fit(summary, title="tc reset --dry-run"))
+            if soft:
+                console.print("[dim]Убери --dry-run чтобы применить --soft.[/dim]")
+            return
 
-    sig_map = _signature_to_op_map([o for o in chrono if isinstance(o, dict)])
-    if tip_sig not in sig_map:
-        console.print(
-            "[red]HEAD signature not found among scanned operations.[/red]\n"
-            "[dim]Try ``tc chain-verify``, increase TC_RESET_MAX_SCAN, or repair HEAD.[/dim]"
-        )
-        raise typer.Exit(1)
-
-    detach_ids, target_op = _detach_ids_tip_down_to_target(sig_map, tip_sig, target_id)
-    if target_op is None:
-        console.print(
-            f"[red]{target_id!r} is not on the ancestry path from current HEAD[/red]\n"
-            "[dim]Only reset to an ancestor of the tip (linear parent_signature chain).[/dim]"
-        )
-        raise typer.Exit(1)
-
-    new_head = target_op.get("signature")
-    if not isinstance(new_head, str) or not new_head:
-        console.print("[red]Target op has no signature[/red]")
-        raise typer.Exit(1)
-
-    if not detach_ids:
         console.print(
             Panel.fit(
-                f"[bold]Already at[/bold] {target_id}\nHEAD already points to this commit.",
-                title="tc reset",
+                summary + "\n\n[green]HEAD[/green] и строка в reflog.txt",
+                title="tc reset --soft",
             )
         )
-        return
-
-    summary = (
-        f"HEAD {tip_sig[:48]}… → {new_head[:48]}…\n"
-        f"Цель: [bold]{target_id}[/bold]\n"
-        f"[dim]Записи после цели в objects/:[/dim] {len(detach_ids)} — "
-        f"{', '.join(detach_ids[:12])}" + (" …" if len(detach_ids) > 12 else "")
-    )
-
-    if dry_run:
-        console.print(Panel.fit(summary, title="tc reset --dry-run"))
-        if soft:
-            console.print("[dim]Убери --dry-run чтобы применить --soft.[/dim]")
-        return
-
-    # --soft
-    head_path = root / "HEAD"
-    head_path.parent.mkdir(parents=True, exist_ok=True)
-    old_tip = tip_sig
-    head_path.write_text(new_head.strip() + "\n", encoding="utf-8")
-
-    reflog = root / "reflog.txt"
-    line = (
-        f"{datetime.now(timezone.utc).isoformat()}\treset-soft\t"
-        f"{old_tip[:64]}\t{new_head[:64]}\t{target_id}\tafter={len(detach_ids)}\n"
-    )
-    with reflog.open("a", encoding="utf-8") as rf:
-        rf.write(line)
-
-    console.print(
-        Panel.fit(
-            summary + "\n\n[green]HEAD[/green] и строка в reflog.txt",
-            title="tc reset --soft",
-        )
-    )
-
-
-@app.command("revert")
-def revert_cmd(
-    op: str = typer.Argument(
-        "HEAD",
-        metavar="[OP|HEAD]",
-        help="HEAD = newest operation; else concrete op id from ``tc log``",
-    ),
-    chain_dir: str = typer.Option(".trustchain", "--dir", "-d", help="Chain directory"),
-    dry_run: bool = typer.Option(
-        False,
-        "--dry-run",
-        help="Print reverse mapping only; do not sign",
-    ),
-    reverse_tool: Optional[str] = typer.Option(
-        None,
-        "--reverse-tool",
-        "-r",
-        help="Override reverse tool id (skips reversibles.json / registry lookup)",
-    ),
-):
-    """Append a signed **revert_intent** row (does not execute the reverse tool).
-
-    Resolve ``forward_tool → reverse_tool`` via ``trustchain.v3.compensations`` or
-    ``.trustchain/reversibles.json``. Your agent/runtime must still invoke the
-    reverse tool to apply compensating side-effects.
-    """
-    _warn_cli_storage_mismatch()
-    chain = _get_chain(chain_dir)
-    root = _effective_chain_dir(chain_dir)
-
-    target: Optional[dict] = None
-    sel = (op or "HEAD").strip()
-    if sel.upper() == "HEAD":
-        ops = chain.log_reverse(limit=1)
-        target = ops[0] if ops else None
-    else:
-        shown = chain.show(sel)
-        if isinstance(shown, dict):
-            target = shown
-        else:
-            for row in chain.log_reverse(limit=2000):
-                if isinstance(row, dict) and row.get("id") == sel:
-                    target = row
-                    break
-
-    if not target or not isinstance(target, dict):
-        console.print(f"[red]Operation not found: {sel!r}[/red]")
+    except Exception as e:
+        console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
-
-    forward_tool = str(target.get("tool") or target.get("tool_id") or "").strip()
-    if not forward_tool:
-        console.print("[red]Target op has no tool id[/red]")
-        raise typer.Exit(1)
-
-    rev = (reverse_tool or "").strip() or reverse_tool_for_chain(root, forward_tool)
-    if not rev:
-        console.print(
-            f"[red]No reverse tool for {forward_tool!r}.[/red]\n"
-            "[dim]Add .trustchain/reversibles.json (JSON object: forward_tool_id → reverse_tool_id) "
-            "or pass --reverse-tool.[/dim]\n"
-            "[dim]In-process: trustchain.v3.compensations.register_reversible(...)[/dim]"
-        )
-        raise typer.Exit(1)
-
-    if dry_run:
-        console.print(
-            Panel.fit(
-                f"[bold]Would sign[/bold] tool_id={rev!r}\n"
-                f"forward_tool={forward_tool!r}\n"
-                f"revert_of={target.get('id')!r}",
-                title="tc revert --dry-run",
-            )
-        )
-        return
-
-    tc = _get_tc(chain_dir)
-    out = tc.sign(
-        rev,
-        {
-            "kind": "revert_intent",
-            "revert_of": target.get("id"),
-            "forward_tool": forward_tool,
-            "note": "tc revert — execute reverse tool in runtime for real undo",
-        },
-    )
-    console.print(
-        f"[green]revert_intent signed[/green] reverse_tool={rev!r} revert_of={target.get('id')!r} "
-        f"sig={str(out.signature)[:40]}…"
-    )
 
 
 @app.command("version")
@@ -1715,32 +1681,6 @@ anchor_app = typer.Typer(
 )
 
 
-def _chain_anchor_document(chain_dir: str) -> dict[str, Any]:
-    chain = _get_chain(chain_dir)
-    verify_result = chain.verify()
-    ops = chain.log(limit=999999)
-    canonical = json.dumps(
-        ops,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-        default=str,
-    ).encode("utf-8")
-    root = _effective_chain_dir(chain_dir)
-    return {
-        "format": "tc-anchor",
-        "version": 1,
-        "profile": "trustchain.anchor.chain-head.v1",
-        "exported_at": datetime.now(timezone.utc).isoformat(),
-        "chain_dir": str(root),
-        "length": len(ops),
-        "head": verify_result.get("head"),
-        "chain_valid": bool(verify_result.get("valid")),
-        "chain_sha256": hashlib.sha256(canonical).hexdigest(),
-        "merkle_root": getattr(chain, "merkle_root", None),
-    }
-
-
 @anchor_app.command("export")
 def anchor_export(
     output: Optional[Path] = typer.Option(
@@ -1754,7 +1694,9 @@ def anchor_export(
     S3 object lock, transparency log, timestamping service, or a customer system.
     Later, `tc anchor verify` can prove the local chain still matches that anchor.
     """
-    document = _chain_anchor_document(chain_dir)
+    chain = _get_chain(chain_dir)
+    document = chain.generate_anchor()
+
     if not document["chain_valid"]:
         console.print("[red]Cannot anchor an invalid chain. Run tc chain-verify.[/red]")
         raise typer.Exit(2)
@@ -1785,7 +1727,7 @@ def anchor_verify(
         console.print("[red]Not a TrustChain anchor v1 document[/red]")
         raise typer.Exit(1)
 
-    current = _chain_anchor_document(chain_dir)
+    current = _get_chain(chain_dir).generate_anchor()
     checks = {
         "head": anchor.get("head") == current.get("head"),
         "length": anchor.get("length") == current.get("length"),

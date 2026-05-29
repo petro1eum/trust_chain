@@ -8,13 +8,15 @@
 - Standards export: `tc standards export --format scitt|w3c-vc|intoto`, plus `trustchain.standards.*` Python adapters  
 - Chain anchoring: `tc anchor export` / `tc anchor verify` for external chain-head checkpoints  
 - Tool PKI: `ToolCertificate`, `ToolRegistry`, source-code hash checks, local certificate store  
-- Merkle / verifiable log modes (Postgres backend optional)  
+- Merkle / verifiable log modes (Postgres backend optional); `tc chain-verify --pubkey` re-verifies Ed25519 signatures  
+- Basic `ReasoningChain` (signed reasoning steps + `export_json`)  
+- `policy_hooks` (lightweight validation callbacks); bare-key by default (no CA bootstrap)  
 - Integrations: LangChain, MCP, FastAPI, Pydantic v2, OpenTelemetry  
 
 ## Pro — `trustchain-pro` (commercial)
 
 - **License:** Ed25519 v2 token (`TRUSTCHAIN_PRO_LICENSE`); issue via `tc-license print-dev-token` (dev) or license server.  
-- **Modules:** PolicyEngine, StreamingReasoningChain, Redis HA nonces, ExecutionGraph, TSA, FactSeal, KMS helpers, ComplianceReport, Analytics, Airgap, ChainExplorer HTML export.  
+- **Modules:** PolicyEngine (YAML governance), StreamingReasoningChain, Redis HA nonces, ExecutionGraph, TSA, FactSeal, KMS helpers, ComplianceReport, Analytics, Airgap, ChainExplorer HTML/PDF export + reasoning HTML audit reports (`export_reasoning_html`).  
 - **Note:** LangChain / MCP adapters, `.tcreceipt`, standards exports, Tool PKI, and basic anchoring ship in **OSS**; Pro adds governance, reporting, scheduled workflows, and enterprise hardening on top.
 
 ## SaaS — `TrustChain_Platform`

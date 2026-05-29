@@ -1,0 +1,29 @@
+{
+  "envelope": {
+    "data": {
+      "company": "Acme Corp",
+      "filing": "10-K",
+      "fiscal_year": 2025,
+      "revenue_usd": 4812300000
+    },
+    "nonce": "a0b44204-aead-4e22-a00a-660d2f1f03c4",
+    "parent_signature": null,
+    "signature": "2z5kt0pLaU3ubXhQjQX4TdoUc67tPxO42OSmog39H+JzrS6OUbQItP1/INJJ2h+u+ipWnob83qWmMoBWeovUDw==",
+    "signature_id": "2e2ad2f1-0535-4d4a-bf56-cd6526bf7297",
+    "timestamp": 1779224344.932846,
+    "tool_id": "sec_filing_lookup"
+  },
+  "format": "tcreceipt",
+  "issued_at": "2026-05-19T20:59:04Z",
+  "key": {
+    "algorithm": "ed25519",
+    "key_id": "e1826f38-cb38-4660-a293-905f43c24204",
+    "public_key_b64": "J7hXj+em6BC++kb+wtHmQh0RZXKX0FwhN1z6DYlZ7A4="
+  },
+  "summary": {
+    "signature_short": "2z5kt0pL…",
+    "timestamp_iso": "2026-05-19T20:59:04Z",
+    "tool_id": "sec_filing_lookup"
+  },
+  "version": 1
+}

@@ -21,8 +21,9 @@ Example:
     # Verify entire chain
     assert rc.verify()  # True
 
-    # Export for audit
-    rc.export_html("reasoning_audit.html")
+    # Export machine-readable audit data (OSS)
+    rc.export_json("reasoning_audit.json")
+    # Rendered HTML/PDF audit reports are a TrustChain Pro feature.
 """
 
 from __future__ import annotations
@@ -79,9 +80,9 @@ class ReasoningChain:
         # Verify chain integrity
         assert rc.verify()  # All signatures valid and linked
 
-        # Export for compliance
-        rc.export_html("audit.html")
+        # Export machine-readable audit data (OSS)
         rc.export_json("audit.json")
+        # Rendered HTML/PDF audit reports are a TrustChain Pro feature.
     """
 
     def __init__(
@@ -315,143 +316,20 @@ class ReasoningChain:
         return data
 
     def export_html(self, filepath: str) -> None:
+        """Export reasoning chain as an interactive HTML/audit report.
+
+        HTML/PDF audit exports are a TrustChain Pro feature. The OSS core
+        provides the verifiable reasoning chain itself plus ``export_json()``
+        for machine-readable audit data.
         """
-        Export reasoning chain as interactive HTML report.
-
-        Args:
-            filepath: Path to save HTML file
-        """
-        chain_data = self.export_json()
-        verified = chain_data["verified"]
-
-        html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Reasoning Chain: {self.name}</title>
-    <style>
-        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0f0f1a;
-            color: #e0e0e0;
-            padding: 2rem;
-            line-height: 1.6;
-        }}
-        .container {{ max-width: 900px; margin: 0 auto; }}
-        h1 {{ color: #818cf8; margin-bottom: 0.5rem; }}
-        .status {{
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 4px;
-            font-weight: 600;
-            margin-bottom: 2rem;
-        }}
-        .verified {{ background: #065f46; color: #34d399; }}
-        .failed {{ background: #7f1d1d; color: #fca5a5; }}
-        .step {{
-            background: #1a1a2e;
-            border: 1px solid #2a2a4a;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            position: relative;
-        }}
-        .step::before {{
-            content: '';
-            position: absolute;
-            left: 50%;
-            top: -1rem;
-            width: 2px;
-            height: 1rem;
-            background: #818cf8;
-        }}
-        .step:first-child::before {{ display: none; }}
-        .step-header {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }}
-        .step-num {{
-            background: #818cf8;
-            color: white;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-        }}
-        .step-content {{ color: #e0e0e0; }}
-        .signature {{
-            font-family: monospace;
-            font-size: 0.75rem;
-            color: #6b7280;
-            margin-top: 1rem;
-            word-break: break-all;
-        }}
-        .conclusion {{
-            background: linear-gradient(135deg, #1e3a5f, #1a1a2e);
-            border: 2px solid #818cf8;
-        }}
-        .chain-link {{
-            text-align: center;
-            color: #818cf8;
-            font-size: 1.5rem;
-            margin: 0.5rem 0;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🧠 Reasoning Chain: {self.name}</h1>
-        <div class="status {'verified' if verified else 'failed'}">
-            {'✅ VERIFIED' if verified else '❌ VERIFICATION FAILED'}
-        </div>
-
-        <div class="steps">
-"""
-
-        for step in self.steps:
-            html += f"""
-            <div class="step">
-                <div class="step-header">
-                    <div class="step-num">{step.index}</div>
-                    <span style="color: #6b7280;">Reasoning Step</span>
-                </div>
-                <div class="step-content">{step.content}</div>
-                <div class="signature">
-                    🔐 {step.signature[:50]}...
-                </div>
-            </div>
-            <div class="chain-link">⬇️</div>
-"""
-
-        if self.conclusion:
-            html += f"""
-            <div class="step conclusion">
-                <div class="step-header">
-                    <div class="step-num">✓</div>
-                    <span style="color: #818cf8;">Conclusion</span>
-                </div>
-                <div class="step-content">{self.conclusion.content}</div>
-                <div class="signature">
-                    🔐 {self.conclusion.signature[:50]}...
-                </div>
-            </div>
-"""
-
-        html += """
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-        with open(filepath, "w") as f:
-            f.write(html)
+        raise ImportError(
+            "HTML/PDF audit export for reasoning chains requires TrustChain Pro.\n\n"
+            "The OSS core provides the signed reasoning chain and "
+            "ReasoningChain.export_json() for machine-readable audit data.\n"
+            "For rendered HTML/PDF audit reports, use TrustChain Pro:\n"
+            "    from trustchain_pro.enterprise.exports import export_reasoning_html\n"
+            "Upgrade at https://trustchain.dev/pro"
+        )
 
     def __len__(self) -> int:
         return len(self.steps)

@@ -6,7 +6,7 @@ import functools
 import json
 import os
 import time
-from typing import Any, Callable, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
 
 from trustchain.utils.exceptions import NonceReplayError
 
@@ -18,7 +18,20 @@ from .pg_verifiable_log import PostgresVerifiableChainStore
 from .signer import SignedResponse, Signer
 from .storage import FileStorage, MemoryStorage, Storage
 from .verifiable_log import VerifiableChainStore
-from .x509_pki import AgentCertificate, TrustChainCA
+
+if TYPE_CHECKING:
+    # X.509 PKI / internal CA is a TrustChain Platform (Enterprise) capability.
+    # It is imported lazily so the OSS core has no hard dependency on it and
+    # operates with bare Ed25519 public keys by default.
+    from .x509_pki import AgentCertificate, TrustChainCA
+
+# Message shown when CA/PKI features are used without enable_pki.
+_PKI_ENTERPRISE_MSG = (
+    "X.509 CA / certificate issuance is a TrustChain Platform (Enterprise) "
+    "feature. The OSS core operates with bare Ed25519 public keys. "
+    "Set TrustChainConfig(enable_pki=True) to run your own CA, or use "
+    "TrustChain Platform to issue and verify agent certificates."
+)
 
 # Sentinel: distinguishes "auto-chain from HEAD" (default) from
 # "explicitly no parent" (None, e.g. first step in a session).
@@ -38,10 +51,11 @@ class TrustChain:
         # Git-like chain persistence
         self.chain: ChainStore = self._create_chain_store()
 
-        # X.509 PKI: bootstrap CA hierarchy + issue agent cert
-        self._root_ca: Optional[TrustChainCA] = None
-        self._intermediate_ca: Optional[TrustChainCA] = None
-        self._agent_cert: Optional[AgentCertificate] = None
+        # X.509 PKI: bootstrap CA hierarchy + issue agent cert.
+        # Disabled by default in OSS (bare-key mode); see _PKI_ENTERPRISE_MSG.
+        self._root_ca: Optional["TrustChainCA"] = None
+        self._intermediate_ca: Optional["TrustChainCA"] = None
+        self._agent_cert: Optional["AgentCertificate"] = None
         if self.config.enable_pki:
             self._bootstrap_pki()
 
@@ -179,9 +193,14 @@ class TrustChain:
           4. Issues a short-lived agent cert (1hr default)
 
         This gives every TrustChain instance a verifiable X.509 identity.
+
+        Note: the internal CA is a TrustChain Platform (Enterprise) capability.
+        It only runs when enable_pki=True is set explicitly.
         """
         import uuid
         from pathlib import Path
+
+        from .x509_pki import TrustChainCA
 
         pki_dir = Path(self.config.chain_dir).expanduser().resolve() / "pki"
         pki_dir.mkdir(parents=True, exist_ok=True)
@@ -226,17 +245,17 @@ class TrustChain:
         )
 
     @property
-    def agent_cert(self) -> Optional[AgentCertificate]:
+    def agent_cert(self) -> Optional["AgentCertificate"]:
         """X.509 certificate for this agent instance (short-lived)."""
         return self._agent_cert
 
     @property
-    def pki_root_ca(self) -> Optional[TrustChainCA]:
+    def pki_root_ca(self) -> Optional["TrustChainCA"]:
         """Root CA of the PKI hierarchy."""
         return self._root_ca
 
     @property
-    def pki_intermediate_ca(self) -> Optional[TrustChainCA]:
+    def pki_intermediate_ca(self) -> Optional["TrustChainCA"]:
         """Intermediate CA that issues agent certificates."""
         return self._intermediate_ca
 
@@ -248,7 +267,7 @@ class TrustChain:
         tool_versions: Optional[Dict[str, str]] = None,
         capabilities: Optional[list] = None,
         validity_hours: Optional[int] = None,
-    ) -> AgentCertificate:
+    ) -> "AgentCertificate":
         """Issue a new agent certificate from the Intermediate CA.
 
         Use this to issue certs for other agents or services.
@@ -265,9 +284,7 @@ class TrustChain:
             AgentCertificate with private key for signing
         """
         if not self._intermediate_ca:
-            raise RuntimeError(
-                "PKI not enabled. Set enable_pki=True in TrustChainConfig."
-            )
+            raise RuntimeError(_PKI_ENTERPRISE_MSG)
         return self._intermediate_ca.issue_agent_cert(
             agent_id=agent_id,
             model_hash=model_hash,
@@ -286,7 +303,7 @@ class TrustChain:
         tool_versions: Optional[Dict[str, str]] = None,
         capabilities: Optional[list] = None,
         validity_hours: Optional[int] = None,
-    ) -> AgentCertificate:
+    ) -> "AgentCertificate":
         """Spawn a sub-agent with B+ delegated trust.
 
         The Platform CA issues a cert for the sub-agent with
@@ -309,7 +326,7 @@ class TrustChain:
             AgentCertificate for the sub-agent
         """
         if not self._intermediate_ca:
-            raise RuntimeError("PKI not enabled.")
+            raise RuntimeError(_PKI_ENTERPRISE_MSG)
         if not self._agent_cert:
             raise RuntimeError("No agent cert — cannot spawn sub-agent.")
 
@@ -324,14 +341,14 @@ class TrustChain:
             parent_serial=self._agent_cert.serial_number,
         )
 
-    def revoke_agent(self, cert: AgentCertificate, reason: str = "revoked") -> None:
+    def revoke_agent(self, cert: "AgentCertificate", reason: str = "revoked") -> None:
         """Revoke an agent certificate (red button).
 
         After revocation, the agent cert will fail verification.
         B+ cascading: all sub-agents of this agent also become invalid.
         """
         if not self._intermediate_ca:
-            raise RuntimeError("PKI not enabled.")
+            raise RuntimeError(_PKI_ENTERPRISE_MSG)
         self._intermediate_ca.revoke(cert.serial_number, reason)
 
     def tool(self, tool_id: str, **options) -> Callable:
@@ -379,6 +396,7 @@ class TrustChain:
         data: Any,
         metadata: Optional[Dict[str, Any]] = None,
         parent_signature=_UNSET,
+        parent_signatures: Optional[list[str]] = None,
         latency_ms: float = 0,
         session_id: Optional[str] = None,
     ) -> SignedResponse:
@@ -391,12 +409,16 @@ class TrustChain:
           - None: explicitly no parent (first step in a session)
           - str: use this exact parent signature
 
+        parent_signatures behaviour:
+          - list[str]: explicit multiple parents for DAG merges
+
         Args:
             tool_id: Identifier for this signed data
             data: Data to sign
             metadata: Optional metadata to include
             parent_signature: Parent signature for chaining. Omit for
                 auto-chaining, pass None for no parent.
+            parent_signatures: Multiple parents for DAG merges
             latency_ms: Tool execution latency (for analytics)
             session_id: Session ID for ref tracking
 
@@ -404,11 +426,15 @@ class TrustChain:
             SignedResponse with cryptographic signature
         """
         # Auto-chain: use chain HEAD only if parent was not specified at all
-        if parent_signature is _UNSET:
+        # and no explicit parent_signatures list was provided
+        if parent_signature is _UNSET and parent_signatures is None:
             if self.config.enable_chain:
                 parent_signature = self.chain.parent_signature()
             else:
                 parent_signature = None
+        elif parent_signature is _UNSET:
+            # If parent_signatures is provided but parent_signature is _UNSET, clear it
+            parent_signature = None
 
         # Generate nonce if enabled
         nonce = None
@@ -421,6 +447,7 @@ class TrustChain:
             data=data,
             nonce=nonce,
             parent_signature=parent_signature,
+            parent_signatures=parent_signatures,
             metadata=metadata,
             certificate=self.config.certificate,
         )
@@ -436,6 +463,7 @@ class TrustChain:
                 signature_id=signed.signature_id,
                 nonce=signed.nonce,
                 parent_signature=signed.parent_signature,
+                parent_signatures=signed.parent_signatures,
                 key_id=self._signer.get_key_id(),
                 algorithm=self.config.algorithm,
                 latency_ms=latency_ms,
@@ -446,6 +474,45 @@ class TrustChain:
             )
 
         return signed
+
+    def revert(
+        self,
+        op_id: str,
+        reason: str,
+        session_id: Optional[str] = None,
+    ) -> SignedResponse:
+        """Create a compensatory transaction to revert a previous action.
+
+        This implements 'Undo for AI' by appending a new commit that explicitly
+        invalidates a previous action, preserving the cryptographic audit trail
+        (as required for financial clearing/forensics).
+
+        Args:
+            op_id: The ID of the operation to revert (e.g. 'op_0001').
+            reason: The reason for reverting the action.
+            session_id: Optional session tracking.
+
+        Returns:
+            SignedResponse containing the revert action.
+        """
+        if not self.config.enable_chain:
+            raise ValueError("Cannot revert without an enabled chain storage.")
+
+        target_op = self.chain.show(op_id)
+        if not target_op:
+            raise ValueError(f"Cannot revert: Operation {op_id} not found in chain.")
+
+        data = {
+            "action": "revert",
+            "target_op": op_id,
+            "reason": reason,
+        }
+
+        return self.sign(
+            tool_id="tc_revert",
+            data=data,
+            session_id=session_id,
+        )
 
     def session(
         self,
@@ -563,10 +630,10 @@ class TrustChain:
         if self.config.enable_nonce and response.timestamp:
             now = time.time()
             if response.timestamp > now + 30:
-                response._verified = False
+                object.__setattr__(response, "_verified", False)
                 return False
             if now - response.timestamp > self.config.nonce_ttl:
-                response._verified = False
+                object.__setattr__(response, "_verified", False)
                 return False
 
         # Check nonce for replay protection (if enabled)
@@ -584,7 +651,7 @@ class TrustChain:
         is_valid = self._signer.verify(response)
 
         # Cache verification result
-        response._verified = is_valid
+        object.__setattr__(response, "_verified", is_valid)
 
         return is_valid
 
