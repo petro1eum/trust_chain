@@ -84,8 +84,12 @@ class TrustChainConfig:
         None  # {"owner": "...", "organization": "...", "tier": "community|pro|enterprise"}
     )
 
-    # X.509 PKI for AI Agents
-    enable_pki: bool = True  # Auto-bootstrap Root CA + issue agent cert
+    # X.509 PKI for AI Agents.
+    # OSS default: disabled — the core operates with bare Ed25519 public keys.
+    # The internal CA hierarchy (Root/Intermediate + leaf issuance) is a
+    # TrustChain Platform (Enterprise) capability; OSS users who run their own
+    # CA can still opt in by setting enable_pki=True.
+    enable_pki: bool = False  # Bare-key by default; CA issuance is Enterprise
     pki_agent_id: str = ""  # Agent CN (auto-generated if empty)
     pki_validity_hours: int = 1  # Short-lived agent cert validity
     pki_organization: str = "TrustChain"  # X.509 Organization name

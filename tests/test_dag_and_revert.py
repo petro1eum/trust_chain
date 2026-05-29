@@ -1,3 +1,5 @@
+import dataclasses
+
 import pytest
 
 from trustchain import TrustChain, TrustChainConfig
@@ -17,11 +19,25 @@ def test_dag_merge(tmp_path):
     sig2 = tc.sign("tool_b", {"result": "B"}, parent_signature=None)
 
     # Orchestrator merges them
-    tc.sign(
+    merge = tc.sign(
         "orchestrator",
         {"action": "merge"},
         parent_signatures=[sig1.signature, sig2.signature],
     )
+
+    # parent_signatures must be carried on the response itself
+    assert merge.parent_signatures == [sig1.signature, sig2.signature]
+
+    # ...and must be cryptographically covered by the signature, not just
+    # recorded. Use the pure signer verify path (no nonce side-effects).
+    assert tc._signer.verify(merge) is True
+
+    # Tampering with the declared parents breaks verification — proof that the
+    # DAG merge links are inside the signed payload.
+    tampered = dataclasses.replace(
+        merge, parent_signatures=[sig1.signature, "forged-parent"]
+    )
+    assert tc._signer.verify(tampered) is False
 
     # Verify the chain integrity (DAG check)
     result = tc.chain.verify()
@@ -30,6 +46,11 @@ def test_dag_merge(tmp_path):
     # Log should contain 3 operations
     ops = tc.chain.log(limit=10)
     assert len(ops) == 3
+
+    # The merge op must persist its multiple parents in the chain log.
+    merge_op = ops[-1]
+    assert merge_op["tool"] == "orchestrator"
+    assert merge_op.get("parent_signatures") == [sig1.signature, sig2.signature]
 
 
 def test_revert_operation(tmp_path):

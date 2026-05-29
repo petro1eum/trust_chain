@@ -49,6 +49,47 @@ def _safe_ref_segment(name: str) -> str:
     return s[:120]
 
 
+def reconstruct_signed_response(record: Dict[str, Any]):
+    """Rebuild a :class:`SignedResponse` from a persisted chain record.
+
+    The signed Ed25519 payload covers the *float* ``response_timestamp`` (not
+    the rounded ISO ``timestamp``), so that field is required to reconstruct
+    the canonical bytes byte-for-byte. Returns ``None`` if the record lacks the
+    data needed to re-verify the signature.
+    """
+    from .signer import SignedResponse
+
+    if "response_timestamp" not in record:
+        # Pre-3.x records did not persist the exact signed timestamp, so the
+        # signature cannot be cryptographically re-derived from storage.
+        return None
+
+    return SignedResponse(
+        tool_id=record.get("tool", ""),
+        data=record.get("data"),
+        signature=record.get("signature", ""),
+        timestamp=float(record["response_timestamp"]),
+        nonce=record.get("nonce"),
+        parent_signature=record.get("parent_signature"),
+        parent_signatures=record.get("parent_signatures"),
+        metadata=record.get("metadata"),
+        certificate=record.get("certificate"),
+        tsa_proof=record.get("tsa_proof"),
+    )
+
+
+def verify_record_signature(record: Dict[str, Any], verifier) -> Optional[bool]:
+    """Re-verify a single chain record's Ed25519 signature.
+
+    Returns ``True``/``False`` for a verifiable record, or ``None`` when the
+    record cannot be reconstructed (and therefore cannot be re-verified).
+    """
+    signed = reconstruct_signed_response(record)
+    if signed is None:
+        return None
+    return bool(verifier.verify(signed).valid)
+
+
 def _signature_to_op_map(ops: List[dict]) -> dict[str, dict]:
     m: dict[str, dict] = {}
     for o in ops:
@@ -155,6 +196,7 @@ class ChainStore:
                 signature=signature,
                 signature_id=signature_id,
                 parent_hash=parent_signature,
+                parent_signatures=parent_signatures,
                 key_id=key_id,
                 algorithm=algorithm,
                 latency_ms=latency_ms,
@@ -259,14 +301,29 @@ class ChainStore:
         ]
         return results[:limit]
 
-    def verify(self) -> Dict[str, Any]:
+    def verify(self, public_key: Optional[str] = None) -> Dict[str, Any]:
         """Verify the integrity of the entire chain (like `git fsck`).
 
-        With VerifiableChainStore: O(1) Merkle root comparison.
-        Without: O(n) linear chain walk.
+        Structural checks (always run):
+          * each ``parent_signature`` / ``parent_signatures`` link references
+            an earlier operation in the chain/DAG.
+
+        Cryptographic checks (only when ``public_key`` is provided):
+          * each operation's Ed25519 signature is re-verified against the
+            base64 signer ``public_key`` by reconstructing the canonical
+            payload from the stored record. Without a public key the chain
+            store has no key material, so signatures are NOT re-verified —
+            the result then reflects link/structure integrity only.
+
+        With VerifiableChainStore/Postgres: O(1) Merkle root comparison plus
+        optional per-record signature re-verification.
         """
         if self._vlog:
-            return self._vlog.verify()  # type: ignore[no-any-return]
+            try:
+                return self._vlog.verify(public_key=public_key)  # type: ignore[call-arg,no-any-return]
+            except TypeError:
+                # Backend without signature re-verification support.
+                return self._vlog.verify()  # type: ignore[no-any-return]
 
         all_ops = self.log(limit=999999)
         broken = []
@@ -277,8 +334,36 @@ class ChainStore:
                 "length": 0,
                 "head": None,
                 "broken_links": [],
+                "signatures_verified": 0,
+                "signatures_checked": bool(public_key),
                 "verified_at": datetime.now(timezone.utc).isoformat(),
             }
+
+        # Optional cryptographic re-verification of every record's signature.
+        verifier = None
+        sigs_verified = 0
+        sigs_unverifiable = 0
+        if public_key:
+            from .verifier import TrustChainVerifier
+
+            # Chain records are persistent and may be arbitrarily old; disable
+            # the freshness/age window for re-verification.
+            verifier = TrustChainVerifier(public_key, max_age_seconds=None)
+            for op in all_ops:
+                res = verify_record_signature(op, verifier)
+                if res is True:
+                    sigs_verified += 1
+                elif res is None:
+                    sigs_unverifiable += 1
+                else:
+                    broken.append(
+                        {
+                            "index": all_ops.index(op),
+                            "id": op.get("id"),
+                            "error": "invalid_signature",
+                            "signature": op.get("signature"),
+                        }
+                    )
 
         for i in range(1, len(all_ops)):
             all_ops[i - 1].get("signature")
@@ -326,6 +411,9 @@ class ChainStore:
             "length": len(all_ops),
             "head": all_ops[-1].get("signature") if all_ops else None,
             "broken_links": broken,
+            "signatures_checked": bool(public_key),
+            "signatures_verified": sigs_verified,
+            "signatures_unverifiable": sigs_unverifiable,
             "verified_at": datetime.now(timezone.utc).isoformat(),
         }
 

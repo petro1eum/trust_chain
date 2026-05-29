@@ -254,6 +254,7 @@ class PostgresVerifiableChainStore:
         metadata: dict[str, Any] | None = None,
         response_timestamp: float | None = None,
         certificate: dict[str, Any] | None = None,
+        parent_signatures: list[str] | None = None,
     ) -> dict:
         """Append an operation to the verifiable log (PG transactional).
 
@@ -266,6 +267,12 @@ class PostgresVerifiableChainStore:
         pool = self._get_pool()
         with self._lock:
             timestamp = datetime.now(timezone.utc).isoformat()
+
+            # The value passed by ChainStore.commit() as parent_hash is the
+            # signer's actual parent_signature (may be None). Capture it before
+            # we substitute the Merkle root, so signature re-verification can
+            # reconstruct the canonical payload byte-for-byte.
+            signed_parent = parent_hash
 
             if parent_hash is None and self._merkle_tree is not None:
                 parent_hash = self._merkle_tree.root
@@ -299,6 +306,12 @@ class PostgresVerifiableChainStore:
                         "nonce": nonce,
                         "metadata": metadata or {},
                     }
+                    # Persist the signer's actual parent linkage so the
+                    # signature can be re-verified later (parent_hash above may
+                    # hold the Merkle root rather than the signed parent).
+                    record["parent_signature"] = signed_parent
+                    if parent_signatures is not None:
+                        record["parent_signatures"] = parent_signatures
                     if response_timestamp is not None:
                         record["response_timestamp"] = float(response_timestamp)
                     if certificate is not None:
@@ -458,8 +471,17 @@ class PostgresVerifiableChainStore:
     # Cryptographic verification
     # ══════════════════════════════════════════════════════════════
 
-    def verify(self) -> dict:
-        """Recompute Merkle root from ``record_json`` and compare with HEAD row."""
+    def verify(self, public_key: str | None = None) -> dict:
+        """Verify the log integrity.
+
+        Always: recompute the Merkle root from ``record_json`` and compare it
+        with the stored HEAD root (tamper-evidence over the whole log).
+
+        When ``public_key`` (base64 Ed25519) is provided, additionally
+        re-verify every record's signature by reconstructing the canonical
+        signed payload from the stored record. Without a public key, signatures
+        are NOT re-verified — the result reflects Merkle integrity only.
+        """
         self._get_pool()
         if self._length == 0:
             return {
@@ -467,16 +489,46 @@ class PostgresVerifiableChainStore:
                 "length": 0,
                 "root": None,
                 "method": "empty_chain",
+                "signatures_checked": bool(public_key),
+                "signatures_verified": 0,
                 "verified_at": datetime.now(timezone.utc).isoformat(),
             }
 
-        recomputed_leaves: list[str] = [
-            hash_data(record_json) for record_json in self._iter_log_records()
-        ]
+        record_jsons = list(self._iter_log_records())
+        recomputed_leaves: list[str] = [hash_data(rj) for rj in record_jsons]
         recomputed_tree = MerkleTree.from_leaves(list(recomputed_leaves))
 
         stored_root = self._load_head_root()
         valid = recomputed_tree.root == stored_root
+
+        sigs_verified = 0
+        sigs_unverifiable = 0
+        invalid_signatures: list[dict] = []
+        if public_key:
+            from .chain_store import verify_record_signature
+            from .verifier import TrustChainVerifier
+
+            verifier = TrustChainVerifier(public_key, max_age_seconds=None)
+            for rj in record_jsons:
+                try:
+                    record = json.loads(rj)
+                except Exception:
+                    sigs_unverifiable += 1
+                    continue
+                res = verify_record_signature(record, verifier)
+                if res is True:
+                    sigs_verified += 1
+                elif res is None:
+                    sigs_unverifiable += 1
+                else:
+                    valid = False
+                    invalid_signatures.append(
+                        {
+                            "id": record.get("id"),
+                            "signature": record.get("signature"),
+                            "error": "invalid_signature",
+                        }
+                    )
 
         return {
             "valid": valid,
@@ -484,6 +536,10 @@ class PostgresVerifiableChainStore:
             "stored_root": stored_root,
             "computed_root": recomputed_tree.root,
             "method": "merkle_root_comparison",
+            "signatures_checked": bool(public_key),
+            "signatures_verified": sigs_verified,
+            "signatures_unverifiable": sigs_unverifiable,
+            "invalid_signatures": invalid_signatures,
             "verified_at": datetime.now(timezone.utc).isoformat(),
         }
 

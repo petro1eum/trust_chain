@@ -149,6 +149,7 @@ class VerifiableChainStore:
         metadata: Optional[Dict[str, Any]] = None,
         response_timestamp: Optional[float] = None,
         certificate: Optional[Dict[str, Any]] = None,
+        parent_signatures: Optional[list] = None,
     ) -> dict:
         """Append an operation to the verifiable log.
 
@@ -166,6 +167,11 @@ class VerifiableChainStore:
 
             # Content-addressable ID
             op_id = _content_id(tool, data, timestamp, signature)
+
+            # Capture the signer's actual parent_signature (may be None)
+            # before substituting the Merkle root, so signatures can be
+            # re-verified from the stored record.
+            signed_parent = parent_hash
 
             # Parent = previous Merkle root (or None for genesis)
             if parent_hash is None and self._merkle_tree is not None:
@@ -187,6 +193,9 @@ class VerifiableChainStore:
                 "nonce": nonce,
                 "metadata": metadata or {},
             }
+            record["parent_signature"] = signed_parent
+            if parent_signatures is not None:
+                record["parent_signatures"] = parent_signatures
             if response_timestamp is not None:
                 record["response_timestamp"] = float(response_timestamp)
             if certificate is not None:

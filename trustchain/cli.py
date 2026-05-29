@@ -33,8 +33,11 @@ Usage:
     tc verify response.json         # verify a signed JSON file
 """
 
+import base64
 import json
 import os
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any, Optional
 
@@ -336,14 +339,60 @@ def chain_verify_cmd(
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Show broken links detail"
     ),
+    pubkey: Optional[str] = typer.Option(
+        None,
+        "--pubkey",
+        "-k",
+        help=(
+            "Base64 Ed25519 signer public key (or path to a JSON key file with "
+            "a public_key/public_key_b64 field). When provided, every operation's "
+            "signature is cryptographically re-verified. Without it, only chain "
+            "link/structure integrity is checked."
+        ),
+    ),
 ):
     """Verify chain integrity (like `git fsck`).
 
-    Checks that each operation's parent_signature matches the
-    previous operation's signature.
+    Always checks that each operation's parent_signature(s) reference an
+    earlier operation in the chain/DAG (link/structure integrity).
+
+    When --pubkey is provided, additionally re-verifies every operation's
+    Ed25519 signature by reconstructing the canonical signed payload from the
+    stored record. Without a public key the chain store has no key material,
+    so signatures are NOT cryptographically re-verified.
     """
     chain = _get_chain(chain_dir)
-    result = chain.verify()
+
+    pk_b64: Optional[str] = None
+    if pubkey:
+        pk_path = Path(pubkey).expanduser()
+        if pk_path.exists():
+            try:
+                key_data = json.loads(pk_path.read_text())
+                pk_b64 = key_data.get("public_key") or key_data.get("public_key_b64")
+                if not pk_b64:
+                    console.print(
+                        "[red]Key file has no public_key/public_key_b64 field[/red]"
+                    )
+                    raise typer.Exit(2)
+            except json.JSONDecodeError:
+                console.print(f"[red]Could not parse key file: {pubkey}[/red]")
+                raise typer.Exit(2)
+        else:
+            pk_b64 = pubkey
+
+    result = chain.verify(public_key=pk_b64)
+
+    if pk_b64:
+        sig_line = f"Signatures: {result.get('signatures_verified', 0)} verified"
+        unver = result.get("signatures_unverifiable", 0)
+        if unver:
+            sig_line += f", {unver} unverifiable (no signed timestamp on record)"
+    else:
+        sig_line = (
+            "[yellow]Signatures NOT re-verified[/yellow] "
+            "(structure/links only — pass --pubkey to re-verify crypto)"
+        )
 
     if result["valid"]:
         console.print(
@@ -351,6 +400,7 @@ def chain_verify_cmd(
                 f"[bold green]Chain VALID[/bold green]\n"
                 f"Length: {result['length']} operations\n"
                 f"HEAD: {_truncate(result.get('head'), 24)}\n"
+                f"{sig_line}\n"
                 f"Verified: {result.get('verified_at', '')}",
                 title="tc verify",
                 border_style="green",
@@ -362,16 +412,23 @@ def chain_verify_cmd(
             Panel(
                 f"[bold red]Chain INVALID[/bold red]\n"
                 f"Length: {result['length']} operations\n"
-                f"Broken links: {len(broken)}",
+                f"Broken links: {len(broken)}\n"
+                f"{sig_line}",
                 title="tc verify",
                 border_style="red",
             )
         )
         if verbose:
             for bl in broken:
-                console.print(
-                    f"  [red]Break at {bl.get('id', bl.get('index'))}: expected {_truncate(bl.get('expected_parent'), 16)}, got {_truncate(bl.get('actual_parent'), 16)}[/red]"
-                )
+                if bl.get("error") == "invalid_signature":
+                    console.print(
+                        f"  [red]Invalid signature at {bl.get('id', bl.get('index'))}: "
+                        f"{_truncate(bl.get('signature'), 16)}[/red]"
+                    )
+                else:
+                    console.print(
+                        f"  [red]Break at {bl.get('id', bl.get('index'))}: expected {_truncate(bl.get('expected_parent'), 16)}, got {_truncate(bl.get('actual_parent'), 16)}[/red]"
+                    )
         raise typer.Exit(1)
 
 
@@ -747,43 +804,68 @@ def config_show(
 @cert_app.command("request")
 def cert_request(
     platform: str = typer.Option(
-        "https://keys.trust-chain.ai",
+        "https://trust-chain.ai",
         "--platform",
         "-p",
-        help="Public registry / onboarding base URL",
+        help="Enrollment base (trust-chain.ai → /api/enroll/*; pub reads from keys.trust-chain.ai)",
     ),
     scope: str = typer.Option(
         "chat,tool_execution",
         "--scope",
         "-s",
-        help="Comma-separated capability labels for the future CSR",
+        help="Comma-separated capability labels for the CSR",
+    ),
+    auto: bool = typer.Option(
+        False,
+        "--auto",
+        help="Automated enrollment via POST /api/enroll/csr (requires --invitation)",
+    ),
+    invitation: str = typer.Option(
+        "",
+        "--invitation",
+        "-i",
+        help="HMAC invitation token from POST /api/enroll/invite",
+    ),
+    save_dir: Path = typer.Option(
+        Path("trustchain_identity"),
+        "--save-dir",
+        "-o",
+        help="Directory for agent.key / agent.crt / ca.pem / root-ca.pem",
     ),
 ):
-    """Print the exact operator steps to obtain an agent leaf cert from Platform CA.
+    """Obtain an agent leaf cert from TrustChain Platform.
 
-    Full automation (local key → CSR → signed PEM) is tracked with TrustChain_Platform
-    admin + public APIs; this command is the **documented entrypoint** so scripts and
-    README stay aligned.
+    Without ``--auto``: prints operator steps and public registry URLs.
+    With ``--auto`` and ``--invitation``: generates Ed25519 key locally,
+    submits CSR to ``POST /api/enroll/csr``, and saves PEM files.
     """
     base = platform.rstrip("/")
+    caps = [c.strip() for c in scope.split(",") if c.strip()]
+
+    if auto:
+        if not invitation.strip():
+            console.print("[red]--auto requires --invitation from tenant admin[/red]")
+            raise typer.Exit(1)
+        _cert_request_auto(base, invitation.strip(), caps, save_dir)
+        return
+
     console.print(
         Panel.fit(
-            "[bold]Листовой сертификат агента — ручной путь (сейчас)[/bold]\n\n"
-            "1. Сгенерируй или переиспользуй ключ Ed25519 для агента (тот же семейство, что и подпись инструментов).\n"
-            "2. В админке TrustChain Platform: зарегистрируй агента и выпусти лист, подписанный промежуточным CA.\n"
-            "3. Скачай PEM: [cyan]agent.crt[/cyan], [cyan]ca.pem[/cyan] (промежуточный), [cyan]root-ca.pem[/cyan].\n"
-            "4. Зафиксируй корень для офлайн-верификаторов (см. TrustChain_Platform docs/PUBLIC_CERT_REGISTRY.md).\n\n"
-            f"[dim]Запрошенный scope (для будущего CSR):[/dim] {scope}\n"
+            "[bold]Листовой сертификат агента[/bold]\n\n"
+            "1. Tenant admin: ``POST /api/enroll/invite`` → invitation token.\n"
+            "2. Агент: ``tc cert request --auto -i <token> -p {base}``\n"
+            "   (локальный Ed25519 → ``POST /api/enroll/csr`` → PEM на диск).\n"
+            "3. Альтернатива: вручную в админке Platform выпустить лист и скачать PEM.\n"
+            "4. Зафиксируй корень для офлайн-верификаторов "
+            "(см. TrustChain_Platform docs/PUBLIC_CERT_REGISTRY.md).\n\n"
+            f"[dim]Scope:[/dim] {scope}\n"
             f"[dim]База реестра:[/dim] {base}",
             title="tc cert request",
         )
     )
     console.print(
-        "\n[bold]Черновик CSR (локально, до публичного enrollment API):[/bold]\n"
-        '  [cyan]openssl req -new -key agent.key -out agent.csr -subj "/O=TrustChain/CN=trustchain-agent"[/cyan]\n'
-        "  Дальше: отправить ``agent.csr`` оператору платформы или в будущий "
-        "``POST …/enroll`` (см. ADR-SEC-003); пока — вручную.\n"
-        f"  Проверка корня реестра: [dim]curl -fsS {base}/api/pub/root-ca | openssl x509 -text -noout[/dim]"
+        "\n[bold]Проверка корня реестра:[/bold]\n"
+        f"  [dim]curl -fsS {base}/api/pub/root-ca | openssl x509 -text -noout[/dim]"
     )
     console.print(
         "\n[dim]Публичные read-only якоря (без API key):[/dim]\n"
@@ -791,10 +873,107 @@ def cert_request(
         f"  GET {base}/api/pub/ca\n"
         f"  GET {base}/api/pub/crl\n"
         f"  GET {base}/api/pub/agents/{{id}}/cert\n"
+        f"  POST {base}/api/enroll/csr  (invitation + public_key_b64)\n"
     )
     console.print(
-        "\n[yellow]Автоматизация:[/yellow] после стабильного публичного enrollment в Platform "
-        "появится неинтерактивный ``POST`` CSR; следи за ADR-SEC-003 в TrustChain_Platform."
+        "\n[dim]Онлайн verify receipt (UC-40):[/dim]\n"
+        f"  POST {base}/api/pub/verify-receipt\n"
+        f"  GET  {base}/api/pub/log/proof/{{op_id}}\n"
+    )
+
+
+def _http_json(method: str, url: str, body: Optional[dict] = None) -> dict:
+    data = None
+    headers = {"Accept": "application/json"}
+    if body is not None:
+        data = json.dumps(body).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _http_text(url: str) -> str:
+    req = urllib.request.Request(url, headers={"Accept": "text/plain"}, method="GET")
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return resp.read().decode("utf-8")
+
+
+def _cert_request_auto(
+    base: str,
+    invitation: str,
+    capabilities: list[str],
+    save_dir: Path,
+) -> None:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding,
+        NoEncryption,
+        PrivateFormat,
+        PublicFormat,
+    )
+
+    private_key = Ed25519PrivateKey.generate()
+    public_key_b64 = base64.b64encode(
+        private_key.public_key().public_bytes(
+            encoding=Encoding.Raw,
+            format=PublicFormat.Raw,
+        )
+    ).decode("ascii")
+
+    try:
+        enroll = _http_json(
+            "POST",
+            f"{base}/api/enroll/csr",
+            {
+                "invitation": invitation,
+                "public_key_b64": public_key_b64,
+                "capabilities": capabilities or None,
+            },
+        )
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        console.print(f"[red]Enrollment failed ({exc.code}):[/red] {detail}")
+        raise typer.Exit(1) from exc
+    except urllib.error.URLError as exc:
+        console.print(f"[red]Cannot reach platform:[/red] {exc.reason}")
+        raise typer.Exit(1) from exc
+
+    agent_id = (enroll.get("agent") or {}).get("agent_id") or enroll.get("agent_id")
+    cert_pem = enroll.get("cert_pem")
+    pub_base = "https://keys.trust-chain.ai" if "trust-chain.ai" in base else base
+    if not cert_pem and agent_id:
+        try:
+            cert_pem = _http_text(f"{pub_base}/api/pub/agents/{agent_id}/cert")
+        except urllib.error.URLError:
+            cert_pem = None
+
+    save_dir.mkdir(parents=True, exist_ok=True)
+    key_pem = private_key.private_bytes(
+        encoding=Encoding.PEM,
+        format=PrivateFormat.PKCS8,
+        encryption_algorithm=NoEncryption(),
+    )
+    (save_dir / "agent.key").write_bytes(key_pem)
+    if cert_pem:
+        (save_dir / "agent.crt").write_text(cert_pem.strip() + "\n", encoding="utf-8")
+    try:
+        (save_dir / "ca.pem").write_text(
+            _http_text(f"{pub_base}/api/pub/ca").strip() + "\n"
+        )
+        (save_dir / "root-ca.pem").write_text(
+            _http_text(f"{pub_base}/api/pub/root-ca").strip() + "\n"
+        )
+    except urllib.error.URLError:
+        pass
+
+    console.print(
+        Panel.fit(
+            f"[green]Enrolled[/green] tenant={enroll.get('tenant_id')} agent={agent_id}\n"
+            f"Saved identity to [cyan]{save_dir.resolve()}[/cyan]\n"
+            "Set APATCH_AGENT_KEY to agent.key and APATCH_AGENT_ID when using apatch bridge.",
+            title="tc cert request --auto",
+        )
     )
 
 

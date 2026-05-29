@@ -120,6 +120,7 @@ class TrustChainVerifier:
                 timestamp=response.timestamp,
                 nonce=response.nonce,
                 parent_signature=response.parent_signature,
+                parent_signatures=response.parent_signatures,
                 metadata=response.metadata,
                 certificate=response.certificate,
                 tsa_proof=response.tsa_proof,

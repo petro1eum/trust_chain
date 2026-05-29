@@ -128,13 +128,17 @@ class Signer:
         timestamp = time.time()
         resolved_nonce = nonce or str(uuid.uuid4())
 
-        # Create canonical representation
+        # Create canonical representation.
+        # parent_signatures (DAG multi-parent merges) is part of the signed
+        # payload so that merge links are cryptographically protected, not
+        # just recorded.
         canonical_data = _build_canonical_data(
             tool_id=tool_id,
             data=data,
             timestamp=timestamp,
             nonce=resolved_nonce,
             parent_signature=parent_signature,
+            parent_signatures=parent_signatures,
             metadata=metadata,
             certificate=certificate,
             tsa_proof=tsa_proof,
@@ -153,6 +157,7 @@ class Signer:
             timestamp=timestamp,
             nonce=resolved_nonce,
             parent_signature=parent_signature,
+            parent_signatures=parent_signatures,
             metadata=metadata,
             certificate=certificate,
             tsa_proof=tsa_proof,

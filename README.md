@@ -510,17 +510,31 @@ event = TrustEvent.from_signed_response(result, source="/agent/bot")
 kafka_headers = event.to_kafka_headers()
 ```
 
-### Audit Trail UI
+### Audit Trail Export
+
+The OSS core exports machine-readable audit data (JSON) from any chain or
+reasoning trail:
 
 ```python
-from trustchain.ui.explorer import ChainExplorer
+# Session / chain audit data
+session.export_json("audit.json")
+
+# Reasoning chain audit data
+reasoning_chain.export_json("reasoning_audit.json")
+```
+
+Rendered **HTML/PDF audit reports** (the interactive `ChainExplorer` and
+reasoning report) are a **TrustChain Pro** feature:
+
+```python
+# Requires TrustChain Pro
+from trustchain_pro.enterprise.exports import ChainExplorer, export_reasoning_html
 
 explorer = ChainExplorer(chain, tc)
-explorer.export_html("audit_report.html")
+explorer.export_html("audit_report.html")   # interactive HTML
+explorer.export_pdf("audit_report.pdf")     # PDF audit report
 
-# Export formats
-json_data = explorer.to_json()  # Returns list of responses
-stats = explorer.get_stats()     # Summary statistics
+export_reasoning_html(reasoning_chain, "reasoning_audit.html")
 ```
 
 ---
