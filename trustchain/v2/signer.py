@@ -102,6 +102,10 @@ class Signer:
     def __init__(self, algorithm: str = "ed25519"):
         self.algorithm = algorithm
         self.key_id = str(uuid.uuid4())
+        # Hard-KMS provider (HSM / cloud KMS); set only by from_provider().
+        # When present the private seed is NOT in-process and signing is
+        # delegated to provider.sign(). See trustchain.kms.KeyProvider.
+        self._provider = None
 
         if algorithm == "ed25519":
             if not HAS_CRYPTOGRAPHY:
@@ -112,6 +116,16 @@ class Signer:
             self._public_key = self._private_key.public_key()
         else:
             raise ValueError(f"Unsupported algorithm: {algorithm}")
+
+    def _raw_sign(self, payload: bytes) -> bytes:
+        """Produce the raw Ed25519 signature over ``payload``.
+
+        Delegates to the hard-KMS provider when one is wired (the seed never
+        enters this process); otherwise signs with the in-process private key.
+        """
+        if self._provider is not None:
+            return self._provider.sign(payload)
+        return self._private_key.sign(payload)
 
     def sign(
         self,
@@ -147,7 +161,7 @@ class Signer:
         # Serialize to JSON
         json_data = json.dumps(canonical_data, sort_keys=True, separators=(",", ":"))
 
-        signature_bytes = self._private_key.sign(json_data.encode("utf-8"))
+        signature_bytes = self._raw_sign(json_data.encode("utf-8"))
         signature = base64.b64encode(signature_bytes).decode("ascii")
 
         response = SignedResponse(
@@ -211,6 +225,11 @@ class Signer:
         Returns:
             dict with type, key_id, and key material (base64 encoded)
         """
+        if self._private_key is None:
+            raise ValueError(
+                "Cannot export keys from a hard-KMS signer — the private seed "
+                "never leaves the provider (HSM/KMS). Use sign()/verify()."
+            )
         # Export private key in raw format
         private_bytes = self._private_key.private_bytes(
             encoding=serialization.Encoding.Raw,
@@ -237,6 +256,7 @@ class Signer:
         signer = cls.__new__(cls)
         signer.algorithm = key_data.get("algorithm", "ed25519")
         signer.key_id = key_data["key_id"]
+        signer._provider = None
 
         if key_data["type"] == "fallback":
             raise ValueError(
@@ -253,4 +273,30 @@ class Signer:
         else:
             raise ValueError(f"Unknown key type: {key_data['type']}")
 
+        return signer
+
+    @classmethod
+    def from_provider(cls, provider: Any) -> "Signer":
+        """Build a hard-KMS signer that delegates signing to ``provider``.
+
+        For HSM / cloud-KMS keys the private seed never leaves the device, so
+        ``provider.get_seed()`` raises and we cannot construct an in-process
+        private key. Instead we hold only the public key (for verify /
+        get_public_key) and route every signature through ``provider.sign()``.
+
+        ``provider`` must satisfy ``trustchain.kms.KeyProvider`` (at least
+        ``get_public_key`` / ``get_key_id`` / ``sign``).
+        """
+        if not HAS_CRYPTOGRAPHY:
+            raise RuntimeError(
+                "TrustChain requires the 'cryptography' package for Ed25519 signing."
+            )
+        signer = cls.__new__(cls)
+        signer.algorithm = "ed25519"
+        signer.key_id = provider.get_key_id()
+        signer._provider = provider
+        signer._private_key = None
+        signer._public_key = ed25519.Ed25519PublicKey.from_public_bytes(
+            provider.get_public_key()
+        )
         return signer

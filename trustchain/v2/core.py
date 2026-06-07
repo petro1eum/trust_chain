@@ -84,10 +84,19 @@ class TrustChain:
         # (1) Pluggable KeyProvider wins over file/env — enterprise path.
         provider = self.config.key_provider
         if provider is not None:
+            # Soft KMS exposes the seed (key held in-process); hard KMS / HSM
+            # raises KeyProviderError on get_seed() — then we delegate signing
+            # to the provider and the seed never enters this process.
+            from trustchain.kms import KeyProviderError
+
+            try:
+                seed = provider.get_seed()
+            except KeyProviderError:
+                return Signer.from_provider(provider)
             key_data = {
                 "type": "ed25519",
                 "key_id": provider.get_key_id(),
-                "private_key": base64.b64encode(provider.get_seed()).decode("ascii"),
+                "private_key": base64.b64encode(seed).decode("ascii"),
                 "algorithm": "ed25519",
             }
             return Signer.from_keys(key_data)
