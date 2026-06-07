@@ -234,7 +234,12 @@ class TrustChain:
             )
             self._intermediate_ca.save(str(pki_dir))
 
-        # 3. Issue short-lived agent cert for this session
+        # 3. Issue short-lived agent cert for this session.
+        #    Bind the leaf cert to the *signer's* public key so the X.509
+        #    identity certifies the key that actually signs ledger entries.
+        #    Without ``public_key_b64`` the CA would mint a fresh, unrelated
+        #    keypair — the chain to root would verify, but the signatures in
+        #    the ledger would NOT be verifiable against the agent cert.
         agent_id = self.config.pki_agent_id or f"agent-{uuid.uuid4().hex[:8]}"
         self._agent_cert = self._intermediate_ca.issue_agent_cert(
             agent_id=agent_id,
@@ -242,6 +247,7 @@ class TrustChain:
             prompt_hash="",
             validity_hours=self.config.pki_validity_hours,
             organization=org,
+            public_key_b64=self._signer.get_public_key(),
         )
 
     @property

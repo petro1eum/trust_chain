@@ -88,10 +88,29 @@ class InclusionProof:
         )
 
 
+def content_op_id(
+    tool: str, data: Any, signature: str, timestamp: str | None = None
+) -> str:
+    """Content-addressable op_id (full sha256 hex).
+
+    When a ``signature`` is present the id is derived from the *signed payload*
+    (``tool|data|signature``) so any party holding the signed envelope can
+    reproduce it — independent of server wall-clock. This lets a client learn
+    its op_id at submit time (for later inclusion proofs) even though the log
+    is persisted asynchronously. Unsigned/dev records fall back to including
+    ``timestamp`` to preserve uniqueness.
+    """
+    body = f"{tool}|{json.dumps(data, sort_keys=True, default=str)}"
+    if signature:
+        payload = f"{body}|{signature}"
+    else:
+        payload = f"{body}|{timestamp}|{signature}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def _content_id(tool: str, data: Any, timestamp: str, signature: str) -> str:
     """Compute content-addressable ID: полный sha256 hex (без усечения)."""
-    payload = f"{tool}|{json.dumps(data, sort_keys=True, default=str)}|{timestamp}|{signature}"
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return content_op_id(tool, data, signature, timestamp)
 
 
 class VerifiableChainStore:

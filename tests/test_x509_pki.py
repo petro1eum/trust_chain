@@ -743,3 +743,38 @@ class TestSubAgentDelegation:
         result = sub.verify_against(tc.pki_intermediate_ca)
         assert result.valid is False
         assert "PARENT_REVOKED" in result.errors
+
+    def test_agent_cert_certifies_signer_key(self, tmp_path):
+        """Regression: leaf cert must certify the *signer's* public key.
+
+        Before the fix ``_bootstrap_pki`` issued the agent cert without a
+        public key, so the CA minted an unrelated keypair. The chain to root
+        verified, but the keys that signed ledger entries were NOT the keys in
+        the cert — the X.509 identity certified the wrong key, making the
+        anchor decorative.
+        """
+        import base64
+
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+        from trustchain.v2 import TrustChain, TrustChainConfig
+
+        config = TrustChainConfig(
+            chain_dir=str(tmp_path / ".trustchain"),
+            enable_pki=True,
+            pki_agent_id="anchor-agent",
+        )
+        tc = TrustChain(config)
+
+        signer_pub_raw = base64.b64decode(tc._signer.get_public_key())
+        cert_pub_raw = tc.agent_cert.certificate.public_key().public_bytes(
+            Encoding.Raw, PublicFormat.Raw
+        )
+
+        # The leaf cert certifies the exact key the signer uses.
+        assert signer_pub_raw == cert_pub_raw
+
+        # And that leaf still chains to the root of trust.
+        assert (
+            tc.agent_cert.verify_chain([tc.pki_intermediate_ca, tc.pki_root_ca]) is True
+        )
