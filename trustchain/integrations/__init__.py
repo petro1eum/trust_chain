@@ -1,33 +1,49 @@
 """TrustChain Integrations.
 
+Optional framework adapters. LangChain / LangSmith are lazy-loaded so
+``import trustchain`` does not pull langchain_core (important on Python 3.14+).
+
 Available integrations:
 - FastAPI: TrustChainMiddleware, sign_response
 - Flask: TrustChainFlask, sign_response (flask)
 - Django: TrustChainMiddleware (django), sign_response (django)
-- LangChain: to_langchain_tool, to_langchain_tools
-- LangSmith: TrustChainCallbackHandler
+- LangChain: to_langchain_tool, to_langchain_tools (lazy)
+- LangSmith: TrustChainCallbackHandler (lazy)
 - Pydantic v2: TrustChainModel, SignedField, SignedDict
 - OpenTelemetry: TrustChainSpanProcessor, TrustChainInstrumentor
 - MCP: serve_mcp, create_mcp_server
 """
 
-# LangChain (optional)
-try:
-    from .langchain import (
-        TrustChainLangChainTool,
-        to_langchain_tool,
-        to_langchain_tools,
-    )
-except ImportError:
-    to_langchain_tool = None
-    to_langchain_tools = None
-    TrustChainLangChainTool = None
+from __future__ import annotations
 
-# LangSmith (optional)
-try:
-    from .langsmith import TrustChainCallbackHandler
-except ImportError:
-    TrustChainCallbackHandler = None
+import importlib
+from typing import Any
+
+# LangChain / LangSmith — lazy (see __getattr__); avoids langchain_core on import trustchain
+_LAZY_EXPORTS: dict[str, tuple[str, str]] = {
+    "to_langchain_tool": (".langchain", "to_langchain_tool"),
+    "to_langchain_tools": (".langchain", "to_langchain_tools"),
+    "TrustChainLangChainTool": (".langchain", "TrustChainLangChainTool"),
+    "TrustChainCallbackHandler": (".langsmith", "TrustChainCallbackHandler"),
+}
+
+
+def __getattr__(name: str) -> Any:
+    if name in _LAZY_EXPORTS:
+        module, attr = _LAZY_EXPORTS[name]
+        try:
+            mod = importlib.import_module(module, __name__)
+            value = getattr(mod, attr)
+        except ImportError:
+            value = None
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(list(globals().keys()) + list(_LAZY_EXPORTS.keys()) + list(__all__))
+
 
 # Pydantic v2 (optional)
 try:
@@ -127,11 +143,11 @@ __all__ = [
     "django_sign_response",
     "get_public_key_view",
     "sign_drf_response",
-    # LangChain
+    # LangChain (lazy)
     "to_langchain_tool",
     "to_langchain_tools",
     "TrustChainLangChainTool",
-    # LangSmith
+    # LangSmith (lazy)
     "TrustChainCallbackHandler",
     # Pydantic v2
     "TrustChainModel",
