@@ -1,0 +1,21 @@
+# Semantic verify rules (R48) — положите в manifests/semantic-verify.yaml
+
+version: 1
+
+routes:
+  patterns:
+    - '@(app|router)\.(get|post|put|delete|patch|api_route)\([^)]+\)'
+    - '@app\.route\([^)]+\)'
+
+exports:
+  patterns:
+    - 'export\s+(?:async\s+)?function\s+\w+'
+    - 'export\s+(?:type|interface|class)\s+\w+'
+
+events:
+  patterns:
+    - 'class\s+\w+Event\b'
+    - '"event_type"\s*:\s*"[^"]+"'
+
+openapi:
+  path: "openapi.yaml"

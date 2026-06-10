@@ -1,0 +1,5 @@
+{
+  "agent_id": "trustchain-edcher-prod",
+  "key": "/Users/edcher/.apatch/identity/trustchain-prod/agent.key",
+  "cert": "/Users/edcher/.apatch/identity/trustchain-prod/agent.crt"
+}

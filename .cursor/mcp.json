@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "apatch": {
+      "command": "/opt/homebrew/bin/python3.14",
+      "args": [
+        "-m",
+        "apatch.mcp.launcher"
+      ],
+      "env": {
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONUTF8": "1",
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "APATCH_AGENT_ID": "trustchain-edcher-prod",
+        "APATCH_AGENT_KEY": "/Users/edcher/.apatch/identity/trustchain-prod/agent.key",
+        "APATCH_AGENT_CERT": "/Users/edcher/.apatch/identity/trustchain-prod/agent.crt"
+      }
+    }
+  }
+}

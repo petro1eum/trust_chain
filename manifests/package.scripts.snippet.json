@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "apatch:doctor": "apatch doctor",
+    "apatch:plan": "apatch plan --logs patches.jsonl --target-dir . --json",
+    "apatch:apply": "apatch apply --logs patches.jsonl --target-dir . --all -y --verify-deferred",
+    "apatch:strip-dry": "apatch strip -n --strict-overlap --json",
+    "apatch:phase": "apatch phase run --profile frontend --verify npm run build"
+  }
+}

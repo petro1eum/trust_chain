@@ -1,0 +1,30 @@
+---
+description: apatch governed protocol — spec_run (RFP-009), no manual jsonl staging
+alwaysApply: true
+---
+
+# apatch protocol (MCP only)
+
+**First tool:** `apatch_doctor` → read `protocol_contract`, `spec_run`, `spec_execution`.
+
+## Executable spec tasks
+
+| User intent | Tool |
+|-------------|------|
+| Implement / continue **whole** SPEC-X | `apatch_spec_run` (RFP-009) — inline `requirements={Rk: {needles}}` |
+| One requirement / hotfix | `apatch_execute_next(needles=[mutation dicts])` |
+| Inspection / dogfood one Rk | §3I: `spec_next` → `session_start(requirement)` → `generate_batch` → `apply_session` → verify from spec → `attest` |
+
+## Never (humans keep correcting this)
+
+- Hand-write or stage `patches.jsonl` / `manifests/*.run.json` for SPEC workflows
+- `apatch_generate` → save jsonl → `plan_batch` as primary spec path
+- `Write`/`StrReplace` on protected paths (`src/**`, `e2e/**`, `server/**`, `scripts/**`, `docs/specs/**`, …)
+- “Quick fix” bypass in `scripts/*.mjs`, `e2e/*.spec.ts`, or `docs/specs/*.md`
+- `attest` outside the same session as mutations for that Rk
+- N× `execute_next` when `spec_run` can batch the spec
+
+Needles = `{action, target_file, find_text/replace_text | content}` via MCP, not prose.
+`verify_deferred=true` on mutate (default in spec_run).
+
+RFP-009 is embedded in MCP `spec_run` field — not a file in consumer repos.

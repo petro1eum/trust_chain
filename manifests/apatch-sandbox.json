@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "mode": "enforce",
+  "protected_globs": [
+    "trustchain/**",
+    "packages/**"
+  ],
+  "allow_globs": [
+    "docs/**",
+    "manifests/**",
+    "patches/**",
+    "tests/**",
+    "scripts/**",
+    "examples/**",
+    "benchmarks/**",
+    "demo/**",
+    ".apatch/**",
+    ".cursor/**",
+    ".trustchain/**",
+    ".git/**",
+    "**/*.md",
+    "patches.jsonl",
+    "patches-*.jsonl"
+  ],
+  "lease_max_seconds": 300,
+  "cursor_hooks": true,
+  "watcher": "revert",
+  "revert_untracked": true,
+  "mcp_extra_servers": [
+    "cursor-ide-browser"
+  ]
+}
