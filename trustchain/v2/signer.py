@@ -74,6 +74,7 @@ def _build_canonical_data(
     metadata: Optional[Dict[str, Any]] = None,
     certificate: Optional[Dict[str, Any]] = None,
     tsa_proof: Optional[Dict[str, Any]] = None,
+    signature_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build the canonical payload covered by the signature."""
     canonical_data: Dict[str, Any] = {
@@ -84,6 +85,8 @@ def _build_canonical_data(
         "parent_signature": parent_signature,
     }
 
+    if signature_id is not None:
+        canonical_data["signature_id"] = signature_id
     if parent_signatures is not None:
         canonical_data["parent_signatures"] = parent_signatures
     if metadata is not None:
@@ -94,6 +97,28 @@ def _build_canonical_data(
         canonical_data["tsa_proof"] = tsa_proof
 
     return canonical_data
+
+
+def _canonical_json_from_response(
+    response: SignedResponse,
+    *,
+    include_signature_id: bool,
+) -> str:
+    """Serialize canonical payload for verify (legacy omits signature_id)."""
+    sid = response.signature_id if include_signature_id else None
+    canonical_data = _build_canonical_data(
+        tool_id=response.tool_id,
+        data=response.data,
+        timestamp=response.timestamp,
+        nonce=response.nonce,
+        parent_signature=response.parent_signature,
+        parent_signatures=response.parent_signatures,
+        metadata=response.metadata,
+        certificate=response.certificate,
+        tsa_proof=response.tsa_proof,
+        signature_id=sid,
+    )
+    return json.dumps(canonical_data, sort_keys=True, separators=(",", ":"))
 
 
 class Signer:
@@ -141,6 +166,7 @@ class Signer:
         """Sign data and return SignedResponse."""
         timestamp = time.time()
         resolved_nonce = nonce or str(uuid.uuid4())
+        signature_id = str(uuid.uuid4())
 
         # Create canonical representation.
         # parent_signatures (DAG multi-parent merges) is part of the signed
@@ -156,6 +182,7 @@ class Signer:
             metadata=metadata,
             certificate=certificate,
             tsa_proof=tsa_proof,
+            signature_id=signature_id,
         )
 
         # Serialize to JSON
@@ -168,6 +195,7 @@ class Signer:
             tool_id=tool_id,
             data=data,
             signature=signature,
+            signature_id=signature_id,
             timestamp=timestamp,
             nonce=resolved_nonce,
             parent_signature=parent_signature,
@@ -180,32 +208,21 @@ class Signer:
         return response
 
     def verify(self, response: SignedResponse) -> bool:
-        """Verify a signed response."""
+        """Verify a signed response (v3.2+ binds signature_id; legacy without)."""
         try:
-            # Recreate canonical data
-            canonical_data = _build_canonical_data(
-                tool_id=response.tool_id,
-                data=response.data,
-                timestamp=response.timestamp,
-                nonce=response.nonce,
-                parent_signature=response.parent_signature,
-                parent_signatures=response.parent_signatures,
-                metadata=response.metadata,
-                certificate=response.certificate,
-                tsa_proof=response.tsa_proof,
-            )
-
-            # Serialize to JSON
-            json_data = json.dumps(
-                canonical_data, sort_keys=True, separators=(",", ":")
-            )
-
             signature_bytes = base64.b64decode(response.signature)
-            self._public_key.verify(signature_bytes, json_data.encode("utf-8"))
-            return True
-
         except Exception:
             return False
+        for include_sid in (True, False):
+            try:
+                json_data = _canonical_json_from_response(
+                    response, include_signature_id=include_sid
+                )
+                self._public_key.verify(signature_bytes, json_data.encode("utf-8"))
+                return True
+            except Exception:
+                continue
+        return False
 
     def get_public_key(self) -> str:
         """Get the public key in base64 format."""

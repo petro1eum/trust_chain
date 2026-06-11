@@ -698,8 +698,8 @@ class TrustChain:
             if current.parent_signature != previous.signature:
                 return False
 
-            # Verify signature
-            if not self._signer.verify(current):
+            # Verify signature (full verify: nonce + timestamp + crypto)
+            if not self.verify(current):
                 return False
 
         return True

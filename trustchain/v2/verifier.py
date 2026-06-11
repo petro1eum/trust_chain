@@ -17,7 +17,7 @@ try:
 except ImportError:
     HAS_CRYPTOGRAPHY = False
 
-from .signer import SignedResponse, _build_canonical_data
+from .signer import SignedResponse, _canonical_json_from_response
 
 
 @dataclass
@@ -114,32 +114,22 @@ class TrustChainVerifier:
                     raise ValueError("Response timestamp is too old")
 
             # Recreate canonical data (must match signer.py format exactly)
-            canonical_data = _build_canonical_data(
-                tool_id=response.tool_id,
-                data=response.data,
-                timestamp=response.timestamp,
-                nonce=response.nonce,
-                parent_signature=response.parent_signature,
-                parent_signatures=response.parent_signatures,
-                metadata=response.metadata,
-                certificate=response.certificate,
-                tsa_proof=response.tsa_proof,
-            )
-
-            # Serialize to JSON (same format as signer)
-            json_data = json.dumps(
-                canonical_data, sort_keys=True, separators=(",", ":")
-            )
-
-            # Verify signature
             signature_bytes = base64.b64decode(response.signature)
-            self._public_key.verify(signature_bytes, json_data.encode("utf-8"))
-
-            return VerificationResult(
-                valid=True,
-                tool_id=response.tool_id,
-                key_id=self._key_id,
-            )
+            last_error: Exception | None = None
+            for include_sid in (True, False):
+                try:
+                    json_data = _canonical_json_from_response(
+                        response, include_signature_id=include_sid
+                    )
+                    self._public_key.verify(signature_bytes, json_data.encode("utf-8"))
+                    return VerificationResult(
+                        valid=True,
+                        tool_id=response.tool_id,
+                        key_id=self._key_id,
+                    )
+                except Exception as e:
+                    last_error = e
+            raise last_error or ValueError("Verification failed")
 
         except Exception as e:
             return VerificationResult(
