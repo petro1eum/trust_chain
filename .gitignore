@@ -239,3 +239,12 @@ docs/*.pdf
 # Internal docs — not for public repo
 private_docs/
 docs/internal/
+
+# apatch runtime (policy configs committed)
+.apatch/*
+!.apatch/sandbox.json
+!.apatch/enforcement.json
+!.apatch/agent-identity.json
+# apatch strip artifacts (local only)
+extracted/
+**/extraction_report.json

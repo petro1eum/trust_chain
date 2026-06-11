@@ -32,7 +32,40 @@ from trustchain.v2.verifiable_log import (
     InclusionProof,
     VerifiableChainStore,
     _content_id,
+    content_op_id,
 )
+
+
+class TestContentOpId:
+    """op_id is reproducible from the signed envelope (client can precompute)."""
+
+    def test_signed_op_id_independent_of_timestamp(self):
+        a = content_op_id(
+            "apatch", {"x": 1}, "sig_abc", timestamp="2026-01-01T00:00:00"
+        )
+        b = content_op_id(
+            "apatch", {"x": 1}, "sig_abc", timestamp="2026-06-07T19:00:00"
+        )
+        # Same tool/data/signature → same id regardless of server wall-clock.
+        assert a == b
+        assert len(a) == 64
+        int(a, 16)
+
+    def test_different_signature_changes_op_id(self):
+        a = content_op_id("apatch", {"x": 1}, "sig_one")
+        b = content_op_id("apatch", {"x": 1}, "sig_two")
+        assert a != b
+
+    def test_unsigned_falls_back_to_timestamp(self):
+        a = content_op_id("apatch", {"x": 1}, "", timestamp="t1")
+        b = content_op_id("apatch", {"x": 1}, "", timestamp="t2")
+        # Without a signature, timestamp keeps unsigned/dev records unique.
+        assert a != b
+
+    def test_legacy_content_id_matches_signed(self):
+        # _content_id(tool, data, timestamp, signature) delegates to content_op_id.
+        legacy = _content_id("apatch", {"x": 1}, "2026-01-01T00:00:00", "sig_abc")
+        assert legacy == content_op_id("apatch", {"x": 1}, "sig_abc")
 
 
 class TestVerifiableChainStoreBasic:

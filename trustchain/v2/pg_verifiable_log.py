@@ -37,7 +37,6 @@ Cryptographic properties:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import threading
@@ -97,9 +96,15 @@ class InclusionProof:
 
 
 def _content_id(tool: str, data: Any, timestamp: str, signature: str) -> str:
-    """Content-addressable op_id — sha256 hex."""
-    payload = f"{tool}|{json.dumps(data, sort_keys=True, default=str)}|{timestamp}|{signature}"
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    """Content-addressable op_id — sha256 hex.
+
+    Delegates to :func:`trustchain.v2.verifiable_log.content_op_id` so the
+    in-memory and PostgreSQL stores compute identical, signature-reproducible
+    ids (see that function's docstring).
+    """
+    from .verifiable_log import content_op_id
+
+    return content_op_id(tool, data, signature, timestamp)
 
 
 # ── DDL (идемпотентный) ──────────────────────────────────────────────────────

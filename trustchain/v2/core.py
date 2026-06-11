@@ -84,10 +84,19 @@ class TrustChain:
         # (1) Pluggable KeyProvider wins over file/env — enterprise path.
         provider = self.config.key_provider
         if provider is not None:
+            # Soft KMS exposes the seed (key held in-process); hard KMS / HSM
+            # raises KeyProviderError on get_seed() — then we delegate signing
+            # to the provider and the seed never enters this process.
+            from trustchain.kms import KeyProviderError
+
+            try:
+                seed = provider.get_seed()
+            except KeyProviderError:
+                return Signer.from_provider(provider)
             key_data = {
                 "type": "ed25519",
                 "key_id": provider.get_key_id(),
-                "private_key": base64.b64encode(provider.get_seed()).decode("ascii"),
+                "private_key": base64.b64encode(seed).decode("ascii"),
                 "algorithm": "ed25519",
             }
             return Signer.from_keys(key_data)
@@ -234,7 +243,12 @@ class TrustChain:
             )
             self._intermediate_ca.save(str(pki_dir))
 
-        # 3. Issue short-lived agent cert for this session
+        # 3. Issue short-lived agent cert for this session.
+        #    Bind the leaf cert to the *signer's* public key so the X.509
+        #    identity certifies the key that actually signs ledger entries.
+        #    Without ``public_key_b64`` the CA would mint a fresh, unrelated
+        #    keypair — the chain to root would verify, but the signatures in
+        #    the ledger would NOT be verifiable against the agent cert.
         agent_id = self.config.pki_agent_id or f"agent-{uuid.uuid4().hex[:8]}"
         self._agent_cert = self._intermediate_ca.issue_agent_cert(
             agent_id=agent_id,
@@ -242,6 +256,7 @@ class TrustChain:
             prompt_hash="",
             validity_hours=self.config.pki_validity_hours,
             organization=org,
+            public_key_b64=self._signer.get_public_key(),
         )
 
     @property
@@ -683,8 +698,8 @@ class TrustChain:
             if current.parent_signature != previous.signature:
                 return False
 
-            # Verify signature
-            if not self._signer.verify(current):
+            # Verify signature (full verify: nonce + timestamp + crypto)
+            if not self.verify(current):
                 return False
 
         return True

@@ -10,6 +10,18 @@ Telegram: @EdCher
 __version__ = "3.1.0"
 __author__ = "Ed Cherednik"
 
+from trustchain.attribution import (
+    ATTRIBUTION_METADATA_KEY,
+    ATTRIBUTION_SCHEMA_VERSION,
+    AttributionBlock,
+    Dependency,
+    aggregate_consumption,
+    aggregate_vectors,
+    build_attribution_metadata,
+    parse_attribution_metadata,
+    project_share,
+)
+
 # KMS adapters. OSS core ships:
 #   • LocalFileKeyProvider / EnvVarKeyProvider — 12-factor / baseline;
 #   • VaultTransitKeyProvider — real hard-KMS (Ed25519 stays in HashiCorp Vault);
@@ -94,6 +106,16 @@ __all__ = [
     # Chain of Trust
     "ReasoningChain",
     "OnaiDocsTrustClient",
+    # Dependency attribution (provenance layer)
+    "ATTRIBUTION_METADATA_KEY",
+    "ATTRIBUTION_SCHEMA_VERSION",
+    "AttributionBlock",
+    "Dependency",
+    "aggregate_consumption",
+    "aggregate_vectors",
+    "build_attribution_metadata",
+    "parse_attribution_metadata",
+    "project_share",
     # Policy hooks (extensibility)
     "PolicyHook",
     "PolicyHookRegistry",

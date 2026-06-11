@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": ".cursor/hooks/apatch-deny-direct-edit.sh",
+        "matcher": "Write|StrReplace|search_replace|ApplyPatch",
+        "failClosed": true
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": ".cursor/hooks/apatch-deny-shell-mutate.sh",
+        "matcher": "sed |awk |perl -pi|tee |>|>>",
+        "failClosed": true
+      }
+    ],
+    "beforeMCPExecution": [
+      {
+        "command": ".cursor/hooks/apatch-deny-mcp-mutate.sh",
+        "failClosed": true
+      }
+    ]
+  }
+}

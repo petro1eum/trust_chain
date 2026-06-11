@@ -140,3 +140,19 @@ class TrustChainConfig:
                     stacklevel=3,
                 )
                 self.chain_storage = "memory"
+
+        # ADR-SEC-005: in-memory nonce store is not safe for multi-instance production.
+        if self.enable_nonce and self.nonce_backend == "memory":
+            if os.environ.get("TC_STRICT_NONCE", "").lower() in ("1", "true", "yes"):
+                raise RuntimeError(
+                    "nonce_backend='memory' is forbidden when TC_STRICT_NONCE=1. "
+                    "Use nonce_backend='redis' with redis_url or disable enable_nonce."
+                )
+            if os.environ.get("TC_ENVIRONMENT", "").strip().lower() == "production":
+                warnings.warn(
+                    "nonce_backend='memory' in production allows replay across restarts "
+                    "and does not work across instances. Use redis + TRUSTCHAIN_REDIS_URL "
+                    "or set TC_STRICT_NONCE=1 to fail-closed.",
+                    RuntimeWarning,
+                    stacklevel=3,
+                )

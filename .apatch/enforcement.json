@@ -1,0 +1,11 @@
+{
+  "mode": "strict",
+  "governed_mode": "strict",
+  "policy": "Политика репозитория: любое изменение исходного кода (ИИ, скрипты, агент) обязано сопровождаться криптографической подписью Ed25519 в .trustchain/ (chain/block_*.json или objects/*.json). Правки без подписи — нелегитимны и блокируются.",
+  "block_commit_without_proof": true,
+  "require_trustchain_on_apply": true,
+  "fail_apply_if_notarization_fails": true,
+  "incremental_notarization": true,
+  "require_ed25519_block_on_disk": true,
+  "enabled_at": "2026-06-09T23:41:49.916598+00:00"
+}

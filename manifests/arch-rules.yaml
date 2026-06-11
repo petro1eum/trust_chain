@@ -1,0 +1,25 @@
+# Пример архитектурных правил для apatch arch check (R44)
+# Положите в manifests/arch-rules.yaml в consumer-репозитории
+
+version: 1
+
+forbidden_imports:
+  - from: "sales/**"
+    to: "auth/**"
+    message: "sales must not import auth directly; use shared contracts"
+
+layer_rules:
+  - layer: frontend
+    paths: ["frontend/**", "src/ui/**", "src/pages/**"]
+    may_import: ["shared/**", "src/api/**", "src/hooks/**"]
+  - layer: backend
+    paths: ["backend/**", "app/**", "src/server/**"]
+    may_import: ["shared/**", "domain/**"]
+  - rule: "frontend cannot import backend"
+
+service_rules:
+  - id: no_cross_db_access
+    description: "One DB session factory per service module"
+    pattern: "create_engine|SessionLocal|async_sessionmaker"
+    max_per_file: 1
+    paths: ["**/services/**", "**/repositories/**"]

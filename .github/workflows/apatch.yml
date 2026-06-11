@@ -1,0 +1,71 @@
+# Copy to consumer repo: .github/workflows/apatch.yml
+# Or: apatch init-consumer --with-ci
+name: apatch
+
+on:
+  pull_request:
+    paths:
+      - "**/*.py"
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "patches.jsonl"
+      - "manifests/**"
+      - ".apatch/**"
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install apatch
+        run: pip install "apatch[mcp,languages] @ git+https://github.com/petro1eum/apatch.git"
+      - name: Doctor
+        run: apatch doctor --json
+      - name: Plan patches (if patches.jsonl exists)
+        if: hashFiles('patches.jsonl') != ''
+        run: |
+          apatch plan --logs patches.jsonl --target-dir . --json > plan.json
+          python3 -c "
+          import json, sys
+          data = json.load(open('plan.json'))
+          failed = [e for e in data.get('entries', data) if not e.get('would_apply', True)]
+          if failed:
+              print('apatch plan: some steps would not apply', file=sys.stderr)
+              sys.exit(1)
+          "
+      - name: Strip dry-run (if manifests changed)
+        if: hashFiles('manifests/**') != ''
+        run: |
+          echo "Add project-specific strip -n commands for changed manifests"
+
+  sandbox-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install apatch
+        run: pip install "apatch[mcp] @ git+https://github.com/petro1eum/apatch.git"
+      - name: Sandbox + notarization CI gate
+        run: |
+          OUT="$(mktemp)"
+          apatch sandbox ci-gate --target-dir . --json >"$OUT"
+          python3 -c "
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          if d.get('skipped'):
+              print('ci-gate: skipped (no sandbox/enforcement)')
+              sys.exit(0)
+          if not d.get('ok'):
+              n = d.get('notarization') or {}
+              print(d.get('reason') or 'ci-gate failed', file=sys.stderr)
+              p = n.get('rejection_prompt') or n.get('agent_message')
+              if p:
+                  print(p, file=sys.stderr)
+              sys.exit(1)
+          print('ci-gate: passed')
+          " "$OUT"

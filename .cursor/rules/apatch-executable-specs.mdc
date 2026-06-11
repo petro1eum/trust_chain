@@ -1,0 +1,28 @@
+---
+description: Executable specifications (RFP-007) — format and MCP workflow for apatch agents
+globs: docs/specs/**/*.md
+alwaysApply: false
+---
+
+# Executable specs in this repo
+
+**Discover requirements:** `apatch_doctor` → fields `spec_authoring`, `spec_execution`, `spec_run`.
+**Do not guess** SPEC.md format.
+
+## Authoring (enforced by `apatch_spec_lint`)
+
+- H1: `# SPEC-<ID> — Title` — first token is the id
+- Block: `> **apatch artifact:** \`spec:SPEC-<ID>\`` — same id as H1
+- Requirements: `## R1 <title>`, `## R2`, …
+- Each Rk: `(verify: <cmd>)` — requirement-specific pytest/node, not one global `npm run build`
+
+## Workflows
+
+| Scope | MCP |
+|-------|-----|
+| Lint | `apatch_spec_lint(spec='SPEC-<ID>')` |
+| One Rk | `apatch_execute_next(needles=[mutation dicts])` |
+| Whole spec | `apatch_spec_run(requirements={Rk: {needles: [...]}})` |
+
+Needles = `{action, target_file, find_text/replace_text | content}` — not prose hints.
+`verify_deferred=true` on mutate (default) — else chunk verify rolls back patches.

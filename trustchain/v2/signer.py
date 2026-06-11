@@ -74,6 +74,7 @@ def _build_canonical_data(
     metadata: Optional[Dict[str, Any]] = None,
     certificate: Optional[Dict[str, Any]] = None,
     tsa_proof: Optional[Dict[str, Any]] = None,
+    signature_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build the canonical payload covered by the signature."""
     canonical_data: Dict[str, Any] = {
@@ -84,6 +85,8 @@ def _build_canonical_data(
         "parent_signature": parent_signature,
     }
 
+    if signature_id is not None:
+        canonical_data["signature_id"] = signature_id
     if parent_signatures is not None:
         canonical_data["parent_signatures"] = parent_signatures
     if metadata is not None:
@@ -96,12 +99,38 @@ def _build_canonical_data(
     return canonical_data
 
 
+def _canonical_json_from_response(
+    response: SignedResponse,
+    *,
+    include_signature_id: bool,
+) -> str:
+    """Serialize canonical payload for verify (legacy omits signature_id)."""
+    sid = response.signature_id if include_signature_id else None
+    canonical_data = _build_canonical_data(
+        tool_id=response.tool_id,
+        data=response.data,
+        timestamp=response.timestamp,
+        nonce=response.nonce,
+        parent_signature=response.parent_signature,
+        parent_signatures=response.parent_signatures,
+        metadata=response.metadata,
+        certificate=response.certificate,
+        tsa_proof=response.tsa_proof,
+        signature_id=sid,
+    )
+    return json.dumps(canonical_data, sort_keys=True, separators=(",", ":"))
+
+
 class Signer:
     """Simple signer for Ed25519 signatures."""
 
     def __init__(self, algorithm: str = "ed25519"):
         self.algorithm = algorithm
         self.key_id = str(uuid.uuid4())
+        # Hard-KMS provider (HSM / cloud KMS); set only by from_provider().
+        # When present the private seed is NOT in-process and signing is
+        # delegated to provider.sign(). See trustchain.kms.KeyProvider.
+        self._provider = None
 
         if algorithm == "ed25519":
             if not HAS_CRYPTOGRAPHY:
@@ -112,6 +141,16 @@ class Signer:
             self._public_key = self._private_key.public_key()
         else:
             raise ValueError(f"Unsupported algorithm: {algorithm}")
+
+    def _raw_sign(self, payload: bytes) -> bytes:
+        """Produce the raw Ed25519 signature over ``payload``.
+
+        Delegates to the hard-KMS provider when one is wired (the seed never
+        enters this process); otherwise signs with the in-process private key.
+        """
+        if self._provider is not None:
+            return self._provider.sign(payload)
+        return self._private_key.sign(payload)
 
     def sign(
         self,
@@ -127,6 +166,7 @@ class Signer:
         """Sign data and return SignedResponse."""
         timestamp = time.time()
         resolved_nonce = nonce or str(uuid.uuid4())
+        signature_id = str(uuid.uuid4())
 
         # Create canonical representation.
         # parent_signatures (DAG multi-parent merges) is part of the signed
@@ -142,18 +182,20 @@ class Signer:
             metadata=metadata,
             certificate=certificate,
             tsa_proof=tsa_proof,
+            signature_id=signature_id,
         )
 
         # Serialize to JSON
         json_data = json.dumps(canonical_data, sort_keys=True, separators=(",", ":"))
 
-        signature_bytes = self._private_key.sign(json_data.encode("utf-8"))
+        signature_bytes = self._raw_sign(json_data.encode("utf-8"))
         signature = base64.b64encode(signature_bytes).decode("ascii")
 
         response = SignedResponse(
             tool_id=tool_id,
             data=data,
             signature=signature,
+            signature_id=signature_id,
             timestamp=timestamp,
             nonce=resolved_nonce,
             parent_signature=parent_signature,
@@ -166,32 +208,21 @@ class Signer:
         return response
 
     def verify(self, response: SignedResponse) -> bool:
-        """Verify a signed response."""
+        """Verify a signed response (v3.2+ binds signature_id; legacy without)."""
         try:
-            # Recreate canonical data
-            canonical_data = _build_canonical_data(
-                tool_id=response.tool_id,
-                data=response.data,
-                timestamp=response.timestamp,
-                nonce=response.nonce,
-                parent_signature=response.parent_signature,
-                parent_signatures=response.parent_signatures,
-                metadata=response.metadata,
-                certificate=response.certificate,
-                tsa_proof=response.tsa_proof,
-            )
-
-            # Serialize to JSON
-            json_data = json.dumps(
-                canonical_data, sort_keys=True, separators=(",", ":")
-            )
-
             signature_bytes = base64.b64decode(response.signature)
-            self._public_key.verify(signature_bytes, json_data.encode("utf-8"))
-            return True
-
         except Exception:
             return False
+        for include_sid in (True, False):
+            try:
+                json_data = _canonical_json_from_response(
+                    response, include_signature_id=include_sid
+                )
+                self._public_key.verify(signature_bytes, json_data.encode("utf-8"))
+                return True
+            except Exception:
+                continue
+        return False
 
     def get_public_key(self) -> str:
         """Get the public key in base64 format."""
@@ -211,6 +242,11 @@ class Signer:
         Returns:
             dict with type, key_id, and key material (base64 encoded)
         """
+        if self._private_key is None:
+            raise ValueError(
+                "Cannot export keys from a hard-KMS signer — the private seed "
+                "never leaves the provider (HSM/KMS). Use sign()/verify()."
+            )
         # Export private key in raw format
         private_bytes = self._private_key.private_bytes(
             encoding=serialization.Encoding.Raw,
@@ -237,6 +273,7 @@ class Signer:
         signer = cls.__new__(cls)
         signer.algorithm = key_data.get("algorithm", "ed25519")
         signer.key_id = key_data["key_id"]
+        signer._provider = None
 
         if key_data["type"] == "fallback":
             raise ValueError(
@@ -253,4 +290,30 @@ class Signer:
         else:
             raise ValueError(f"Unknown key type: {key_data['type']}")
 
+        return signer
+
+    @classmethod
+    def from_provider(cls, provider: Any) -> "Signer":
+        """Build a hard-KMS signer that delegates signing to ``provider``.
+
+        For HSM / cloud-KMS keys the private seed never leaves the device, so
+        ``provider.get_seed()`` raises and we cannot construct an in-process
+        private key. Instead we hold only the public key (for verify /
+        get_public_key) and route every signature through ``provider.sign()``.
+
+        ``provider`` must satisfy ``trustchain.kms.KeyProvider`` (at least
+        ``get_public_key`` / ``get_key_id`` / ``sign``).
+        """
+        if not HAS_CRYPTOGRAPHY:
+            raise RuntimeError(
+                "TrustChain requires the 'cryptography' package for Ed25519 signing."
+            )
+        signer = cls.__new__(cls)
+        signer.algorithm = "ed25519"
+        signer.key_id = provider.get_key_id()
+        signer._provider = provider
+        signer._private_key = None
+        signer._public_key = ed25519.Ed25519PublicKey.from_public_bytes(
+            provider.get_public_key()
+        )
         return signer

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "kind": "engineering-pipeline",
+  "description": "Unified change pipeline (R52)",
+  "intent": "refactor user model",
+  "adr": "ADR-000",
+  "artifacts": [
+    { "kind": "adr", "id": "ADR-000" },
+    { "kind": "spec", "id": "SPEC-user-model", "ref": "docs/specs/user-model.md" }
+  ],
+  "db_profile": "sqlalchemy",
+  "patches_jsonl": "patches/refactor.jsonl",
+  "change_budget": {
+    "max_files": 30,
+    "max_insertions": 800,
+    "max_deletions": 400
+  },
+  "phases": [
+    {
+      "name": "context",
+      "action": "trustchain_history",
+      "query": "refactor user model",
+      "limit": 5
+    },
+    { "name": "plan", "action": "plan" },
+    {
+      "name": "apply",
+      "action": "apply",
+      "verify": "python3 -m pytest tests/ -q",
+      "verify_deferred": true,
+      "no_trustchain": false
+    },
+    { "name": "semantic", "action": "verify_semantic" },
+    { "name": "db_check", "action": "db_check" },
+    { "name": "db_safety", "action": "db_safety" },
+    { "name": "arch", "action": "arch_check" },
+    { "name": "impact", "action": "impact", "target": "UserModel", "depth": 2 },
+    { "name": "index", "action": "index_build" },
+    {
+      "name": "trustchain",
+      "action": "trustchain_intent",
+      "intent": "refactor user model",
+      "adr": "ADR-000"
+    }
+  ]
+}

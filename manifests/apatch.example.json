@@ -1,0 +1,17 @@
+{
+  "strips": [
+    {
+      "label": "example_handlers",
+      "start": "// --- Example block start ---",
+      "until": "// --- Example block end ---",
+      "replace": "// Stubbed: see extracted/example_handlers.fragment.txt",
+      "export": "example_handlers.fragment.txt",
+      "target_module": "src/features/hooks/useExampleHandlers.ts",
+      "module_kind": "hook",
+      "parent_import": "import { useExampleHandlers } from '@/features/hooks/useExampleHandlers';",
+      "route_from": "/legacy/planning",
+      "route_to": "/account-planning",
+      "verify_command": "npm run build"
+    }
+  ]
+}
