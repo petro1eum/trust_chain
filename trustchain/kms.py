@@ -407,9 +407,12 @@ class VaultTransitKeyProvider:
             name=self._key_name,
             hash_input=base64.b64encode(data).decode("ascii"),
             mount_point=self._mount_point,
-            # Ed25519 не требует pre-hash.
-            hash_algorithm="sha2-256",
-            marshaling_algorithm="asn1",
+            # Ed25519 self-hashes — Vault must NOT pre-hash, so hash_algorithm
+            # is "none". "jws" marshaling returns the raw 64-byte Ed25519
+            # signature; "asn1" would wrap it in a DER container that the
+            # local raw-Ed25519 verify() below cannot accept.
+            hash_algorithm="none",
+            marshaling_algorithm="jws",
         )
         sig_str = resp["data"]["signature"]  # формат: "vault:v1:<base64>"
         try:
@@ -418,7 +421,14 @@ class VaultTransitKeyProvider:
             raise KeyProviderError(
                 f"Vault returned malformed signature: {sig_str}"
             ) from e
-        return base64.b64decode(b64)
+        raw = base64.b64decode(b64)
+        if len(raw) != 64:
+            raise KeyProviderError(
+                f"Vault Transit returned a {len(raw)}-byte signature; expected a "
+                "raw 64-byte Ed25519 signature (check marshaling_algorithm=jws / "
+                "hash_algorithm=none)"
+            )
+        return raw
 
     def verify(self, data: bytes, signature: bytes) -> bool:
         # Локальная верификация по public key — быстрее и не требует RTT в Vault.

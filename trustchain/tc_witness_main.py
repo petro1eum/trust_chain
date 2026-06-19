@@ -99,6 +99,39 @@ def _cmd_observe(args: argparse.Namespace) -> int:
         _die("STH signature from log operator is INVALID", code=3)
 
     witness_id, pub, priv = _load_witness_key(args.key)
+
+    # Append-only / anti-rollback (the 'tamper-proof across time' guarantee):
+    # a witness must never co-sign a log that went backwards (shrink/revert) or
+    # that forked (a different root at a tree_size it already observed). The
+    # state file is the witness's own memory of what it last co-signed, so the
+    # check holds across invocations without live access to the log.
+    key_p = Path(args.key).expanduser()
+    state_path = (
+        Path(args.state).expanduser()
+        if getattr(args, "state", None)
+        else key_p.with_name(key_p.name + ".observed.json")
+    )
+    state: dict[str, Any] = {}
+    if state_path.exists():
+        try:
+            state = json.loads(state_path.read_text("utf-8"))
+        except (OSError, ValueError):
+            state = {}
+    last = state.get(sth.log_id)
+    if last is not None:
+        if sth.tree_size < last["tree_size"]:
+            _die(
+                f"refusing to co-sign: log {sth.log_id} shrank "
+                f"({last['tree_size']} -> {sth.tree_size}) — possible revert/rewrite",
+                code=4,
+            )
+        if sth.tree_size == last["tree_size"] and sth.root_hash != last["root_hash"]:
+            _die(
+                f"refusing to co-sign: root_hash changed at tree_size {sth.tree_size} "
+                f"for log {sth.log_id} — forked history",
+                code=4,
+            )
+
     digest = hashlib.sha256(sth.digest() + witness_id.encode("utf-8")).digest()
     sig = priv.sign(digest)
     cos = CoSignedTreeHead(
@@ -108,6 +141,18 @@ def _cmd_observe(args: argparse.Namespace) -> int:
         witness_signature=base64.b64encode(sig).decode("ascii"),
         observed_at=time.time(),
     )
+
+    state[sth.log_id] = {
+        "tree_size": sth.tree_size,
+        "root_hash": sth.root_hash,
+        "observed_at": cos.observed_at,
+    }
+    try:
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+
     out = json.dumps(cos.to_dict(), indent=2)
     if args.out:
         Path(args.out).write_text(out, encoding="utf-8")
@@ -169,6 +214,10 @@ def main(argv: list[str] | None = None) -> int:
     p_obs.add_argument("--key", required=True)
     p_obs.add_argument("--sth-input", required=True, help="path to log-signed STH JSON")
     p_obs.add_argument("--out", help="where to write co-signed STH (else stdout)")
+    p_obs.add_argument(
+        "--state",
+        help="witness observation-history file (anti-rollback); default <key>.observed.json",
+    )
     p_obs.set_defaults(func=_cmd_observe)
 
     p_ver = sub.add_parser("verify", help="verify a co-signed STH")

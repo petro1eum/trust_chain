@@ -495,6 +495,7 @@ class TrustChain:
         op_id: str,
         reason: str,
         session_id: Optional[str] = None,
+        execute: bool = False,
     ) -> SignedResponse:
         """Create a compensatory transaction to revert a previous action.
 
@@ -506,6 +507,13 @@ class TrustChain:
             op_id: The ID of the operation to revert (e.g. 'op_0001').
             reason: The reason for reverting the action.
             session_id: Optional session tracking.
+            execute: When True (opt-in), look up the registered reverse tool for
+                the reverted operation (in-process registry, then
+                ``.trustchain/reversibles.json``) and ACTUALLY invoke it before
+                recording the signed marker. Defaults to False, in which case
+                behavior is byte-identical to a marker-only compensatory commit
+                (back-compat). If no reverse tool is registered, falls back to
+                marker-only and notes ``executed=False`` in the signed data.
 
         Returns:
             SignedResponse containing the revert action.
@@ -522,6 +530,51 @@ class TrustChain:
             "target_op": op_id,
             "reason": reason,
         }
+
+        # Opt-in 'Undo for AI': resolve the registered reverse tool for the
+        # reverted operation and ACTUALLY invoke it, then still record the
+        # signed compensatory marker. Default (execute=False) keeps the
+        # marker-only path byte-identical for back-compat.
+        if execute:
+            from trustchain.v3.compensations import reverse_tool_for_chain
+
+            forward_tool = target_op.get("tool", "") or ""
+            chain_root = getattr(self.chain, "_root", None)
+            reverse_tool = (
+                reverse_tool_for_chain(chain_root, forward_tool)
+                if chain_root is not None
+                else None
+            )
+            data["reverse_tool"] = reverse_tool
+            handler = (
+                self._tools.get(reverse_tool, {}).get("func") if reverse_tool else None
+            )
+            if reverse_tool and callable(handler):
+                # Fail-safe: a failing reverse tool must never break the
+                # cryptographic audit marker, only annotate it.
+                try:
+                    result = handler(
+                        target_op=op_id,
+                        original_data=target_op.get("data"),
+                        reason=reason,
+                    )
+                    data["executed"] = True
+                    try:
+                        data["reverse_result"] = (
+                            result
+                            if isinstance(result, (dict, list, str, int, float, bool))
+                            or result is None
+                            else str(result)
+                        )
+                    except Exception:  # pragma: no cover - defensive
+                        data["reverse_result"] = repr(result)
+                except Exception as exc:  # pragma: no cover - defensive
+                    data["executed"] = False
+                    data["reverse_error"] = str(exc)
+            else:
+                # No reverse tool registered (or no callable bound): behave as
+                # today (marker only) and record that nothing was executed.
+                data["executed"] = False
 
         return self.sign(
             tool_id="tc_revert",
