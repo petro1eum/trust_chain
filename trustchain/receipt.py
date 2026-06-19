@@ -300,7 +300,14 @@ class Receipt:
                     for w in self.witnesses:
                         cosigned = witness_mod.CoSignedTreeHead.from_dict(w)
                         try:
-                            witness_mod.verify_cosigned(cosigned)
+                            # WITNESS-1: verify_cosigned returns a bool; a False
+                            # (forged/invalid co-signature) must fail closed — the
+                            # bool was previously discarded (fail-open).
+                            if not witness_mod.verify_cosigned(cosigned):
+                                errors.append(
+                                    f"witness {cosigned.witness_id}: co-signature failed verification"
+                                )
+                                all_ok = False
                         except witness_mod.WitnessError as exc:
                             errors.append(f"witness {cosigned.witness_id}: {exc}")
                             all_ok = False
