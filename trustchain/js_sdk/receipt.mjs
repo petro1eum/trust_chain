@@ -80,7 +80,7 @@ export function canonicalize(x) {
  * @param {Record<string, any>} env
  * @returns {Uint8Array}
  */
-export function buildCanonicalEnvelope(env) {
+export function buildCanonicalEnvelope(env, includeSignatureId = true) {
   const obj = {
     tool_id: env.tool_id ?? null,
     data: env.data ?? null,
@@ -88,6 +88,10 @@ export function buildCanonicalEnvelope(env) {
     nonce: env.nonce ?? null,
     parent_signature: env.parent_signature ?? null,
   };
+  // Modern signatures cover signature_id; legacy omit it. Kept in lockstep with
+  // Python trustchain.receipt._canonical_envelope_bytes(include_signature_id).
+  if (includeSignatureId && env.signature_id !== undefined && env.signature_id !== null) obj.signature_id = env.signature_id;
+  if (env.parent_signatures !== undefined && env.parent_signatures !== null) obj.parent_signatures = env.parent_signatures;
   if (env.metadata    !== undefined && env.metadata    !== null) obj.metadata    = env.metadata;
   if (env.certificate !== undefined && env.certificate !== null) obj.certificate = env.certificate;
   if (env.tsa_proof   !== undefined && env.tsa_proof   !== null) obj.tsa_proof   = env.tsa_proof;
@@ -142,9 +146,12 @@ export async function verifyReceipt(receipt, opts = {}) {
     const key = await _subtle().importKey(
       'raw', _b64decode(pk), { name: 'Ed25519' }, true, ['verify']
     );
-    const msg = buildCanonicalEnvelope(receipt.envelope || {});
     const sig = _b64decode((receipt.envelope && receipt.envelope.signature) || '');
-    signatureOk = await _subtle().verify('Ed25519', key, sig, msg);
+    // Modern signatures cover signature_id; legacy omit it — try both vintages.
+    for (const includeSid of [true, false]) {
+      const msg = buildCanonicalEnvelope(receipt.envelope || {}, includeSid);
+      if (await _subtle().verify('Ed25519', key, sig, msg)) { signatureOk = true; break; }
+    }
     if (!signatureOk) errors.push('Ed25519 signature does not match the envelope');
   } catch (e) {
     errors.push('crypto error: ' + (e && e.message ? e.message : String(e)));

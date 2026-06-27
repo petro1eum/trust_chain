@@ -50,6 +50,8 @@ function buildCanonicalEnvelope(env) {
     nonce: env.nonce ?? null,
     parent_signature: env.parent_signature ?? null,
   };
+  if (env.signature_id !== undefined && env.signature_id !== null) obj.signature_id = env.signature_id;
+  if (env.parent_signatures !== undefined && env.parent_signatures !== null) obj.parent_signatures = env.parent_signatures;
   if (env.metadata    !== undefined && env.metadata    !== null) obj.metadata    = env.metadata;
   if (env.certificate !== undefined && env.certificate !== null) obj.certificate = env.certificate;
   if (env.tsa_proof   !== undefined && env.tsa_proof   !== null) obj.tsa_proof   = env.tsa_proof;

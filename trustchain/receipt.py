@@ -456,7 +456,9 @@ def _iso_now() -> str:
     return datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _canonical_envelope_bytes(envelope: dict[str, Any]) -> bytes:
+def _canonical_envelope_bytes(
+    envelope: dict[str, Any], *, include_signature_id: bool = True
+) -> bytes:
     """Rebuild the exact byte sequence covered by the Ed25519 signature.
 
     Mirrors :func:`trustchain.v2.signer._build_canonical_data` + the
@@ -474,6 +476,9 @@ def _canonical_envelope_bytes(envelope: dict[str, Any]) -> bytes:
         metadata=envelope.get("metadata"),
         certificate=envelope.get("certificate"),
         tsa_proof=envelope.get("tsa_proof"),
+        # Modern signatures cover signature_id; legacy ones omit it. The caller
+        # toggles this so an envelope of either vintage can be re-canonicalized.
+        signature_id=envelope.get("signature_id") if include_signature_id else None,
     )
     return json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
@@ -490,11 +495,23 @@ def _verify_envelope_signature(
         public_bytes = base64.b64decode(public_key_b64)
         pk = ed25519.Ed25519PublicKey.from_public_bytes(public_bytes)
         sig_bytes = base64.b64decode(envelope.get("signature", ""))
-        pk.verify(sig_bytes, _canonical_envelope_bytes(envelope))
-        return True
     except Exception as exc:
         errors.append(f"signature verification failed: {exc}")
         return False
+    # Mirror trustchain.v2.verifier: try the canonical WITH signature_id (modern)
+    # first, then WITHOUT (legacy) — receipts must verify signatures of either era.
+    last_exc: Exception | None = None
+    for include_sid in (True, False):
+        try:
+            pk.verify(
+                sig_bytes,
+                _canonical_envelope_bytes(envelope, include_signature_id=include_sid),
+            )
+            return True
+        except Exception as exc:
+            last_exc = exc
+    errors.append(f"signature verification failed: {last_exc}")
+    return False
 
 
 def _derive_summary(envelope: dict[str, Any]) -> dict[str, Any]:
