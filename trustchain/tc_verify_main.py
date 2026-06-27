@@ -388,6 +388,7 @@ def main() -> None:
                 timestamp=float(row.get("timestamp") or 0),
                 nonce=row.get("nonce"),
                 parent_signature=row.get("parent_signature"),
+                signature_id=str(row.get("signature_id") or ""),
             )
         except Exception as e:
             sig_errors.append(f"line {i + 1}: parse: {e}")

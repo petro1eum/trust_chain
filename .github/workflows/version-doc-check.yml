@@ -14,9 +14,16 @@ jobs:
       - name: Fail on stale README version string
         run: |
           set -e
-          VER=$(python -c "import trustchain; print(trustchain.__version__)")
+          # Read the version from source — importing the package would pull in the
+          # full runtime (psycopg etc.), which isn't installed in this lightweight job.
+          VER=$(grep -oE '__version__ = "[^"]+"' trustchain/__init__.py | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
           echo "Package version: $VER"
           if grep -R "TrustChain v2\.4" README.md GUIDE_*.md docs/wiki/*.md 2>/dev/null; then
             echo "Found stale v2.4 string in docs"
+            exit 1
+          fi
+          # The README title must carry the current package version (catch stale docs).
+          if ! grep -q "TrustChain v$VER" README.md; then
+            echo "README.md title is stale — expected 'TrustChain v$VER' (package is $VER)"
             exit 1
           fi

@@ -161,9 +161,12 @@ def test_nonmonotonic_timestamp_strict(tmp_path, monkeypatch):
     with gzip.open(export, "rt", encoding="utf-8") as f:
         for line in f:
             rows.append(json.loads(line))
-    # Find the two op rows and invert their timestamps.
+    # Force a strictly backwards timestamp in op[1]. A plain swap is a no-op on
+    # coarse-clock platforms (e.g. Windows / Python < 3.13), where both ops can
+    # share the same time.time() value, so the non-monotonic condition never fires.
     ops = [r for r in rows if r.get("type") != "meta"]
-    ops[0]["timestamp"], ops[1]["timestamp"] = ops[1]["timestamp"], ops[0]["timestamp"]
+    ops[0]["timestamp"] = 2000.0
+    ops[1]["timestamp"] = 1000.0
     # NOTE: this breaks signature verification too, since timestamp is signed.
     # So we call the in-process helper directly to isolate the time check.
     from trustchain.tc_verify_main import _check_time_monotonic

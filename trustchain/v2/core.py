@@ -53,9 +53,9 @@ class TrustChain:
 
         # X.509 PKI: bootstrap CA hierarchy + issue agent cert.
         # Disabled by default in OSS (bare-key mode); see _PKI_ENTERPRISE_MSG.
-        self._root_ca: Optional["TrustChainCA"] = None
-        self._intermediate_ca: Optional["TrustChainCA"] = None
-        self._agent_cert: Optional["AgentCertificate"] = None
+        self._root_ca: Optional[TrustChainCA] = None
+        self._intermediate_ca: Optional[TrustChainCA] = None
+        self._agent_cert: Optional[AgentCertificate] = None
         if self.config.enable_pki:
             self._bootstrap_pki()
 

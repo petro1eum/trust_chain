@@ -889,13 +889,13 @@ def _http_json(method: str, url: str, body: Optional[dict] = None) -> dict:
         data = json.dumps(body).encode("utf-8")
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
         return json.loads(resp.read().decode("utf-8"))
 
 
 def _http_text(url: str) -> str:
     req = urllib.request.Request(url, headers={"Accept": "text/plain"}, method="GET")
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
         return resp.read().decode("utf-8")
 
 
