@@ -50,7 +50,7 @@ class TestRootCA:
             __import__("cryptography").x509.BasicConstraints
         )
         assert bc.value.ca is True
-        assert bc.value.path_length == 1
+        assert bc.value.path_length == 2
 
     def test_root_ca_pem_export(self):
         """Root CA certificate exports as PEM."""
