@@ -15,32 +15,36 @@ on:
 jobs:
   plan:
     runs-on: ubuntu-latest
+    # `secrets` is not available in `if:` conditions, so surface presence as an env
+    # flag (env *can* read secrets). apatch is a PRIVATE repo; CI installs it over
+    # SSH using a read-only deploy key scoped to petro1eum/apatch only
+    # (secret APATCH_DEPLOY_KEY) — least privilege, not a broad PAT. When the secret
+    # is absent the governance steps skip and the job stays green; governance is
+    # enforced locally regardless.
+    env:
+      HAS_APATCH_KEY: ${{ secrets.APATCH_DEPLOY_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      # apatch is a PRIVATE repo. CI installs it over SSH using a read-only deploy
-      # key scoped to petro1eum/apatch only (secret APATCH_DEPLOY_KEY) — least
-      # privilege, not a broad PAT. When the secret is absent the governance steps
-      # skip and the job stays green; governance is enforced locally regardless.
       - name: Set up apatch deploy key
-        if: ${{ secrets.APATCH_DEPLOY_KEY != '' }}
+        if: ${{ env.HAS_APATCH_KEY == 'true' }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "${{ secrets.APATCH_DEPLOY_KEY }}" > ~/.ssh/apatch_ci
           chmod 600 ~/.ssh/apatch_ci
           ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
       - name: Install apatch
-        if: ${{ secrets.APATCH_DEPLOY_KEY != '' }}
+        if: ${{ env.HAS_APATCH_KEY == 'true' }}
         env:
           GIT_SSH_COMMAND: "ssh -i ~/.ssh/apatch_ci -o IdentitiesOnly=yes"
         run: pip install "apatch[mcp,languages] @ git+ssh://git@github.com/petro1eum/apatch.git"
       - name: Doctor
-        if: ${{ secrets.APATCH_DEPLOY_KEY != '' }}
+        if: ${{ env.HAS_APATCH_KEY == 'true' }}
         run: apatch doctor --json
       - name: Plan patches (if patches.jsonl exists)
-        if: ${{ secrets.APATCH_DEPLOY_KEY != '' && hashFiles('patches.jsonl') != '' }}
+        if: ${{ env.HAS_APATCH_KEY == 'true' && hashFiles('patches.jsonl') != '' }}
         run: |
           apatch plan --logs patches.jsonl --target-dir . --json > plan.json
           python3 -c "
@@ -52,12 +56,14 @@ jobs:
               sys.exit(1)
           "
       - name: Strip dry-run (if manifests changed)
-        if: ${{ secrets.APATCH_DEPLOY_KEY != '' && hashFiles('manifests/**') != '' }}
+        if: ${{ env.HAS_APATCH_KEY == 'true' && hashFiles('manifests/**') != '' }}
         run: |
           echo "Add project-specific strip -n commands for changed manifests"
 
   sandbox-gate:
     runs-on: ubuntu-latest
+    env:
+      HAS_APATCH_KEY: ${{ secrets.APATCH_DEPLOY_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -66,14 +72,14 @@ jobs:
         with:
           python-version: "3.12"
       - name: Set up apatch deploy key
-        if: ${{ secrets.APATCH_DEPLOY_KEY != '' }}
+        if: ${{ env.HAS_APATCH_KEY == 'true' }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "${{ secrets.APATCH_DEPLOY_KEY }}" > ~/.ssh/apatch_ci
           chmod 600 ~/.ssh/apatch_ci
           ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
       - name: Install apatch
-        if: ${{ secrets.APATCH_DEPLOY_KEY != '' }}
+        if: ${{ env.HAS_APATCH_KEY == 'true' }}
         env:
           GIT_SSH_COMMAND: "ssh -i ~/.ssh/apatch_ci -o IdentitiesOnly=yes"
         run: pip install "apatch[mcp] @ git+ssh://git@github.com/petro1eum/apatch.git"
@@ -83,7 +89,7 @@ jobs:
       # blocking enforcement in CI requires committing the notarized index — tracked
       # as a follow-up. Until then this reports a signal without failing the job.
       - name: Sandbox + notarization CI gate (advisory)
-        if: ${{ secrets.APATCH_DEPLOY_KEY != '' }}
+        if: ${{ env.HAS_APATCH_KEY == 'true' }}
         continue-on-error: true
         run: |
           OUT="$(mktemp)"
