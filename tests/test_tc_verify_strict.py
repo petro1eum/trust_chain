@@ -230,13 +230,19 @@ def test_runtime_export_iso_timestamp_verifies(tmp_path):
 def test_strict_detects_tail_truncation_and_reorder(tmp_path):
     """R2/BF-03: meta.operations_count mismatch (truncation) and parent-signature
     discontinuity (reorder) are both detected."""
-    from trustchain.tc_verify_main import _check_completeness, _check_chain_continuity
+    from trustchain.tc_verify_main import _check_chain_continuity, _check_completeness
 
-    ops4 = [{"signature": f"S{i}", "parent_signature": (f"S{i - 1}" if i else None)} for i in range(4)]
+    ops4 = [
+        {"signature": f"S{i}", "parent_signature": (f"S{i - 1}" if i else None)}
+        for i in range(4)
+    ]
     trunc_errs = _check_completeness({"operations_count": 5}, ops4)
     assert any("operations_count" in e or "truncat" in e.lower() for e in trunc_errs)
 
-    ops5 = [{"signature": f"S{i}", "parent_signature": (f"S{i - 1}" if i else None)} for i in range(5)]
+    ops5 = [
+        {"signature": f"S{i}", "parent_signature": (f"S{i - 1}" if i else None)}
+        for i in range(5)
+    ]
     assert _check_completeness({"operations_count": 5}, ops5) == []
 
     reordered = [ops5[0], ops5[2], ops5[1], ops5[3], ops5[4]]
@@ -247,11 +253,13 @@ def test_strict_detects_tail_truncation_and_reorder(tmp_path):
 
 def test_strict_requires_crl_and_full_pkix_validity(tmp_path):
     """R3: strict PKIX enforces validity window, CA:TRUE and issuer name-chaining."""
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
+
     from cryptography import x509
-    from cryptography.x509.oid import NameOID
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.x509.oid import NameOID
+
     from trustchain.tc_verify_main import (
         _assert_cert_valid_now,
         _assert_is_ca,
@@ -268,16 +276,42 @@ def test_strict_requires_crl_and_full_pkix_validity(tmp_path):
             .serial_number(x509.random_serial_number())
             .not_valid_before(nb)
             .not_valid_after(na)
-            .add_extension(x509.BasicConstraints(ca=is_ca, path_length=None), critical=True)
+            .add_extension(
+                x509.BasicConstraints(ca=is_ca, path_length=None), critical=True
+            )
             .sign(signer, None)
         )
 
     now = datetime.now(timezone.utc)
     root_key = Ed25519PrivateKey.generate()
-    root = _mk("root", "root", root_key, root_key.public_key(), True, now - timedelta(days=1), now + timedelta(days=365))
+    root = _mk(
+        "root",
+        "root",
+        root_key,
+        root_key.public_key(),
+        True,
+        now - timedelta(days=1),
+        now + timedelta(days=365),
+    )
     agent_key = Ed25519PrivateKey.generate()
-    valid_agent = _mk("agent", "root", root_key, agent_key.public_key(), False, now - timedelta(days=1), now + timedelta(days=30))
-    expired_agent = _mk("agent", "root", root_key, agent_key.public_key(), False, now - timedelta(days=10), now - timedelta(days=1))
+    valid_agent = _mk(
+        "agent",
+        "root",
+        root_key,
+        agent_key.public_key(),
+        False,
+        now - timedelta(days=1),
+        now + timedelta(days=30),
+    )
+    expired_agent = _mk(
+        "agent",
+        "root",
+        root_key,
+        agent_key.public_key(),
+        False,
+        now - timedelta(days=10),
+        now - timedelta(days=1),
+    )
 
     _assert_cert_valid_now(valid_agent, "agent")
     with pytest.raises(ValueError):
@@ -289,7 +323,15 @@ def test_strict_requires_crl_and_full_pkix_validity(tmp_path):
 
     _assert_issuer_matches(valid_agent, root)
     other_key = Ed25519PrivateKey.generate()
-    other = _mk("other", "other", other_key, other_key.public_key(), True, now - timedelta(days=1), now + timedelta(days=365))
+    other = _mk(
+        "other",
+        "other",
+        other_key,
+        other_key.public_key(),
+        True,
+        now - timedelta(days=1),
+        now + timedelta(days=365),
+    )
     with pytest.raises(ValueError):
         _assert_issuer_matches(valid_agent, other)
 
