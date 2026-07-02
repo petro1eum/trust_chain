@@ -40,6 +40,23 @@ def _check_langchain():
         )
 
 
+def _langchain_receipt(signed_response: Any) -> dict:
+    """Verifiable receipt: enough fields for a consumer to reconstruct the
+    canonical payload and verify the Ed25519 signature offline (no hardcoded
+    'verified' flag — verification is the consumer's job)."""
+    return {
+        "result": signed_response.data,
+        "_trustchain": {
+            "tool_id": signed_response.tool_id,
+            "signature": signed_response.signature,
+            "signature_id": signed_response.signature_id,
+            "nonce": signed_response.nonce,
+            "timestamp": signed_response.timestamp,
+            "parent_signature": signed_response.parent_signature,
+        },
+    }
+
+
 class TrustChainLangChainTool(BaseTool if HAS_LANGCHAIN else object):
     """LangChain tool wrapper for TrustChain tools.
 
@@ -77,51 +94,35 @@ class TrustChainLangChainTool(BaseTool if HAS_LANGCHAIN else object):
         self.tc_original_func = tool_info["original_func"]
 
     def _run(self, **kwargs) -> Any:
-        """Execute the tool and return signed response data.
+        """Execute the tool through the signing chain and return signed data + receipt.
 
-        The signature is stored in the response metadata.
+        Uses the canonical execution path (_execute_tool_sync) so the call is
+        signed AND committed to the audit chain (RFC-003 BF-18) — the previous
+        direct _signer.sign() bypassed the chain entirely.
         """
-        # Call the original function
-        original_func = self.tc_original_func
-        result = original_func(**kwargs)
-
-        # Sign the result
-        signed_response = self.tc_instance._signer.sign(
-            self.tc_tool_id, result if isinstance(result, dict) else {"result": result}
+        signed_response = self.tc_instance._execute_tool_sync(
+            self.tc_tool_id, self.tc_original_func, (), kwargs
         )
-
-        # Return the data, but include signature in metadata
-        return {
-            "result": signed_response.data,
-            "_trustchain": {
-                "signature": signed_response.signature,
-                "signature_id": signed_response.signature_id,
-                "nonce": signed_response.nonce,
-                "verified": True,
-            },
-        }
+        return _langchain_receipt(signed_response)
 
     async def _arun(self, **kwargs) -> Any:
-        """Async execution."""
-        # For async tools, call the async wrapper
-        wrapped_func = self.tc_instance._tools[self.tc_tool_id]["func"]
+        """Async execution through the signing chain (RFC-003 BF-18).
 
+        The prior version fetched the RAW undecorated func from _tools and
+        dereferenced .data on its plain return value, crashing every async call.
+        """
         import asyncio
 
-        if asyncio.iscoroutinefunction(wrapped_func):
-            signed_response = await wrapped_func(**kwargs)
+        func = self.tc_original_func
+        if asyncio.iscoroutinefunction(func):
+            signed_response = await self.tc_instance._execute_tool_async(
+                self.tc_tool_id, func, (), kwargs
+            )
         else:
-            signed_response = wrapped_func(**kwargs)
-
-        return {
-            "result": signed_response.data,
-            "_trustchain": {
-                "signature": signed_response.signature,
-                "signature_id": signed_response.signature_id,
-                "nonce": signed_response.nonce,
-                "verified": True,
-            },
-        }
+            signed_response = self.tc_instance._execute_tool_sync(
+                self.tc_tool_id, func, (), kwargs
+            )
+        return _langchain_receipt(signed_response)
 
 
 def to_langchain_tool(tc: "TrustChain", tool_id: str) -> "BaseTool":

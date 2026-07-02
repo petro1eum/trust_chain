@@ -46,8 +46,8 @@ class TestTrustChainLangChainTool:
 
         # Result should be dict with 'result' and '_trustchain'
         assert isinstance(result, dict)
-        # Result is wrapped: {'result': 12} for non-dict returns
-        assert result["result"] == {"result": 12}
+        # signed.data is the tool's actual return (12), signed via the chain path
+        assert result["result"] == 12
         assert "_trustchain" in result
         assert "signature" in result["_trustchain"]
 
@@ -64,6 +64,48 @@ class TestTrustChainLangChainTool:
         # Should have signature in _trustchain
         assert "_trustchain" in result
         assert result["_trustchain"]["signature"] is not None
+
+
+def test_langchain_run_commits_to_chain_and_is_verifiable():
+    from trustchain import TrustChain, TrustChainConfig
+    from trustchain.integrations.langchain import TrustChainLangChainTool
+
+    tc = TrustChain(
+        TrustChainConfig(enable_chain=True, enable_pki=False, chain_storage="memory")
+    )
+
+    @tc.tool("adder")
+    def add(a: int, b: int) -> int:
+        return a + b
+
+    before = tc.chain.length
+    lc = TrustChainLangChainTool(tc, "adder")
+    result = lc._run(a=2, b=5)
+    assert result["result"] == 7
+    tr = result["_trustchain"]
+    assert tr["signature"] and tr["signature_id"] and tr["timestamp"] is not None
+    # BF-18: the sync path now commits to the audit chain (was bypassed before).
+    assert tc.chain.length == before + 1
+
+
+def test_langchain_arun_executes_without_crashing():
+    import asyncio
+
+    from trustchain import TrustChain, TrustChainConfig
+    from trustchain.integrations.langchain import TrustChainLangChainTool
+
+    tc = TrustChain(
+        TrustChainConfig(enable_chain=True, enable_pki=False, chain_storage="memory")
+    )
+
+    @tc.tool("aget")
+    async def aget(x: int) -> dict:
+        return {"x": x}
+
+    lc = TrustChainLangChainTool(tc, "aget")
+    result = asyncio.run(lc._arun(x=9))
+    assert result["result"] == {"x": 9}
+    assert result["_trustchain"]["signature"]
 
 
 class TestToLangchainTool:

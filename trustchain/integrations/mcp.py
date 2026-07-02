@@ -104,24 +104,28 @@ class TrustChainMCPServer:
                 ]
 
             try:
-                # Get the wrapped function
-                wrapped_func = self.tc._tools[name]["func"]
-
-                # Execute
-                if asyncio.iscoroutinefunction(wrapped_func):
-                    signed_response = await wrapped_func(**arguments)
+                # Execute through the signing chain (RFC-003 BF-18): the prior
+                # version fetched the RAW undecorated func from _tools and
+                # dereferenced .data on its plain return, erroring every call.
+                func = self.tc._tools[name]["original_func"]
+                if asyncio.iscoroutinefunction(func):
+                    signed_response = await self.tc._execute_tool_async(
+                        name, func, (), arguments
+                    )
                 else:
-                    signed_response = wrapped_func(**arguments)
+                    signed_response = self.tc._execute_tool_sync(
+                        name, func, (), arguments
+                    )
 
-                # Return result with signature metadata
                 result = {
                     "result": signed_response.data,
                     "_trustchain": {
+                        "tool_id": signed_response.tool_id,
                         "signature": signed_response.signature,
                         "signature_id": signed_response.signature_id,
                         "nonce": signed_response.nonce,
-                        "tool_id": signed_response.tool_id,
-                        "verified": True,
+                        "timestamp": signed_response.timestamp,
+                        "parent_signature": signed_response.parent_signature,
                     },
                 }
 
