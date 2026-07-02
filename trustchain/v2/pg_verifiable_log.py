@@ -347,10 +347,18 @@ class PostgresVerifiableChainStore:
 
                     self._leaf_hashes.append(leaf_hash)
                     # ``_leaf_hashes`` уже содержит ``sha256(record_json)``.
-                    # Используем ``from_leaves`` (не ``from_chunks``), иначе
-                    # ``proof.verify(record_json)`` вернёт False — proof хранит
-                    # двойной хэш, а клиент хэширует один раз.
-                    self._merkle_tree = MerkleTree.from_leaves(list(self._leaf_hashes))
+                    # Инкрементный append_leaf даёт тот же root/proofs, что
+                    # from_leaves, но за O(log n) вместо O(n) (RFC-003 BF-19);
+                    # fallback на from_leaves при рассинхроне (напр. после _load_state).
+                    if (
+                        self._merkle_tree is not None
+                        and len(self._merkle_tree.leaves) == len(self._leaf_hashes) - 1
+                    ):
+                        self._merkle_tree.append_leaf(leaf_hash)
+                    else:
+                        self._merkle_tree = MerkleTree.from_leaves(
+                            list(self._leaf_hashes)
+                        )
                     self._length = seq
 
                     cur.execute(

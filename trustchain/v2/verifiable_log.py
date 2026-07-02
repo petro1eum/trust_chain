@@ -230,7 +230,13 @@ class VerifiableChainStore:
             # without the client re-hashing twice (см. ADR-SEC-005 §Merkle).
             leaf_hash = hash_data(record_json)
             self._leaf_hashes.append(leaf_hash)
-            self._merkle_tree = MerkleTree.from_leaves(list(self._leaf_hashes))
+            if (
+                self._merkle_tree is not None
+                and len(self._merkle_tree.leaves) == len(self._leaf_hashes) - 1
+            ):
+                self._merkle_tree.append_leaf(leaf_hash)
+            else:
+                self._merkle_tree = MerkleTree.from_leaves(list(self._leaf_hashes))
 
             # 3. Write HEAD (Merkle root)
             self._save_head(self._merkle_tree.root)

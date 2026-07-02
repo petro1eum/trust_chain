@@ -145,6 +145,38 @@ class MerkleTree:
 
         return cls(root=root, leaves=leaves, levels=levels)
 
+    def append_leaf(self, leaf_hash: str) -> None:
+        """Append one already-hashed leaf in O(log n), producing a tree identical
+        to ``from_leaves(self.leaves + [leaf_hash])`` (same root and proofs).
+
+        Only the rightmost node at each level can change when a leaf is appended
+        (the new leaf, or the previously-duplicated odd node gaining a real
+        sibling); all earlier parents are reused. Avoids the O(n) full rebuild
+        on every append that made the audited log O(n^2) (RFC-003 BF-19).
+        """
+        self.leaves.append(leaf_hash)
+        if len(self.leaves) == 1:
+            self.levels = [list(self.leaves)]
+            self.root = leaf_hash
+            return
+        new_levels: List[List[str]] = [self.leaves]
+        level = self.leaves
+        i = 1
+        while len(level) > 1:
+            n = len(level)
+            pcount = (n + 1) // 2
+            prev = self.levels[i] if i < len(self.levels) else []
+            parent_level = list(prev[: pcount - 1])
+            last = pcount - 1
+            left = level[last * 2]
+            right = level[last * 2 + 1] if (last * 2 + 1) < n else left
+            parent_level.append(hash_pair(left, right))
+            new_levels.append(parent_level)
+            level = parent_level
+            i += 1
+        self.levels = new_levels
+        self.root = level[0]
+
     def get_proof(self, chunk_index: int) -> MerkleProof:
         """Get proof for a specific chunk.
 
