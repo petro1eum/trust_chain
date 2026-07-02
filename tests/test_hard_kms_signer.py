@@ -99,6 +99,7 @@ def test_hard_kms_signer_signs_and_verifies():
     canonical = _build_canonical_data(
         tool_id=resp.tool_id,
         data=resp.data,
+        signature_id=resp.signature_id,
         timestamp=resp.timestamp,
         nonce=resp.nonce,
         parent_signature=resp.parent_signature,

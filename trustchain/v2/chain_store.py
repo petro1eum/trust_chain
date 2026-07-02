@@ -68,6 +68,7 @@ def reconstruct_signed_response(record: Dict[str, Any]):
         tool_id=record.get("tool", ""),
         data=record.get("data"),
         signature=record.get("signature", ""),
+        signature_id=record.get("signature_id", ""),
         timestamp=float(record["response_timestamp"]),
         nonce=record.get("nonce"),
         parent_signature=record.get("parent_signature"),

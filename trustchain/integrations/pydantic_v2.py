@@ -124,6 +124,7 @@ class TrustChainModel(BaseModel if HAS_PYDANTIC else object):  # type: ignore
         )
         self._signature = response.signature
         self._timestamp = response.timestamp
+        self._signature_id = response.signature_id
 
     def _get_canonical_data(self) -> dict[str, Any]:
         """Get canonical representation for signing."""
@@ -167,6 +168,7 @@ class TrustChainModel(BaseModel if HAS_PYDANTIC else object):  # type: ignore
             tool_id=self.__class__.__name__,
             data=self.model_dump(),
             signature=self._signature,
+            signature_id=self._signature_id,
             timestamp=self._timestamp,
             nonce=self._nonce,
         )
@@ -238,6 +240,7 @@ class SignedDict(dict):
             tool_id=self._tool_id,
             data=dict(self),
             signature=self._signature,
+            signature_id=self._signature_id,
             timestamp=self._timestamp,
             nonce=self._nonce,
         )
