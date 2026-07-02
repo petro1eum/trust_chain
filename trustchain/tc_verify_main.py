@@ -66,7 +66,7 @@ def _fetch_registry_bundle(
 
 
 def _verify_pkix_chain(
-    root_pem: str, intermediate_pem: str, agent_pem: str
+    root_pem: str, intermediate_pem: str, agent_pem: str, *, strict: bool = False
 ) -> x509.Certificate:
     root = load_pem_x509_certificate(root_pem.encode("utf-8"))
     inter = load_pem_x509_certificate(intermediate_pem.encode("utf-8"))
@@ -75,6 +75,13 @@ def _verify_pkix_chain(
     rp.verify(inter.signature, inter.tbs_certificate_bytes)
     ip = inter.public_key()
     ip.verify(agent.signature, agent.tbs_certificate_bytes)
+    if strict:
+        for cert, label in ((root, "root"), (inter, "intermediate"), (agent, "agent")):
+            _assert_cert_valid_now(cert, label)
+        _assert_is_ca(root, "root")
+        _assert_is_ca(inter, "intermediate")
+        _assert_issuer_matches(inter, root)
+        _assert_issuer_matches(agent, inter)
     return agent
 
 
@@ -101,6 +108,90 @@ def _pubkey_arg_bytes(pubkey_b64: str) -> bytes:
     return base64.b64decode(pubkey_b64.strip())
 
 
+def _coerce_timestamp(row: dict) -> float:
+    """Reconstruct the signed timestamp. Runtime exports carry the signed float in
+    ``response_timestamp`` and an ISO-8601 string in ``timestamp``; float()-ing the
+    ISO string used to raise and fail every record (RFC-003 BF-04)."""
+    for key in ("response_timestamp", "timestamp"):
+        val = row.get(key)
+        if val is None:
+            continue
+        if isinstance(val, (int, float)):
+            return float(val)
+        s = str(val).strip()
+        if not s:
+            continue
+        try:
+            return float(s)
+        except ValueError:
+            pass
+        try:
+            from datetime import datetime
+
+            return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            continue
+    return 0.0
+
+
+def _cert_validity_bounds(cert: x509.Certificate):
+    from datetime import timezone
+
+    try:
+        return cert.not_valid_before_utc, cert.not_valid_after_utc
+    except AttributeError:  # cryptography < 42
+        nb = cert.not_valid_before.replace(tzinfo=timezone.utc)
+        na = cert.not_valid_after.replace(tzinfo=timezone.utc)
+        return nb, na
+
+
+def _assert_cert_valid_now(cert: x509.Certificate, label: str) -> None:
+    from datetime import datetime, timezone
+
+    nb, na = _cert_validity_bounds(cert)
+    now = datetime.now(timezone.utc)
+    if now < nb or now > na:
+        raise ValueError(f"{label} cert not temporally valid (window {nb}..{na})")
+
+
+def _assert_is_ca(cert: x509.Certificate, label: str) -> None:
+    try:
+        bc = cert.extensions.get_extension_for_class(x509.BasicConstraints).value
+    except x509.ExtensionNotFound as exc:
+        raise ValueError(f"{label} cert missing BasicConstraints (not a CA)") from exc
+    if not bc.ca:
+        raise ValueError(f"{label} cert is not a CA (BasicConstraints CA:FALSE)")
+
+
+def _assert_issuer_matches(child: x509.Certificate, issuer: x509.Certificate) -> None:
+    if child.issuer != issuer.subject:
+        raise ValueError(
+            f"issuer/subject name mismatch: {child.issuer.rfc4514_string()} "
+            f"!= {issuer.subject.rfc4514_string()}"
+        )
+
+
+def _check_completeness(meta: dict | None, op_rows: list) -> list[str]:
+    """Detect naive tail truncation/padding: meta.operations_count must equal the
+    number of operation rows actually present (RFC-003 BF-03)."""
+    errors: list[str] = []
+    if meta is None:
+        return errors
+    declared = meta.get("operations_count")
+    if declared is not None:
+        try:
+            declared_int = int(declared)
+        except (TypeError, ValueError):
+            errors.append(f"meta.operations_count is not an integer: {declared!r}")
+            return errors
+        if declared_int != len(op_rows):
+            errors.append(
+                f"operations_count mismatch: meta declares {declared_int}, "
+                f"found {len(op_rows)} operations (chain truncated or padded)"
+            )
+    return errors
+
+
 def _run_full_chain(
     pubkey_b64: str,
     registry_base: str | None,
@@ -109,7 +200,18 @@ def _run_full_chain(
     int_path: Path | None,
     agent_path: Path | None,
     crl_path: Path | None,
+    *,
+    strict: bool = False,
 ) -> None:
+    # R4: under --strict the Root CA must be pinned out-of-band; fetching it from
+    # the registry being audited is circular trust (RFC-003 offline-verify).
+    if strict and registry_base and not root_path:
+        print(
+            "tc-verify: --strict must pin the Root CA out-of-band via --root-ca-pem "
+            "(fetching the root from --registry-base trusts the audited server)",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_PKIX_FAIL)
     crl_pem: str | None = None
     if registry_base and agent_id:
         try:
@@ -139,17 +241,23 @@ def _run_full_chain(
         sys.exit(2)
 
     try:
-        agent_cert = _verify_pkix_chain(root_pem, int_pem, agent_pem)
+        agent_cert = _verify_pkix_chain(root_pem, int_pem, agent_pem, strict=strict)
     except Exception as e:
         print(f"tc-verify: PKIX chain verification failed: {e}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(EXIT_PKIX_FAIL)
 
     if crl_pem:
         try:
             _assert_not_revoked(agent_cert, crl_pem)
         except Exception as e:
             print(f"tc-verify: CRL check failed: {e}", file=sys.stderr)
-            sys.exit(1)
+            sys.exit(EXIT_CRL_REVOKED)
+    elif strict:
+        print(
+            "tc-verify: --strict requires a CRL (none provided via --crl-pem or registry)",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_CRL_REVOKED)
 
     try:
         raw_leaf = _leaf_ed25519_raw(agent_cert)
@@ -229,11 +337,7 @@ def _check_time_monotonic(op_rows: list[dict]) -> list[str]:
     errors: list[str] = []
     prev_ts = 0.0
     for i, op in enumerate(op_rows):
-        try:
-            ts = float(op.get("timestamp") or 0)
-        except (TypeError, ValueError):
-            errors.append(f"line {i + 1}: invalid timestamp {op.get('timestamp')!r}")
-            continue
+        ts = _coerce_timestamp(op)
         if ts < prev_ts:
             errors.append(
                 f"line {i + 1}: timestamp {ts} < previous {prev_ts} (non-monotonic)"
@@ -324,6 +428,7 @@ def main() -> None:
             args.intermediate_pem,
             args.agent_cert_pem,
             args.crl_pem,
+            strict=args.strict,
         )
     elif args.strict:
         # In strict mode PKIX is mandatory.  We don't force registry vs PEM —
@@ -358,6 +463,7 @@ def main() -> None:
             args.intermediate_pem,
             args.agent_cert_pem,
             args.crl_pem,
+            strict=True,
         )
 
     op_rows = [r for r in rows if isinstance(r, dict) and r.get("type") != "meta"]
@@ -385,7 +491,7 @@ def main() -> None:
                 tool_id=str(row.get("tool") or row.get("tool_id") or ""),
                 data=row.get("data") if row.get("data") is not None else {},
                 signature=str(row.get("signature") or ""),
-                timestamp=float(row.get("timestamp") or 0),
+                timestamp=_coerce_timestamp(row),
                 nonce=row.get("nonce"),
                 parent_signature=row.get("parent_signature"),
                 signature_id=str(row.get("signature_id") or ""),
@@ -404,6 +510,7 @@ def main() -> None:
     time_errors: list[str] = []
     if args.strict:
         chain_errors, _ = _check_chain_continuity(op_rows)
+        chain_errors = _check_completeness(meta, op_rows) + chain_errors
         time_errors = _check_time_monotonic(op_rows)
 
     extra = ""

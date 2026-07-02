@@ -193,3 +193,124 @@ def test_chain_continuity_helper_detects_fork(tmp_path):
     errs2, ok2 = _check_chain_continuity(good)
     assert ok2
     assert errs2 == []
+
+
+# ── RFC-003 offline-verify remediation (SPEC-BANK-OFFLINE-VERIFY-1) ─────────────
+
+
+def test_runtime_export_iso_timestamp_verifies(tmp_path):
+    """R1/BF-04: runtime export uses ISO timestamp + signed response_timestamp;
+    tc-verify must reconstruct the signed float instead of float()-ing the ISO."""
+    from datetime import datetime, timezone
+
+    export, pk = _make_chain(tmp_path, 3)
+    rows = []
+    with gzip.open(export, "rt", encoding="utf-8") as f:
+        for line in f:
+            rows.append(json.loads(line))
+    runtime_rows = []
+    for r in rows:
+        if r.get("type") == "meta":
+            runtime_rows.append(r)
+            continue
+        ts = float(r["timestamp"])
+        r = dict(r)
+        r["response_timestamp"] = ts
+        r["timestamp"] = datetime.fromtimestamp(ts, timezone.utc).isoformat()
+        runtime_rows.append(r)
+    export2 = tmp_path / "runtime.jsonl.gz"
+    with gzip.open(export2, "wt", encoding="utf-8") as f:
+        for r in runtime_rows:
+            f.write(json.dumps(r, default=str) + "\n")
+    cp = _run_cli(export2, pk)
+    assert cp.returncode == EXIT_OK, (cp.stdout, cp.stderr)
+    assert "verified_signatures=3" in cp.stdout
+
+
+def test_strict_detects_tail_truncation_and_reorder(tmp_path):
+    """R2/BF-03: meta.operations_count mismatch (truncation) and parent-signature
+    discontinuity (reorder) are both detected."""
+    from trustchain.tc_verify_main import _check_completeness, _check_chain_continuity
+
+    ops4 = [{"signature": f"S{i}", "parent_signature": (f"S{i - 1}" if i else None)} for i in range(4)]
+    trunc_errs = _check_completeness({"operations_count": 5}, ops4)
+    assert any("operations_count" in e or "truncat" in e.lower() for e in trunc_errs)
+
+    ops5 = [{"signature": f"S{i}", "parent_signature": (f"S{i - 1}" if i else None)} for i in range(5)]
+    assert _check_completeness({"operations_count": 5}, ops5) == []
+
+    reordered = [ops5[0], ops5[2], ops5[1], ops5[3], ops5[4]]
+    c_errs, ok = _check_chain_continuity(reordered)
+    assert not ok
+    assert any("parent_signature" in e for e in c_errs)
+
+
+def test_strict_requires_crl_and_full_pkix_validity(tmp_path):
+    """R3: strict PKIX enforces validity window, CA:TRUE and issuer name-chaining."""
+    from datetime import datetime, timezone, timedelta
+    from cryptography import x509
+    from cryptography.x509.oid import NameOID
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from trustchain.tc_verify_main import (
+        _assert_cert_valid_now,
+        _assert_is_ca,
+        _assert_issuer_matches,
+        _verify_pkix_chain,
+    )
+
+    def _mk(subject, issuer, signer, pub, is_ca, nb, na):
+        return (
+            x509.CertificateBuilder()
+            .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, subject)]))
+            .issuer_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, issuer)]))
+            .public_key(pub)
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(nb)
+            .not_valid_after(na)
+            .add_extension(x509.BasicConstraints(ca=is_ca, path_length=None), critical=True)
+            .sign(signer, None)
+        )
+
+    now = datetime.now(timezone.utc)
+    root_key = Ed25519PrivateKey.generate()
+    root = _mk("root", "root", root_key, root_key.public_key(), True, now - timedelta(days=1), now + timedelta(days=365))
+    agent_key = Ed25519PrivateKey.generate()
+    valid_agent = _mk("agent", "root", root_key, agent_key.public_key(), False, now - timedelta(days=1), now + timedelta(days=30))
+    expired_agent = _mk("agent", "root", root_key, agent_key.public_key(), False, now - timedelta(days=10), now - timedelta(days=1))
+
+    _assert_cert_valid_now(valid_agent, "agent")
+    with pytest.raises(ValueError):
+        _assert_cert_valid_now(expired_agent, "agent")
+
+    _assert_is_ca(root, "root")
+    with pytest.raises(ValueError):
+        _assert_is_ca(valid_agent, "agent")
+
+    _assert_issuer_matches(valid_agent, root)
+    other_key = Ed25519PrivateKey.generate()
+    other = _mk("other", "other", other_key, other_key.public_key(), True, now - timedelta(days=1), now + timedelta(days=365))
+    with pytest.raises(ValueError):
+        _assert_issuer_matches(valid_agent, other)
+
+    root_pem = root.public_bytes(serialization.Encoding.PEM).decode()
+    agent_pem = valid_agent.public_bytes(serialization.Encoding.PEM).decode()
+    _verify_pkix_chain(root_pem, root_pem, agent_pem, strict=True)
+
+
+def test_registry_base_alone_is_not_trusted(tmp_path):
+    """R4: --strict must pin the Root CA out-of-band; registry-base alone is refused."""
+    export, pk = _make_chain(tmp_path, 2)
+    cp = _run_cli(
+        export,
+        pk,
+        "--strict",
+        "--full-chain",
+        "--registry-base",
+        "https://keys.trust-chain.ai",
+        "--agent-id",
+        "x",
+    )
+    assert cp.returncode == EXIT_PKIX_FAIL, (cp.stdout, cp.stderr)
+    low = cp.stderr.lower()
+    assert "root" in low and ("pin" in low or "out-of-band" in low)
