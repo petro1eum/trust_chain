@@ -34,6 +34,13 @@ class SignedResponse:
     # TSA (Timestamp Authority) proof - RFC 3161
     tsa_proof: Optional[Dict[str, Any]] = None  # TSAResponse.to_dict()
 
+    # Attribution extensions (all optional; absent => legacy receipt, byte-identical).
+    # Signed when present, so a verifier reads the STRENGTH of attribution, not a bool.
+    signer_role: Optional[str] = None  # "tool" (executed) | "agent" (self-attested)
+    custody: Optional[Dict[str, Any]] = None  # key custody: {"type": software|hard_kms}
+    input_hash: Optional[str] = None  # "sha256:<hex>" of the canonical request
+    alg: Optional[str] = None  # signature alg id (None => legacy implicit ed25519)
+
     # Cache verification result
     _verified: Optional[bool] = field(default=None, init=False, repr=False)
 
@@ -61,6 +68,14 @@ class SignedResponse:
             result["certificate"] = self.certificate
         if self.tsa_proof is not None:
             result["tsa_proof"] = self.tsa_proof
+        if self.signer_role is not None:
+            result["signer_role"] = self.signer_role
+        if self.custody is not None:
+            result["custody"] = self.custody
+        if self.input_hash is not None:
+            result["input_hash"] = self.input_hash
+        if self.alg is not None:
+            result["alg"] = self.alg
         return result
 
 
@@ -75,6 +90,10 @@ def _build_canonical_data(
     certificate: Optional[Dict[str, Any]] = None,
     tsa_proof: Optional[Dict[str, Any]] = None,
     signature_id: Optional[str] = None,
+    signer_role: Optional[str] = None,
+    custody: Optional[Dict[str, Any]] = None,
+    input_hash: Optional[str] = None,
+    alg: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build the canonical payload covered by the signature."""
     canonical_data: Dict[str, Any] = {
@@ -95,6 +114,16 @@ def _build_canonical_data(
         canonical_data["certificate"] = certificate
     if tsa_proof is not None:
         canonical_data["tsa_proof"] = tsa_proof
+    # Attribution extensions — included only when set, so legacy payloads are
+    # byte-identical (sort_keys makes insertion order irrelevant).
+    if signer_role is not None:
+        canonical_data["signer_role"] = signer_role
+    if custody is not None:
+        canonical_data["custody"] = custody
+    if input_hash is not None:
+        canonical_data["input_hash"] = input_hash
+    if alg is not None:
+        canonical_data["alg"] = alg
 
     return canonical_data
 
@@ -117,8 +146,25 @@ def _canonical_json_from_response(
         certificate=response.certificate,
         tsa_proof=response.tsa_proof,
         signature_id=sid,
+        signer_role=response.signer_role,
+        custody=response.custody,
+        input_hash=response.input_hash,
+        alg=response.alg,
     )
     return json.dumps(canonical_data, sort_keys=True, separators=(",", ":"))
+
+
+def canonical_input_hash(request: Any) -> str:
+    """Stable hash of a tool request for request->response binding.
+
+    Returns ``"sha256:<hex>"`` over the canonical JSON of ``request`` so a
+    verifier can prove which input produced a signed output (catches the
+    "agent fed a subtly wrong query, tool honestly signed the answer" case).
+    """
+    import hashlib
+
+    payload = json.dumps(request, sort_keys=True, separators=(",", ":"), default=str)
+    return "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 class Signer:
@@ -152,6 +198,21 @@ class Signer:
             return self._provider.sign(payload)
         return self._private_key.sign(payload)
 
+    def _custody_descriptor(self) -> Dict[str, Any]:
+        """Truthful key-custody descriptor derived from the signer itself.
+
+        A caller cannot forge this: it reflects whether the private seed is in
+        this process (``software``) or delegated to a hard-KMS/HSM provider
+        (``hard_kms``), so an auditor reads the STRENGTH of the attribution.
+        """
+        if self._provider is not None:
+            return {
+                "type": "hard_kms",
+                "key_id": self.key_id,
+                "provider": type(self._provider).__name__,
+            }
+        return {"type": "software", "key_id": self.key_id}
+
     def sign(
         self,
         tool_id: str,
@@ -162,11 +223,24 @@ class Signer:
         metadata: Optional[Dict[str, Any]] = None,
         certificate: Optional[Dict[str, Any]] = None,
         tsa_proof: Optional[Dict[str, Any]] = None,
+        *,
+        signer_role: Optional[str] = None,
+        input_hash: Optional[str] = None,
+        alg: Optional[str] = None,
+        bind_custody: bool = False,
     ) -> SignedResponse:
-        """Sign data and return SignedResponse."""
+        """Sign data and return SignedResponse.
+
+        Attribution extensions (all opt-in; omitted => byte-identical legacy
+        payload): ``signer_role`` ("tool"/"agent"), ``input_hash`` (bind the
+        request via :func:`canonical_input_hash`), ``alg`` (algorithm id), and
+        ``bind_custody`` which stamps a TRUTHFUL, signer-derived custody
+        descriptor (software vs hard-KMS) that a caller cannot forge.
+        """
         timestamp = time.time()
         resolved_nonce = nonce or str(uuid.uuid4())
         signature_id = str(uuid.uuid4())
+        custody = self._custody_descriptor() if bind_custody else None
 
         # Create canonical representation.
         # parent_signatures (DAG multi-parent merges) is part of the signed
@@ -183,6 +257,10 @@ class Signer:
             certificate=certificate,
             tsa_proof=tsa_proof,
             signature_id=signature_id,
+            signer_role=signer_role,
+            custody=custody,
+            input_hash=input_hash,
+            alg=alg,
         )
 
         # Serialize to JSON
@@ -203,6 +281,10 @@ class Signer:
             metadata=metadata,
             certificate=certificate,
             tsa_proof=tsa_proof,
+            signer_role=signer_role,
+            custody=custody,
+            input_hash=input_hash,
+            alg=alg,
         )
         object.__setattr__(response, "_verified", True)
         return response

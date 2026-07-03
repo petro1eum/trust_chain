@@ -414,6 +414,11 @@ class TrustChain:
         parent_signatures: Optional[list[str]] = None,
         latency_ms: float = 0,
         session_id: Optional[str] = None,
+        *,
+        signer_role: Optional[str] = None,
+        input_hash: Optional[str] = None,
+        alg: Optional[str] = None,
+        bind_custody: bool = False,
     ) -> SignedResponse:
         """Sign data directly without using a tool decorator.
 
@@ -465,6 +470,10 @@ class TrustChain:
             parent_signatures=parent_signatures,
             metadata=metadata,
             certificate=self.config.certificate,
+            signer_role=signer_role,
+            input_hash=input_hash,
+            alg=alg,
+            bind_custody=bind_custody,
         )
 
         # Auto-commit to chain (like `git commit -a`). Передаём

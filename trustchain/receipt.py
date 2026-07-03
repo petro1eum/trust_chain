@@ -479,6 +479,10 @@ def _canonical_envelope_bytes(
         # Modern signatures cover signature_id; legacy ones omit it. The caller
         # toggles this so an envelope of either vintage can be re-canonicalized.
         signature_id=envelope.get("signature_id") if include_signature_id else None,
+        signer_role=envelope.get("signer_role"),
+        custody=envelope.get("custody"),
+        input_hash=envelope.get("input_hash"),
+        alg=envelope.get("alg"),
     )
     return json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
