@@ -66,7 +66,12 @@ def _fetch_registry_bundle(
 
 
 def _verify_pkix_chain(
-    root_pem: str, intermediate_pem: str, agent_pem: str, *, strict: bool = False
+    root_pem: str,
+    intermediate_pem: str,
+    agent_pem: str,
+    *,
+    strict: bool = False,
+    as_of=None,
 ) -> x509.Certificate:
     root = load_pem_x509_certificate(root_pem.encode("utf-8"))
     inter = load_pem_x509_certificate(intermediate_pem.encode("utf-8"))
@@ -77,7 +82,7 @@ def _verify_pkix_chain(
     ip.verify(agent.signature, agent.tbs_certificate_bytes)
     if strict:
         for cert, label in ((root, "root"), (inter, "intermediate"), (agent, "agent")):
-            _assert_cert_valid_now(cert, label)
+            _assert_cert_valid_now(cert, label, at=as_of)
         _assert_is_ca(root, "root")
         _assert_is_ca(inter, "intermediate")
         _assert_issuer_matches(inter, root)
@@ -85,11 +90,45 @@ def _verify_pkix_chain(
     return agent
 
 
-def _assert_not_revoked(agent: x509.Certificate, crl_pem: str) -> None:
+_COMPROMISE_REASONS = {"key_compromise", "ca_compromise", "aa_compromise"}
+
+
+def _crl_reason(rev) -> str | None:
+    """Revocation reason name (e.g. 'key_compromise'), or None if unspecified."""
+    try:
+        return rev.extensions.get_extension_for_class(x509.CRLReason).value.reason.name
+    except x509.ExtensionNotFound:
+        return None
+
+
+def _crl_revocation_date(rev):
+    from datetime import timezone
+
+    try:
+        return rev.revocation_date_utc
+    except AttributeError:
+        d = rev.revocation_date
+        return d.replace(tzinfo=timezone.utc) if d.tzinfo is None else d
+
+
+def _assert_not_revoked(agent: x509.Certificate, crl_pem: str, *, as_of=None) -> None:
     crl = load_pem_x509_crl(crl_pem.encode("utf-8"))
     rev = crl.get_revoked_certificate_by_serial_number(agent.serial_number)
-    if rev is not None:
+    if rev is None:
+        return
+    if as_of is None:
+        # Default (strict-now): any revocation invalidates. Unchanged behavior.
         raise ValueError(f"agent leaf serial {agent.serial_number} is on CRL")
+    # Historical validity: a signature made BEFORE the revocation stays valid,
+    # UNLESS the reason is key/CA compromise (retroactive — the key may have
+    # leaked before the recorded date).
+    reason = _crl_reason(rev)
+    rev_date = _crl_revocation_date(rev)
+    if reason in _COMPROMISE_REASONS or (rev_date is not None and rev_date <= as_of):
+        raise ValueError(
+            f"agent leaf serial {agent.serial_number} revoked "
+            f"(reason={reason}, date={rev_date}) — invalid as-of {as_of}"
+        )
 
 
 def _leaf_ed25519_raw(agent: x509.Certificate) -> bytes:
@@ -145,13 +184,15 @@ def _cert_validity_bounds(cert: x509.Certificate):
         return nb, na
 
 
-def _assert_cert_valid_now(cert: x509.Certificate, label: str) -> None:
+def _assert_cert_valid_now(cert: x509.Certificate, label: str, *, at=None) -> None:
     from datetime import datetime, timezone
 
     nb, na = _cert_validity_bounds(cert)
-    now = datetime.now(timezone.utc)
-    if now < nb or now > na:
-        raise ValueError(f"{label} cert not temporally valid (window {nb}..{na})")
+    when = at or datetime.now(timezone.utc)
+    if when < nb or when > na:
+        raise ValueError(
+            f"{label} cert not temporally valid at {when} (window {nb}..{na})"
+        )
 
 
 def _assert_is_ca(cert: x509.Certificate, label: str) -> None:
@@ -192,6 +233,29 @@ def _check_completeness(meta: dict | None, op_rows: list) -> list[str]:
     return errors
 
 
+def _resolve_as_of(args, rows):
+    """Resolve the historical-validity instant from --as-of / --as-of-signing.
+
+    Returns an aware datetime, or None (default: validity checked at 'now').
+    """
+    from datetime import datetime, timezone
+
+    if getattr(args, "as_of", None):
+        s = str(args.as_of).strip().replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    if getattr(args, "as_of_signing", False):
+        times = [
+            _coerce_timestamp(r)
+            for r in rows
+            if isinstance(r, dict) and r.get("type") != "meta"
+        ]
+        times = [t for t in times if t > 0]
+        if times:
+            return datetime.fromtimestamp(max(times), tz=timezone.utc)
+    return None
+
+
 def _run_full_chain(
     pubkey_b64: str,
     registry_base: str | None,
@@ -202,6 +266,7 @@ def _run_full_chain(
     crl_path: Path | None,
     *,
     strict: bool = False,
+    as_of=None,
 ) -> None:
     # R4: under --strict the Root CA must be pinned out-of-band; fetching it from
     # the registry being audited is circular trust (RFC-003 offline-verify).
@@ -241,14 +306,16 @@ def _run_full_chain(
         sys.exit(2)
 
     try:
-        agent_cert = _verify_pkix_chain(root_pem, int_pem, agent_pem, strict=strict)
+        agent_cert = _verify_pkix_chain(
+            root_pem, int_pem, agent_pem, strict=strict, as_of=as_of
+        )
     except Exception as e:
         print(f"tc-verify: PKIX chain verification failed: {e}", file=sys.stderr)
         sys.exit(EXIT_PKIX_FAIL)
 
     if crl_pem:
         try:
-            _assert_not_revoked(agent_cert, crl_pem)
+            _assert_not_revoked(agent_cert, crl_pem, as_of=as_of)
         except Exception as e:
             print(f"tc-verify: CRL check failed: {e}", file=sys.stderr)
             sys.exit(EXIT_CRL_REVOKED)
@@ -394,6 +461,25 @@ def main() -> None:
         ),
     )
     p.add_argument(
+        "--as-of",
+        default=None,
+        help=(
+            "Verify cert validity + CRL revocation AS OF this ISO-8601 time "
+            "(historical validity) instead of 'now': a signature made while the "
+            "cert was valid stays valid after expiry, and revocation invalidates "
+            "it only if dated at/before this time or the reason is key/CA compromise."
+        ),
+    )
+    p.add_argument(
+        "--as-of-signing",
+        action="store_true",
+        help=(
+            "Like --as-of but derive the time from the log's own latest signed "
+            "timestamp (self-asserted; anchor with a trusted timestamp/witness for "
+            "strong assurance)."
+        ),
+    )
+    p.add_argument(
         "--json",
         action="store_true",
         help="Emit a structured JSON report to stdout instead of human text.",
@@ -419,6 +505,8 @@ def main() -> None:
             print("{}", file=sys.stderr)
         sys.exit(EXIT_OK)
 
+    as_of = _resolve_as_of(args, rows)
+
     if args.full_chain:
         _run_full_chain(
             args.pubkey,
@@ -429,6 +517,7 @@ def main() -> None:
             args.agent_cert_pem,
             args.crl_pem,
             strict=args.strict,
+            as_of=as_of,
         )
     elif args.strict:
         # In strict mode PKIX is mandatory.  We don't force registry vs PEM —
@@ -464,6 +553,7 @@ def main() -> None:
             args.agent_cert_pem,
             args.crl_pem,
             strict=True,
+            as_of=as_of,
         )
 
     op_rows = [r for r in rows if isinstance(r, dict) and r.get("type") != "meta"]
