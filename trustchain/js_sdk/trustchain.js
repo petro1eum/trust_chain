@@ -617,9 +617,26 @@ class TrustChainVerifier {
      * @private
      */
     _canonicalStringify(obj) {
-        return JSON.stringify(obj, Object.keys(obj).sort(), 0)
-            .replace(/,/g, ',')
-            .replace(/:/g, ':');
+        // Match Python json.dumps(sort_keys=True, separators=(",",":"),
+        // ensure_ascii=True): recursively sort object keys, compact separators,
+        // and \uXXXX-escape every non-ASCII code unit. The previous replacer-array
+        // form only sorted TOP-LEVEL keys and silently DROPPED nested keys, so any
+        // nested payload produced a wrong (and unverifiable) canonical string.
+        const canon = (v) => {
+            if (v === null || typeof v !== 'object') return v;
+            if (Array.isArray(v)) return v.map(canon);
+            return Object.keys(v).sort().reduce((acc, k) => {
+                acc[k] = canon(v[k]);
+                return acc;
+            }, {});
+        };
+        const json = JSON.stringify(canon(obj));
+        let out = '';
+        for (let i = 0; i < json.length; i++) {
+            const code = json.charCodeAt(i);
+            out += code < 0x80 ? json[i] : '\\u' + code.toString(16).padStart(4, '0');
+        }
+        return out;
     }
 }
 
