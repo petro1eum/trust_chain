@@ -198,6 +198,34 @@ def canonical_input_hash(request: Any) -> str:
     return "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def verify_with_public_key(response: SignedResponse, public_key_b64: str) -> bool:
+    """Verify a SignedResponse's Ed25519 signature against a SPECIFIC public key.
+
+    Handles the ``canon`` scheme and the signature_id vintages. Used for
+    cross-key verification — e.g. a tool-signed result checked against the tool's
+    registered signing key — where the instance/agent key is not the signer.
+    """
+    if not HAS_CRYPTOGRAPHY:
+        return False
+    try:
+        pub = ed25519.Ed25519PublicKey.from_public_bytes(
+            base64.b64decode(public_key_b64)
+        )
+        signature_bytes = base64.b64decode(response.signature)
+    except Exception:
+        return False
+    for include_sid in (True, False):
+        try:
+            json_data = _canonical_json_from_response(
+                response, include_signature_id=include_sid
+            )
+            pub.verify(signature_bytes, json_data.encode("utf-8"))
+            return True
+        except Exception:
+            continue
+    return False
+
+
 class Signer:
     """Simple signer for Ed25519 signatures."""
 

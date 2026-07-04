@@ -146,6 +146,7 @@ class ToolRegistry:
                     If False, just log warnings.
         """
         self._certs: Dict[str, ToolCertificate] = {}
+        self._tool_keys: Dict[str, str] = {}  # tool_id -> signing public key (b64)
         self._violations: List[Dict[str, Any]] = []
         self._signer = signer
         self._strict = strict
@@ -299,6 +300,38 @@ class ToolRegistry:
     def list_certs(self) -> List[ToolCertificate]:
         """List all registered certificates."""
         return list(self._certs.values())
+
+    # ── Per-tool signing keys (strong tool attribution) ──
+
+    def bind_tool_key(self, tool_id: str, public_key_b64: str) -> None:
+        """Bind a tool_id to the Ed25519 public key that signs its results.
+
+        With a bound key, a result claiming ``signer_role="tool"`` for this
+        tool_id can be PROVEN (see :meth:`verify_tool_signature`) rather than
+        merely labeled: it must carry a signature by this exact key.
+        """
+        self._tool_keys[tool_id] = public_key_b64
+
+    def get_tool_key(self, tool_id: str) -> Optional[str]:
+        """Return the bound signing public key for ``tool_id``, or None."""
+        return self._tool_keys.get(tool_id)
+
+    def verify_tool_signature(self, response: Any) -> bool:
+        """Prove a SignedResponse was produced by ``tool_id``'s registered key.
+
+        True iff the response's ``signer_role`` is "tool", its ``tool_id`` has a
+        bound signing key, and the Ed25519 signature verifies against that key.
+        This turns ``signer_role="tool"`` from a self-asserted label into a
+        key-backed proof of tool provenance.
+        """
+        pk = self._tool_keys.get(getattr(response, "tool_id", None))
+        if pk is None:
+            return False
+        if getattr(response, "signer_role", None) != "tool":
+            return False
+        from .signer import verify_with_public_key
+
+        return verify_with_public_key(response, pk)
 
     @property
     def violations(self) -> List[Dict[str, Any]]:
