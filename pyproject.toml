@@ -42,6 +42,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# RFC 8785 (JCS) canonicalization — opt-in signing/verify path (canon="jcs").
+# Not required for the default scheme; install with `pip install trustchain[jcs]`.
+jcs = [
+    "rfc8785>=0.1.2",
+]
 # Framework integrations
 fastapi = [
     "fastapi>=0.104.0",

@@ -54,7 +54,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from trustchain.v2.signer import SignedResponse, _build_canonical_data
+from trustchain.v2.signer import SignedResponse, _build_canonical_data, _canonical_bytes
 
 try:
     from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -489,6 +489,7 @@ _SIGNED_ENVELOPE_KEYS = frozenset(
         "custody",
         "input_hash",
         "alg",
+        "canon",
         "signature",
     }
 )
@@ -521,8 +522,9 @@ def _canonical_envelope_bytes(
         custody=envelope.get("custody"),
         input_hash=envelope.get("input_hash"),
         alg=envelope.get("alg"),
+        canon=envelope.get("canon"),
     )
-    return json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return _canonical_bytes(canonical, envelope.get("canon"))
 
 
 def _verify_envelope_signature(

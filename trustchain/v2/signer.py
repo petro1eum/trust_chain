@@ -40,6 +40,7 @@ class SignedResponse:
     custody: Optional[Dict[str, Any]] = None  # key custody: {"type": software|hard_kms}
     input_hash: Optional[str] = None  # "sha256:<hex>" of the canonical request
     alg: Optional[str] = None  # signature alg id (None => legacy implicit ed25519)
+    canon: Optional[str] = None  # canonicalization scheme (None/"jcs"); None => legacy
 
     # Cache verification result
     _verified: Optional[bool] = field(default=None, init=False, repr=False)
@@ -76,6 +77,8 @@ class SignedResponse:
             result["input_hash"] = self.input_hash
         if self.alg is not None:
             result["alg"] = self.alg
+        if self.canon is not None:
+            result["canon"] = self.canon
         return result
 
 
@@ -94,6 +97,7 @@ def _build_canonical_data(
     custody: Optional[Dict[str, Any]] = None,
     input_hash: Optional[str] = None,
     alg: Optional[str] = None,
+    canon: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build the canonical payload covered by the signature."""
     canonical_data: Dict[str, Any] = {
@@ -124,8 +128,34 @@ def _build_canonical_data(
         canonical_data["input_hash"] = input_hash
     if alg is not None:
         canonical_data["alg"] = alg
+    if canon is not None:
+        canonical_data["canon"] = canon
 
     return canonical_data
+
+
+def _canonical_bytes(
+    canonical_data: Dict[str, Any], canon: Optional[str] = None
+) -> bytes:
+    """Serialize the canonical payload to the exact signed bytes.
+
+    ``canon`` selects the scheme: ``None`` (or "json-sort-keys-minified") is the
+    legacy default (``json.dumps`` sorted+minified, ensure_ascii); ``"jcs"`` is
+    RFC 8785 JSON Canonicalization Scheme via the optional ``rfc8785`` package.
+    """
+    if canon == "jcs":
+        try:
+            import rfc8785
+        except ImportError as exc:  # pragma: no cover - optional dependency
+            raise RuntimeError(
+                "canon='jcs' requires the rfc8785 package: pip install trustchain[jcs]"
+            ) from exc
+        return rfc8785.dumps(canonical_data)
+    if canon not in (None, "json-sort-keys-minified"):
+        raise ValueError(f"unknown canonicalization scheme: {canon!r}")
+    return json.dumps(canonical_data, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
 
 
 def _canonical_json_from_response(
@@ -150,8 +180,9 @@ def _canonical_json_from_response(
         custody=response.custody,
         input_hash=response.input_hash,
         alg=response.alg,
+        canon=response.canon,
     )
-    return json.dumps(canonical_data, sort_keys=True, separators=(",", ":"))
+    return _canonical_bytes(canonical_data, response.canon).decode("utf-8")
 
 
 def canonical_input_hash(request: Any) -> str:
@@ -228,6 +259,7 @@ class Signer:
         input_hash: Optional[str] = None,
         alg: Optional[str] = None,
         bind_custody: bool = False,
+        canon: Optional[str] = None,
     ) -> SignedResponse:
         """Sign data and return SignedResponse.
 
@@ -261,12 +293,13 @@ class Signer:
             custody=custody,
             input_hash=input_hash,
             alg=alg,
+            canon=canon,
         )
 
-        # Serialize to JSON
-        json_data = json.dumps(canonical_data, sort_keys=True, separators=(",", ":"))
+        # Serialize to the exact signed bytes (scheme selected by `canon`).
+        signed_bytes = _canonical_bytes(canonical_data, canon)
 
-        signature_bytes = self._raw_sign(json_data.encode("utf-8"))
+        signature_bytes = self._raw_sign(signed_bytes)
         signature = base64.b64encode(signature_bytes).decode("ascii")
 
         response = SignedResponse(
@@ -285,6 +318,7 @@ class Signer:
             custody=custody,
             input_hash=input_hash,
             alg=alg,
+            canon=canon,
         )
         object.__setattr__(response, "_verified", True)
         return response

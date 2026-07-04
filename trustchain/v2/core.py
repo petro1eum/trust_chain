@@ -419,6 +419,7 @@ class TrustChain:
         input_hash: Optional[str] = None,
         alg: Optional[str] = None,
         bind_custody: bool = False,
+        canon: Optional[str] = None,
     ) -> SignedResponse:
         """Sign data directly without using a tool decorator.
 
@@ -474,6 +475,7 @@ class TrustChain:
             input_hash=input_hash,
             alg=alg,
             bind_custody=bind_custody,
+            canon=canon,
         )
 
         # Auto-commit to chain (like `git commit -a`). Передаём
