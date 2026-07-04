@@ -257,6 +257,19 @@ class Receipt:
         # ---- 3. Signature ---- #
         signature_ok = _verify_envelope_signature(self.envelope, pk_b64, errors)
 
+        # ---- 3b. No unsigned envelope fields ---- #
+        # _canonical_envelope_bytes covers only the known signed keys, so any extra
+        # key rides in the envelope WITHOUT being covered by the signature. A
+        # consumer could then read attacker-controlled data from a receipt whose
+        # signature verifies. Reject such receipts (signature_ok may still be True;
+        # a legitimate new signed field bumps the receipt version, rejected above).
+        unsigned_fields = sorted(set(self.envelope) - _SIGNED_ENVELOPE_KEYS)
+        if unsigned_fields:
+            errors.append(
+                "envelope contains unsigned field(s) not covered by the signature: "
+                + ", ".join(unsigned_fields)
+            )
+
         # ---- 4. Freshness ---- #
         if max_age_seconds is not None:
             ts = self.envelope.get("timestamp")
@@ -454,6 +467,31 @@ def verify_receipt(
 
 def _iso_now() -> str:
     return datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+# The envelope keys that _canonical_envelope_bytes covers with the signature,
+# plus "signature" itself. Any key outside this set rides in the envelope WITHOUT
+# being signed, so verify() rejects such receipts (see step 3b). Keep in sync with
+# _build_canonical_data.
+_SIGNED_ENVELOPE_KEYS = frozenset(
+    {
+        "tool_id",
+        "data",
+        "timestamp",
+        "nonce",
+        "parent_signature",
+        "parent_signatures",
+        "metadata",
+        "certificate",
+        "tsa_proof",
+        "signature_id",
+        "signer_role",
+        "custody",
+        "input_hash",
+        "alg",
+        "signature",
+    }
+)
 
 
 def _canonical_envelope_bytes(
