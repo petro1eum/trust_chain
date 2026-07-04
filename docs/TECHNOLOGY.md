@@ -19,6 +19,14 @@ TrustChain gives you three guarantees:
 | **Integrity** | The bytes you have now are identical to what was signed. One flipped field invalidates the signature. |
 | **Order (chain of trust)** | Step *N* was produced after step *N-1*. You cannot reorder or drop steps without breaking the chain. |
 
+> **How strong is that attribution?** A receipt can now carry *signed* evidence of
+> its own strength — `signer_role` (tool vs agent), key `custody` (software vs
+> HSM/KMS), a request→response `input_hash`, key-backed per-tool signatures,
+> opt-in RFC 8785 (JCS) canonicalization, historical (as-of) validity, and an
+> external witness quorum so even the operator cannot fork the log. See
+> [ATTRIBUTION_AND_VALIDITY.md](./ATTRIBUTION_AND_VALIDITY.md). None of it changes
+> the default trust model — every existing signature verifies unchanged.
+
 The **OSS** core is MIT-licensed, runs entirely in-process, and has no network dependencies. **Pro** and **Enterprise** layer governance, compliance, and scale on top — as additional PyPI packages and SaaS endpoints — without changing the core trust model.
 
 ---
