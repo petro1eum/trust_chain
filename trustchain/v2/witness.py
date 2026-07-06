@@ -57,6 +57,8 @@ import time
 from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol
 
+from . import rfc6962
+
 # ── Canonical JSON helpers ────────────────────────────────────────────────────
 
 
@@ -275,14 +277,33 @@ class Witness:
 
         last = self._last_observation.get(sth.log_id)
         if last is not None:
-            proof = log.consistency_proof(last["tree_size"], last["root_hash"])
-            if not proof.get("consistent"):
-                raise WitnessError(
-                    f"consistency proof failed: {proof.get('reason') or proof}"
-                )
             if sth.tree_size < last["tree_size"]:
                 raise WitnessError(
                     f"tree shrunk: {last['tree_size']} → {sth.tree_size}"
+                )
+            proof = log.consistency_proof(last["tree_size"], last["root_hash"])
+            # An "rfc6962"-scheme log ships the compact consistency proof. Do NOT
+            # trust its self-reported ``consistent`` flag — the operator we
+            # defend against controls it. Recompute the append-only invariant
+            # ourselves from the two tree heads we already hold: our OWN
+            # remembered old root and the operator-signed new root (verified
+            # above to equal the log's current root). A rewritten prefix cannot
+            # yield a proof that matches our remembered old root.
+            # See SPEC-CHAIN-INTEGRITY-1 R4.
+            if proof.get("scheme") == "rfc6962" and "proof" in proof:
+                if not rfc6962.store_verify_consistency(
+                    last["tree_size"],
+                    sth.tree_size,
+                    last["root_hash"],
+                    sth.root_hash,
+                    proof["proof"],
+                ):
+                    raise WitnessError(
+                        "independent RFC 6962 consistency verification failed"
+                    )
+            elif not proof.get("consistent"):
+                raise WitnessError(
+                    f"consistency proof failed: {proof.get('reason') or proof}"
                 )
 
         # Co-sign.
