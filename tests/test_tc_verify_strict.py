@@ -356,3 +356,51 @@ def test_registry_base_alone_is_not_trusted(tmp_path):
     assert cp.returncode == EXIT_PKIX_FAIL, (cp.stdout, cp.stderr)
     low = cp.stderr.lower()
     assert "root" in low and ("pin" in low or "out-of-band" in low)
+
+
+# ── R6: cryptographic anti-truncation (SPEC-CHAIN-INTEGRITY-1) ──────────────────
+
+
+def test_merkle_root_reported_and_matches(tmp_path):
+    """The offline auditor recomputes an RFC 6962 root over the op signatures and
+    accepts a matching pinned root."""
+    from trustchain.tc_verify_main import _compute_merkle_root
+
+    export, pk = _make_chain(tmp_path, 3)
+    rows = [json.loads(x) for x in gzip.open(export, "rt", encoding="utf-8")]
+    ops = [r for r in rows if r.get("type") != "meta"]
+    expected = _compute_merkle_root(ops)
+
+    cp = _run_cli(export, pk, "--merkle-root", expected, "--json")
+    assert cp.returncode == EXIT_OK, (cp.stdout, cp.stderr)
+    rep = json.loads(cp.stdout)
+    assert rep["merkle_root"] == expected
+    assert rep["merkle_root_ok"] is True
+
+
+def test_merkle_root_detects_truncation_even_when_count_is_faked(tmp_path):
+    """R6: an attacker who truncates the tail AND rewrites the unsigned
+    meta.operations_count defeats the legacy completeness check — but a pinned
+    Merkle root (over all ops) catches it cryptographically."""
+    from trustchain.tc_verify_main import EXIT_MERKLE_MISMATCH, _compute_merkle_root
+
+    export, pk = _make_chain(tmp_path, 4)
+    rows = [json.loads(x) for x in gzip.open(export, "rt", encoding="utf-8")]
+    meta = next(r for r in rows if r.get("type") == "meta")
+    ops = [r for r in rows if r.get("type") != "meta"]
+    full_root = _compute_merkle_root(ops)  # trusted root over all 4 ops
+
+    trunc = ops[:3]
+    meta2 = dict(meta)
+    meta2["operations_count"] = 3  # attacker fixes the unsigned count
+    export2 = tmp_path / "trunc.jsonl.gz"
+    with gzip.open(export2, "wt", encoding="utf-8") as f:
+        f.write(json.dumps(meta2) + "\n")
+        for op in trunc:
+            f.write(json.dumps(op, default=str) + "\n")
+
+    cp = _run_cli(export2, pk, "--merkle-root", full_root, "--json")
+    assert cp.returncode == EXIT_MERKLE_MISMATCH, (cp.stdout, cp.stderr)
+    rep = json.loads(cp.stdout)
+    assert rep["category"] == "merkle"
+    assert rep["merkle_root_ok"] is False

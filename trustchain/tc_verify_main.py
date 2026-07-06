@@ -38,6 +38,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.x509 import load_pem_x509_certificate, load_pem_x509_crl
 
 from trustchain import TrustChainVerifier
+from trustchain.v2 import rfc6962
 from trustchain.v2.signer import SignedResponse
 
 
@@ -373,6 +374,7 @@ EXIT_PKIX_FAIL = 4  # PKIX chain validation failed
 EXIT_TIME_NONMONOTONIC = 5  # timestamps go backwards
 EXIT_META_MISSING = 6  # no meta line / corrupt meta / no operations
 EXIT_INPUT_ERROR = 7  # IO / parse errors (replaces old exit=2)
+EXIT_MERKLE_MISMATCH = 8  # pinned Merkle root != recomputed (truncation/reorder)
 
 
 def _check_chain_continuity(op_rows: list[dict]) -> tuple[list[str], bool]:
@@ -411,6 +413,19 @@ def _check_time_monotonic(op_rows: list[dict]) -> list[str]:
             )
         prev_ts = ts
     return errors
+
+
+def _compute_merkle_root(op_rows: list[dict]) -> str | None:
+    """RFC 6962 Merkle root over the ordered op SIGNATURES (leaf = signature
+    bytes). Commits to the exact set/order/count of operations, so an auditor
+    holding a trusted root (pinned out-of-band, e.g. from a witness STH) detects
+    truncation, padding and reordering cryptographically — unlike the unsigned
+    ``meta.operations_count``. See SPEC-CHAIN-INTEGRITY-1 R6.
+    """
+    if not op_rows:
+        return None
+    leaves = [str(op.get("signature") or "").encode("utf-8") for op in op_rows]
+    return rfc6962.merkle_tree_hash(leaves).hex()
 
 
 def main() -> None:
@@ -483,6 +498,18 @@ def main() -> None:
         "--json",
         action="store_true",
         help="Emit a structured JSON report to stdout instead of human text.",
+    )
+    p.add_argument(
+        "--merkle-root",
+        default=None,
+        help=(
+            "Expected RFC 6962 Merkle root (hex) over the ordered operation "
+            "signatures. When provided (or present as meta.merkle_root) the "
+            "recomputed root must match — this catches tail truncation / padding "
+            "/ reordering cryptographically, unlike the unsigned "
+            "meta.operations_count. Pin it out-of-band (e.g. a witness STH) for "
+            "real assurance. Always reported in --json output."
+        ),
     )
     args = p.parse_args()
 
@@ -617,13 +644,30 @@ def main() -> None:
     if args.full_chain or args.strict:
         extra += " full_chain=checked"
 
+    # Cryptographic anti-truncation: recompute the RFC 6962 root over the op
+    # signatures and compare to a pinned/declared root (SPEC-CHAIN-INTEGRITY-1 R6).
+    merkle_computed = _compute_merkle_root(op_rows)
+    merkle_expected = args.merkle_root or (meta.get("merkle_root") if meta else None)
+    merkle_mismatch = bool(
+        merkle_expected is not None and merkle_computed != merkle_expected
+    )
+    merkle_errors: list[str] = []
+    if merkle_mismatch:
+        merkle_errors.append(
+            f"merkle root mismatch: expected {str(merkle_expected)[:24]}… "
+            f"got {str(merkle_computed)[:24]}… (truncation/reorder/tamper)"
+        )
+
     # Error precedence (enterprise matrix, most-critical first):
-    #   chain > signature > time > (pkix/crl handled above by _run_full_chain)
+    #   chain > merkle > signature > time > (pkix/crl handled above)
     exit_code = EXIT_OK
     category = "ok"
     if n_fail:
         exit_code = EXIT_SIG_FAIL
         category = "signature"
+    if merkle_mismatch:
+        exit_code = EXIT_MERKLE_MISMATCH
+        category = "merkle"
     if args.strict and chain_errors:
         exit_code = EXIT_CHAIN_BROKEN
         category = "chain"
@@ -654,10 +698,16 @@ def main() -> None:
                             meta.get("include_subagents") if meta else None
                         ),
                     },
+                    "merkle_root": merkle_computed,
+                    "merkle_root_expected": merkle_expected,
+                    "merkle_root_ok": (
+                        None if merkle_expected is None else not merkle_mismatch
+                    ),
                     "errors": {
                         "signatures": sig_errors,
                         "chain": chain_errors,
                         "time": time_errors,
+                        "merkle": merkle_errors,
                     },
                 },
                 indent=2,
@@ -670,7 +720,11 @@ def main() -> None:
             print(f"chain: {e}", file=sys.stderr)
         for e in time_errors:
             print(f"time: {e}", file=sys.stderr)
+        for e in merkle_errors:
+            print(f"merkle: {e}", file=sys.stderr)
         if exit_code == EXIT_OK:
+            if merkle_computed:
+                extra += f" merkle_root={merkle_computed[:16]}…"
             print(f"OK: verified_signatures={n_ok} meta_lines={n_skip}{extra}")
         else:
             print(
