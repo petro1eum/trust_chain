@@ -281,7 +281,7 @@
                     <h2>3. Evidence kit</h2>
                     <div class="cards">
                         <div class="card"><b>Receipt</b><p><code>.tcreceipt</code> proves a specific tool output was signed by a key and can be checked offline.</p></div>
-                        <div class="card"><b>Chain</b><p><code>tc chain-verify</code> detects broken parent links and historical tampering inside the local chain.</p></div>
+                        <div class="card"><b>Chain</b><p><code>tc chain-verify</code> detects broken parent links; add <code>--pubkey</code> to re-verify every Ed25519 signature and catch payload or link tampering.</p></div>
                         <div class="card"><b>Anchor</b><p><code>tc anchor export</code> stores a chain-head checkpoint outside the agent's writable environment.</p></div>
                         <div class="card"><b>Standards</b><p><code>tc standards export</code> emits SCITT-shaped JSON, W3C VC envelopes, or in-toto Statements.</p></div>
                         <div class="card"><b>Identity</b><p>Tool and agent certificates bind signatures to organizational identity and revocation state.</p></div>

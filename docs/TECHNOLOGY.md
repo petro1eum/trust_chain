@@ -17,13 +17,13 @@ TrustChain gives you three guarantees:
 |-----------|---------------------------|
 | **Authenticity** | This JSON came from tool `X` under key `K` — not from an LLM pretending it did. |
 | **Integrity** | The bytes you have now are identical to what was signed. One flipped field invalidates the signature. |
-| **Order (chain of trust)** | Step *N* was produced after step *N-1*. You cannot reorder or drop steps without breaking the chain. |
+| **Order (chain of trust)** | Step *N* was produced after step *N-1*. You cannot reorder or drop *interior* steps without breaking the chain; catching *tail-truncation* needs a pinned head/length or the RFC 6962 Merkle root (`tc-verify --merkle-root`). |
 
 > **How strong is that attribution?** A receipt can now carry *signed* evidence of
 > its own strength — `signer_role` (tool vs agent), key `custody` (software vs
 > HSM/KMS), a request→response `input_hash`, key-backed per-tool signatures,
 > opt-in RFC 8785 (JCS) canonicalization, historical (as-of) validity, and an
-> external witness quorum so even the operator cannot fork the log. See
+> external witness quorum so — for a log in RFC 6962 mode — even the operator cannot fork it (the witness independently re-verifies the append-only proof). See
 > [ATTRIBUTION_AND_VALIDITY.md](./ATTRIBUTION_AND_VALIDITY.md). None of it changes
 > the default trust model — every existing signature verifies unchanged.
 
@@ -250,6 +250,7 @@ tc sign <tool_id> <json>           # sign ad-hoc payload
 tc verify <file>                   # verify a .tcreceipt / chain entry
 tc cert request ...                # request a leaf cert from Platform (optional)
 tc-verify file.jsonl.gz            # fully offline batch verify
+tc-verify file.jsonl.gz --merkle-root HEX  # + RFC 6962 anti-truncation (exit 8 on mismatch)
 tc-witness ...                     # external witness co-signer
 tc standards export r.tcreceipt --format scitt   # SCITT/W3C VC/in-toto JSON exports
 tc anchor export -o chain.anchor.json             # portable chain-head checkpoint

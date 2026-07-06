@@ -13,7 +13,7 @@ response, auditor evidence, and customer trust.
 | Signed response | Prove origin and integrity of a tool output | OSS |
 | `.tcreceipt` | Portable proof for offline third-party verification | OSS |
 | ChainStore | Ordered execution trail | OSS |
-| `tc chain-verify` | Detect broken links and tampering in local chain | OSS |
+| `tc chain-verify` | Detect broken parent links (structure); with `--pubkey`, re-verify every Ed25519 signature to catch payload/link tampering | OSS |
 | `tc anchor` | Store chain-head checkpoint outside the writable chain | OSS |
 | Standards export | SCITT-shaped JSON, W3C VC, in-toto Statement | OSS |
 | Tool PKI | Bind outputs to certified tool implementations | OSS + Enterprise |

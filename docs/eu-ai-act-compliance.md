@@ -47,7 +47,7 @@ It is not legal advice and does not make a deployment compliant by itself.
 | Periods of use (start/end) | **Operation timestamps**: each record includes signed `response_timestamp` and store timestamp |
 | Input/output evidence | **`.tcreceipt`**: portable proof of a specific signed tool output |
 | Traceability of functioning | **Parent signatures / chain HEAD**: ordered operations are linked |
-| Tamper detection | **`tc chain-verify` + `tc anchor`**: detect local link breaks and whole-chain rewrites against external checkpoints |
+| Tamper detection | **`tc chain-verify` + `tc anchor`**: with `--pubkey` re-verify every Ed25519 signature (payload/link tampering) and check whole-chain rewrites against external checkpoints (keyless `chain-verify` checks link structure only) |
 
 **TrustChain component**: `SignedResponse`, `ChainStore`, `.tcreceipt`, `tc anchor`
 
@@ -55,7 +55,7 @@ It is not legal advice and does not make a deployment compliant by itself.
 
 **Key advantage**: The EU AI Act does not mandate cryptographic logging, but legal 
 experts recommend it as best practice for evidentiary value. TrustChain's Merkle tree 
-provides **mathematically provable** tamper resistance, exceeding the regulation's 
+provides cryptographic tamper-evidence (the opt-in RFC 6962 Merkle mode, `TC_MERKLE_SCHEME=rfc6962`, also commits to log size), exceeding the regulation's 
 minimum requirements.
 
 ---
