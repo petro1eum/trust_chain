@@ -42,6 +42,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# PostgreSQL backend. psycopg is already a base dependency (Postgres is the
+# canonical VerifiableChainStore backend, ADR-SEC-002); this extra exists so
+# `pip install trustchain[postgres]` resolves as the store's error message and
+# the docs suggest.
+postgres = [
+    "psycopg[binary,pool]>=3.2,<4.0",
+]
 # RFC 8785 (JCS) canonicalization — opt-in signing/verify path (canon="jcs").
 # Not required for the default scheme; install with `pip install trustchain[jcs]`.
 jcs = [
