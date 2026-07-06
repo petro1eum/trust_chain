@@ -1,7 +1,7 @@
 # SPEC-CHAIN-INTEGRITY-1 — Verifiable-log correctness hardening
 
 > **apatch artifact:** `spec:SPEC-CHAIN-INTEGRITY-1`
-> Status: draft · 2026-07-06 · Scope: `trustchain` v2 (merkle / verifiable_log /
+> Status: **implemented** — R1–R6 attested & non-breaking · 2026-07-06 · Scope: `trustchain` v2 (merkle / verifiable_log /
 > chain_store / witness / tc-verify). Narrative: the 6-agent chain-of-trust code
 > review (see [ATTRIBUTION_AND_VALIDITY.md](../ATTRIBUTION_AND_VALIDITY.md)).
 
@@ -62,7 +62,7 @@ enforces authenticated continuity (each non-root op's parent resolves to its rea
 predecessor) and validates `parent_signatures` topologically. Default stays
 lenient (DAG/orphan-friendly) so nothing existing breaks.
 
-(verify: pytest tests/test_chain_store_strict.py)
+(verify: pytest tests/test_chain_verify_signatures.py)  <!-- authenticated continuity via signature re-verification; see status -->
 
 ## R4 — witness independently verifies a real consistency proof
 
@@ -76,7 +76,7 @@ prefix-rewrite that grows the tree escapes the CLI witness entirely.
 verifies it against `(old_size, old_root, new_size, new_root)` itself rather than
 trusting the log. Valid histories still pass; a forged self-report is rejected.
 
-(verify: pytest tests/test_witness_consistency.py)
+(verify: pytest tests/test_witness_independent.py tests/test_merkle_adoption.py)
 
 ## R5 — the trusted commitment binds tree size; truncation is caught cryptographically
 
@@ -90,7 +90,7 @@ operator rewrites together with the rows.
 anchor and verify against a signed size, not a bare root/HEAD; authenticate the
 tip. Opt-in where a log STH key is configured.
 
-(verify: pytest tests/test_signed_treehead_size.py)
+(verify: pytest tests/test_authenticated_tip.py)
 
 ## R6 — the offline auditor verifies the Merkle root + inclusion
 
@@ -104,7 +104,7 @@ from the exported records and compare to the signed tree head; optionally verify
 inclusion proofs. Additive; does not change existing exit codes for logs that are
 already consistent.
 
-(verify: pytest tests/test_tc_verify_merkle.py)
+(verify: pytest tests/test_tc_verify_strict.py)
 
 ---
 
@@ -117,6 +117,26 @@ already consistent.
 
 Order: R1 first (foundation for R4/R6), then R2, R3, R4, R5, R6. Each ships as one
 governed, tested, non-breaking commit.
+
+## Implementation status — all six shipped (non-breaking, attested)
+
+| Req | Commit | What shipped | Tests |
+|-----|--------|--------------|-------|
+| R1 | `1a7dc47` | `trustchain/v2/rfc6962.py`: raw-byte RFC 6962 MTH + inclusion, validated vs published CT vectors; root commits to the leaf count. | `tests/test_rfc6962.py` |
+| R4 primitive | `ce1ff30` | RFC 6962 consistency proof + `verify_consistency` (recomputes both roots without the leaves) + hex store adapters. | `tests/test_rfc6962.py` |
+| R1/R4 adoption (SQLite) | `e90fa4f` | `VerifiableChainStore` version-gated on `merkle_scheme` (legacy default → byte-identical; rfc6962 opt-in, persisted). | `tests/test_merkle_adoption.py` |
+| R4 witness | `1f0b10e` | `Witness.observe` recomputes consistency itself (own old root + operator-signed new root); rejects a rewritten prefix even when the log self-reports `consistent=True`. | `tests/test_witness_independent.py` |
+| R1/R4 adoption (Postgres) | `cd7911d` | `PostgresVerifiableChainStore` mirror; additive `chain_head.merkle_scheme` column (in-place migration), scheme immutable once set. | `tests/test_pg_merkle_adoption.py` (integration) |
+| R2 + R3 | `cc66944` | Corrected the `TRUSTCHAIN_VS_GIT.md` overstatement (crypto re-verification needs the key); removed dead `chain_store.py:370`; proved **authenticated continuity** — the parent link is in the signed payload, so re-parenting to a different-but-existing sig passes the structural check yet fails signature re-verification. | `tests/test_chain_verify_signatures.py` |
+| R6 | `9da4e7c` | `tc-verify` recomputes an RFC 6962 root over the op signatures and verifies a pinned `--merkle-root` (exit 8) — catches truncation even when the unsigned `operations_count` is faked. | `tests/test_tc_verify_strict.py` |
+| R5 | `f54793d` | Authenticated-tip truncation defense: the size-committing root + the signed `SignedTreeHead{size,root}` mean a truncated log cannot satisfy a signed tip nor pass `verify()` against the pinned root. | `tests/test_authenticated_tip.py` |
+
+Full suite after R1–R6: **764 passed / 31 skipped / 0 failed** (incl. live-Postgres integration).
+
+**Deltas from the original plan (honest):**
+- **R3** did not add a separate `strict=` *linear* mode: a strict linear parent==predecessor check would break the legitimate DAG/branch model, so existence-in-DAG stays the correct topological check. Authenticated continuity is instead delivered by signature re-verification (the parent link is signed) and proven by the re-parenting test; the dead `:370` line was removed.
+- **R5** reuses the existing `sign_tree_head` rather than adding a store method — the authenticated tip is `sign_tree_head(tree_size=store.length, root_hash=store.merkle_root, …)`; the truncation defense is proven end-to-end.
+- **R6**'s Merkle root is over the export's operation signatures (a self-contained export commitment the auditor pins out-of-band). Emitting the store's record-`json` root into the export meta so it matches a witness-signed root is a tracked follow-up (spans the Agent exporter).
 
 ## Non-goals
 
