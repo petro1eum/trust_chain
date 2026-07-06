@@ -158,3 +158,44 @@ def verify_consistency(
         fn >>= 1
         sn >>= 1
     return sn == 0 and fr == old_root and sr == new_root
+
+
+# ── Store adapters (hex I/O) ──────────────────────────────────────────────────
+# Thin wrappers so the append-only stores and the witness can speak in the hex
+# strings they already persist (HEAD, proof JSON) instead of raw bytes. Additive;
+# nothing existing depends on them. See SPEC-CHAIN-INTEGRITY-1 R1/R4.
+
+
+def store_verify_inclusion(
+    leaf_index: int,
+    tree_size: int,
+    record_json: str,
+    audit_path_hex: Sequence[str],
+    root_hex: str,
+) -> bool:
+    """verify_inclusion over a record_json string + hex proof/root."""
+    try:
+        proof = [bytes.fromhex(h) for h in audit_path_hex]
+        root = bytes.fromhex(root_hex)
+    except ValueError:
+        return False
+    return verify_inclusion(
+        leaf_index, tree_size, record_json.encode("utf-8"), proof, root
+    )
+
+
+def store_verify_consistency(
+    old_length: int,
+    new_length: int,
+    old_root_hex: str,
+    new_root_hex: str,
+    proof_hex: Sequence[str],
+) -> bool:
+    """verify_consistency over hex roots + hex proof (witness-facing)."""
+    try:
+        old_root = bytes.fromhex(old_root_hex)
+        new_root = bytes.fromhex(new_root_hex)
+        proof = [bytes.fromhex(h) for h in proof_hex]
+    except ValueError:
+        return False
+    return verify_consistency(old_length, new_length, old_root, new_root, proof)

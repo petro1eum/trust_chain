@@ -32,6 +32,7 @@ Usage::
 
 import hashlib
 import json
+import os
 import sqlite3
 import struct
 import threading
@@ -40,7 +41,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from . import rfc6962
 from .merkle import MerkleProof, MerkleTree, hash_data, verify_proof
+
+# ── Merkle scheme (version-gated; see SPEC-CHAIN-INTEGRITY-1 R1/R4) ──
+# "legacy": the original tree (root does NOT commit to leaf count); kept as the
+# default so every existing store's HEAD stays byte-identical. "rfc6962": the
+# standards-conformant tree whose root commits to the leaf count and whose
+# consistency proofs a witness can verify independently. Opt in per store via
+# the ``merkle_scheme`` constructor arg or the ``TC_MERKLE_SCHEME`` env var.
+MERKLE_SCHEME_LEGACY = "legacy"
+MERKLE_SCHEME_RFC6962 = "rfc6962"
+_VALID_MERKLE_SCHEMES = frozenset({MERKLE_SCHEME_LEGACY, MERKLE_SCHEME_RFC6962})
 
 # ── Binary Log Format ──
 # Each record: [4-byte big-endian length][JSON payload bytes][newline]
@@ -88,6 +100,54 @@ class InclusionProof:
         )
 
 
+@dataclass
+class Rfc6962InclusionProof:
+    """RFC 6962 inclusion proof (audit path) for an ``rfc6962``-scheme store.
+
+    Mirrors :class:`InclusionProof` (same ``verify(record_json)`` / ``to_dict``
+    surface) but the proof is an RFC 6962 audit path of hex node hashes over the
+    record bytes, so it verifies against a root that commits to the leaf count.
+    """
+
+    op_id: str
+    leaf_index: int
+    tree_size: int
+    audit_path: List[str]  # hex node hashes, leaf→root
+    root_at_proof_time: str
+
+    def verify(self, record_json: str) -> bool:
+        """Verify this proof against a record's JSON content."""
+        return rfc6962.store_verify_inclusion(
+            self.leaf_index,
+            self.tree_size,
+            record_json,
+            self.audit_path,
+            self.root_at_proof_time,
+        )
+
+    def to_dict(self) -> dict:
+        """Serialize for transmission to auditors."""
+        return {
+            "scheme": MERKLE_SCHEME_RFC6962,
+            "op_id": self.op_id,
+            "leaf_index": self.leaf_index,
+            "tree_size": self.tree_size,
+            "audit_path": list(self.audit_path),
+            "root": self.root_at_proof_time,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Rfc6962InclusionProof":
+        """Deserialize from dict."""
+        return cls(
+            op_id=data["op_id"],
+            leaf_index=data["leaf_index"],
+            tree_size=data["tree_size"],
+            audit_path=list(data["audit_path"]),
+            root_at_proof_time=data["root"],
+        )
+
+
 def content_op_id(
     tool: str, data: Any, signature: str, timestamp: str | None = None
 ) -> str:
@@ -131,20 +191,29 @@ class VerifiableChainStore:
         └── HEAD          # current Merkle root hash
     """
 
-    def __init__(self, root_dir: str = ".trustchain") -> None:
+    def __init__(
+        self, root_dir: str = ".trustchain", merkle_scheme: Optional[str] = None
+    ) -> None:
         self._root = Path(root_dir).expanduser().resolve()
         self._root.mkdir(parents=True, exist_ok=True)
 
         self._log_path = self._root / "chain.log"
         self._db_path = self._root / "index.db"
         self._head_path = self._root / "HEAD"
+        self._scheme_path = self._root / "MERKLE_SCHEME"
 
         self._lock = threading.Lock()
 
         # ── Load or initialize ──
         self._leaf_hashes: List[str] = []
         self._merkle_tree: Optional[MerkleTree] = None
+        self._rfc_leaves: List[bytes] = []
+        self._rfc_root: Optional[str] = None
         self._length = 0
+
+        # Resolve the (immutable) Merkle scheme before loading, since the load
+        # path dispatches on it. See SPEC-CHAIN-INTEGRITY-1 R1/R4.
+        self._scheme = self._resolve_scheme(merkle_scheme)
 
         self._init_sqlite()
         self._load_log()
@@ -193,8 +262,10 @@ class VerifiableChainStore:
             signed_parent = parent_hash
 
             # Parent = previous Merkle root (or None for genesis)
-            if parent_hash is None and self._merkle_tree is not None:
-                parent_hash = self._merkle_tree.root
+            if parent_hash is None:
+                prev_root = self._current_root()
+                if prev_root is not None:
+                    parent_hash = prev_root
 
             record: Dict[str, Any] = {
                 "id": op_id,
@@ -224,22 +295,30 @@ class VerifiableChainStore:
             record_json = json.dumps(record, sort_keys=True, default=str)
             self._append_to_log(record_json)
 
-            # 2. Update Merkle tree
-            # ``_leaf_hashes`` already stores ``sha256(record_json)``; use
-            # ``from_leaves`` so ``InclusionProof.verify(record_json)`` works
-            # without the client re-hashing twice (см. ADR-SEC-005 §Merkle).
-            leaf_hash = hash_data(record_json)
-            self._leaf_hashes.append(leaf_hash)
-            if (
-                self._merkle_tree is not None
-                and len(self._merkle_tree.leaves) == len(self._leaf_hashes) - 1
-            ):
-                self._merkle_tree.append_leaf(leaf_hash)
+            # 2. Update Merkle tree (scheme-aware)
+            if self._scheme == MERKLE_SCHEME_RFC6962:
+                # RFC 6962 leaf = the record bytes; the root commits to the leaf
+                # count (SPEC-CHAIN-INTEGRITY-1 R1).
+                self._rfc_leaves.append(record_json.encode("utf-8"))
+                self._rfc_root = rfc6962.merkle_tree_hash(self._rfc_leaves).hex()
+                new_root = self._rfc_root
             else:
-                self._merkle_tree = MerkleTree.from_leaves(list(self._leaf_hashes))
+                # ``_leaf_hashes`` already stores ``sha256(record_json)``; use
+                # ``from_leaves`` so ``InclusionProof.verify(record_json)`` works
+                # without the client re-hashing twice (см. ADR-SEC-005 §Merkle).
+                leaf_hash = hash_data(record_json)
+                self._leaf_hashes.append(leaf_hash)
+                if (
+                    self._merkle_tree is not None
+                    and len(self._merkle_tree.leaves) == len(self._leaf_hashes) - 1
+                ):
+                    self._merkle_tree.append_leaf(leaf_hash)
+                else:
+                    self._merkle_tree = MerkleTree.from_leaves(list(self._leaf_hashes))
+                new_root = self._merkle_tree.root
 
             # 3. Write HEAD (Merkle root)
-            self._save_head(self._merkle_tree.root)
+            self._save_head(new_root)
 
             # 4. Index in SQLite
             self._index_record(record)
@@ -361,6 +440,22 @@ class VerifiableChainStore:
                 "verified_at": datetime.now(timezone.utc).isoformat(),
             }
 
+        stored_root = self._load_head()
+
+        if self._scheme == MERKLE_SCHEME_RFC6962:
+            # Recompute the RFC 6962 root from chain.log (source of truth); it
+            # commits to the leaf count, so truncation/rewrite is detected.
+            leaves = [rj.encode("utf-8") for rj in self._iter_log_records()]
+            computed_root = rfc6962.merkle_tree_hash(leaves).hex()
+            return {
+                "valid": computed_root == stored_root,
+                "length": len(leaves),
+                "stored_root": stored_root,
+                "computed_root": computed_root,
+                "method": "rfc6962_merkle_root",
+                "verified_at": datetime.now(timezone.utc).isoformat(),
+            }
+
         # Recompute leaf hashes from chain.log (source of truth)
         recomputed_leaves = []
         for record_json in self._iter_log_records():
@@ -368,7 +463,6 @@ class VerifiableChainStore:
 
         recomputed_tree = MerkleTree.from_leaves(list(recomputed_leaves))
 
-        stored_root = self._load_head()
         valid = recomputed_tree.root == stored_root
 
         return {
@@ -380,15 +474,14 @@ class VerifiableChainStore:
             "verified_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    def inclusion_proof(self, op_id: str) -> Optional[InclusionProof]:
+    def inclusion_proof(
+        self, op_id: str
+    ) -> Optional[InclusionProof | Rfc6962InclusionProof]:
         """Generate O(log n) proof that an operation exists in the chain.
 
-        Returns an InclusionProof that can be verified independently
-        by any auditor who knows the Merkle root.
+        Returns an InclusionProof (legacy) or Rfc6962InclusionProof (rfc6962)
+        that can be verified independently by any auditor who knows the root.
         """
-        if self._merkle_tree is None:
-            return None
-
         # Find the leaf index for this op_id
         row = self._db.execute(
             "SELECT seq FROM chain_log WHERE op_id = ?", (op_id,)
@@ -398,6 +491,22 @@ class VerifiableChainStore:
 
         leaf_index = row[0] - 1  # seq is 1-based, leaves are 0-based
 
+        if self._scheme == MERKLE_SCHEME_RFC6962:
+            if leaf_index >= len(self._rfc_leaves) or self._rfc_root is None:
+                return None
+            audit_path = [
+                h.hex() for h in rfc6962.inclusion_proof(leaf_index, self._rfc_leaves)
+            ]
+            return Rfc6962InclusionProof(
+                op_id=op_id,
+                leaf_index=leaf_index,
+                tree_size=self._length,
+                audit_path=audit_path,
+                root_at_proof_time=self._rfc_root,
+            )
+
+        if self._merkle_tree is None:
+            return None
         if leaf_index >= len(self._leaf_hashes):
             return None
 
@@ -423,6 +532,9 @@ class VerifiableChainStore:
                 "reason": f"old_length {old_length} > current {self._length}",
             }
 
+        if self._scheme == MERKLE_SCHEME_RFC6962:
+            return self._rfc6962_consistency_proof(old_length, old_root)
+
         if old_length == 0:
             return {"consistent": True, "reason": "empty_prefix"}
 
@@ -438,6 +550,50 @@ class VerifiableChainStore:
             "recomputed_old_root": old_tree.root,
             "current_length": self._length,
             "current_root": self._merkle_tree.root if self._merkle_tree else None,
+        }
+
+    def _rfc6962_consistency_proof(self, old_length: int, old_root: str) -> dict:
+        """RFC 6962 consistency proof (SPEC-CHAIN-INTEGRITY-1 R4).
+
+        Returns the compact consistency ``proof`` so a witness can verify the
+        append-only invariant INDEPENDENTLY (against its OWN remembered old
+        root) instead of trusting a self-reported boolean. ``consistent`` is a
+        convenience self-check computed with the same primitive.
+        """
+        current_root = self._current_root()
+        if old_length == 0:
+            return {
+                "scheme": MERKLE_SCHEME_RFC6962,
+                "consistent": True,
+                "reason": "empty_prefix",
+                "old_length": 0,
+                "old_root": old_root,
+                "current_length": self._length,
+                "current_root": current_root,
+                "proof": [],
+            }
+        proof_hex = [
+            h.hex() for h in rfc6962.consistency_proof(old_length, self._rfc_leaves)
+        ]
+        recomputed_old_root = rfc6962.merkle_tree_hash(
+            self._rfc_leaves[:old_length]
+        ).hex()
+        consistent = rfc6962.store_verify_consistency(
+            old_length,
+            self._length,
+            old_root,
+            current_root or "",
+            proof_hex,
+        )
+        return {
+            "scheme": MERKLE_SCHEME_RFC6962,
+            "consistent": consistent,
+            "old_length": old_length,
+            "old_root": old_root,
+            "recomputed_old_root": recomputed_old_root,
+            "current_length": self._length,
+            "current_root": current_root,
+            "proof": proof_hex,
         }
 
     # ══════════════════════════════════════════════════════════════
@@ -482,7 +638,7 @@ class VerifiableChainStore:
     @property
     def head(self) -> Optional[str]:
         """Current HEAD — latest Merkle root hash."""
-        return self._merkle_tree.root if self._merkle_tree else None
+        return self._current_root()
 
     @property
     def merkle_root(self) -> Optional[str]:
@@ -544,7 +700,20 @@ class VerifiableChainStore:
     def _load_log(self) -> None:
         """Load chain.log into memory: rebuild leaf hashes and Merkle tree."""
         self._leaf_hashes = []
+        self._rfc_leaves = []
         self._length = 0
+
+        if self._scheme == MERKLE_SCHEME_RFC6962:
+            for record_json in self._iter_log_records():
+                self._rfc_leaves.append(record_json.encode("utf-8"))
+                self._length += 1
+            self._rfc_root = (
+                rfc6962.merkle_tree_hash(self._rfc_leaves).hex()
+                if self._rfc_leaves
+                else None
+            )
+            self._merkle_tree = None
+            return
 
         for record_json in self._iter_log_records():
             leaf_hash = hash_data(record_json)
@@ -609,6 +778,38 @@ class VerifiableChainStore:
     # ══════════════════════════════════════════════════════════════
     # Internal: HEAD
     # ══════════════════════════════════════════════════════════════
+
+    def _resolve_scheme(self, requested: Optional[str]) -> str:
+        """Determine this store's immutable Merkle scheme.
+
+        Precedence: a persisted ``MERKLE_SCHEME`` file (authoritative — a store's
+        scheme never changes once records exist) → else, for a pre-existing log
+        with records, ``legacy`` (so its HEAD stays byte-identical) → else the
+        requested scheme / ``TC_MERKLE_SCHEME`` env / ``legacy`` default. The
+        resolved scheme is persisted so it is stable across reopens.
+        """
+        if self._scheme_path.exists():
+            persisted = self._scheme_path.read_text(encoding="utf-8").strip()
+            if persisted in _VALID_MERKLE_SCHEMES:
+                return persisted
+        # No persisted scheme: a pre-existing non-empty log predates schemes and
+        # must remain legacy; a fresh store honors the requested/env/default.
+        if self._log_path.exists() and self._log_path.stat().st_size > 0:
+            scheme = MERKLE_SCHEME_LEGACY
+        else:
+            scheme = requested or os.environ.get(
+                "TC_MERKLE_SCHEME", MERKLE_SCHEME_LEGACY
+            )
+            if scheme not in _VALID_MERKLE_SCHEMES:
+                raise ValueError(f"unknown merkle_scheme: {scheme!r}")
+        self._scheme_path.write_text(scheme, encoding="utf-8")
+        return scheme
+
+    def _current_root(self) -> Optional[str]:
+        """Current Merkle root (hex) for the active scheme, or None if empty."""
+        if self._scheme == MERKLE_SCHEME_RFC6962:
+            return self._rfc_root
+        return self._merkle_tree.root if self._merkle_tree else None
 
     def _save_head(self, root: str) -> None:
         """Write Merkle root to HEAD file."""
