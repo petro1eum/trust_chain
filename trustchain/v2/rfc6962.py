@@ -91,3 +91,70 @@ def verify_inclusion(
         leaf_index, tree_size, leaf_hash(leaf_data), list(proof)
     )
     return len(remaining) == 0 and computed == root
+
+
+def _subproof(m: int, leaves: Sequence[bytes], at_root: bool) -> list[bytes]:
+    n = len(leaves)
+    if m == n:
+        return [] if at_root else [merkle_tree_hash(leaves)]
+    k = _largest_power_of_two_below(n)
+    if m <= k:
+        return _subproof(m, leaves[:k], at_root) + [merkle_tree_hash(leaves[k:])]
+    return _subproof(m - k, leaves[k:], False) + [merkle_tree_hash(leaves[:k])]
+
+
+def consistency_proof(m: int, leaves: Sequence[bytes]) -> list[bytes]:
+    """RFC 6962 §2.1.2 consistency proof: size-m is a prefix of size-len(leaves)."""
+    n = len(leaves)
+    if not (0 < m <= n):
+        raise ValueError("consistency_proof requires 0 < m <= len(leaves)")
+    if m == n:
+        return []
+    return _subproof(m, list(leaves), True)
+
+
+def verify_consistency(
+    m: int,
+    n: int,
+    old_root: bytes,
+    new_root: bytes,
+    proof: Sequence[bytes],
+) -> bool:
+    """Verify an RFC 6962 consistency proof between sizes m and n WITHOUT the leaves.
+
+    Recomputes both the old-tree root and the new-tree root from the compact proof
+    and checks them against the supplied roots. A remote witness that holds only
+    the two signed tree heads (not the operator-controlled leaves) can therefore
+    prove the log is append-only — a rewritten prefix cannot yield a proof that
+    matches the honest old root. See SPEC-CHAIN-INTEGRITY-1 R4.
+    """
+    if m <= 0 or m > n:
+        return False
+    if m == n:
+        return len(proof) == 0 and old_root == new_root
+    nodes = list(proof)
+    if (m & (m - 1)) == 0:  # m is a power of two: the old root itself is the seed
+        seed = old_root
+    else:
+        if not nodes:
+            return False
+        seed = nodes.pop(0)
+    fn, sn = m - 1, n - 1
+    while fn & 1:
+        fn >>= 1
+        sn >>= 1
+    fr = sr = seed
+    for c in nodes:
+        if sn == 0:
+            return False
+        if (fn & 1) or (fn == sn):
+            fr = node_hash(c, fr)
+            sr = node_hash(c, sr)
+            while fn != 0 and not (fn & 1):
+                fn >>= 1
+                sn >>= 1
+        else:
+            sr = node_hash(sr, c)
+        fn >>= 1
+        sn >>= 1
+    return sn == 0 and fr == old_root and sr == new_root

@@ -72,3 +72,35 @@ def test_out_of_range_index():
         rfc6962.verify_inclusion(3, 3, b"x", [], rfc6962.merkle_tree_hash([b"x"]))
         is False
     )
+
+
+@pytest.mark.parametrize("n", range(1, 25))
+def test_consistency_roundtrip_and_tamper(n):
+    leaves = [bytes([i, (i * 3) & 0xFF]) for i in range(n)]
+    new_root = rfc6962.merkle_tree_hash(leaves)
+    for m in range(1, n + 1):
+        old_root = rfc6962.merkle_tree_hash(leaves[:m])
+        proof = rfc6962.consistency_proof(m, leaves)
+        assert rfc6962.verify_consistency(m, n, old_root, new_root, proof) is True
+        # a tampered old root must fail
+        bad_old = bytes([old_root[0] ^ 1]) + old_root[1:]
+        assert rfc6962.verify_consistency(m, n, bad_old, new_root, proof) is False
+        if proof:
+            bad_proof = [bytes([proof[0][0] ^ 1]) + proof[0][1:], *proof[1:]]
+            assert (
+                rfc6962.verify_consistency(m, n, old_root, new_root, bad_proof) is False
+            )
+
+
+def test_rewritten_prefix_is_rejected():
+    # R4 security property: a forged (rewritten-prefix) tree cannot produce a
+    # consistency proof that verifies against the HONEST old root.
+    leaves = [bytes([i]) for i in range(8)]
+    honest_old_root = rfc6962.merkle_tree_hash(leaves[:4])
+    forged = [*leaves[:3], b"\xff\xff", *leaves[4:]]  # rewrite leaf 3
+    forged_new_root = rfc6962.merkle_tree_hash(forged)
+    forged_proof = rfc6962.consistency_proof(4, forged)
+    assert (
+        rfc6962.verify_consistency(4, 8, honest_old_root, forged_new_root, forged_proof)
+        is False
+    )
