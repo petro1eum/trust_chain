@@ -53,7 +53,15 @@ except ImportError as exc:  # pragma: no cover — dep is declared in pyproject.
         "install trustchain[postgres] or add it to your project dependencies."
     ) from exc
 
+from . import rfc6962
 from .merkle import MerkleProof, MerkleTree, hash_data, verify_proof
+from .verifiable_log import (
+    MERKLE_SCHEME_LEGACY,
+    MERKLE_SCHEME_RFC6962,
+    Rfc6962InclusionProof,
+)
+
+_VALID_MERKLE_SCHEMES = frozenset({MERKLE_SCHEME_LEGACY, MERKLE_SCHEME_RFC6962})
 
 # ── Advisory-lock key: статический 64-битный идентификатор (одна схема — одна
 #    цепь).  Если в будущем появятся шардированные chains, можно добавить
@@ -126,11 +134,18 @@ CREATE INDEX IF NOT EXISTS idx_chain_ts      ON chain_records(ts);
 CREATE INDEX IF NOT EXISTS idx_chain_session ON chain_records(session_id);
 
 CREATE TABLE IF NOT EXISTS chain_head (
-    id          TEXT PRIMARY KEY CHECK (id = 'HEAD'),
-    merkle_root TEXT NOT NULL,
-    length      BIGINT NOT NULL,
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    id            TEXT PRIMARY KEY CHECK (id = 'HEAD'),
+    merkle_root   TEXT NOT NULL,
+    length        BIGINT NOT NULL,
+    merkle_scheme TEXT NOT NULL DEFAULT 'legacy',
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Version-gate an existing (pre-scheme) deployment onto the column without a
+-- migration: existing HEAD rows default to 'legacy', so their root stays
+-- byte-identical (SPEC-CHAIN-INTEGRITY-1 R1/R4).
+ALTER TABLE chain_head
+    ADD COLUMN IF NOT EXISTS merkle_scheme TEXT NOT NULL DEFAULT 'legacy';
 
 CREATE OR REPLACE FUNCTION chain_records_deny_mutation() RETURNS trigger AS $$
 BEGIN
@@ -183,6 +198,7 @@ class PostgresVerifiableChainStore:
         *,
         schema: str = "tc_verifiable_log",
         pool: ConnectionPool | None = None,
+        merkle_scheme: str | None = None,
     ) -> None:
         # Fail-closed: в enterprise-контракте (ADR-SEC-002) явное создание
         # ``PostgresVerifiableChainStore`` без DSN/pool — это misconfiguration.
@@ -206,9 +222,16 @@ class PostgresVerifiableChainStore:
         # `self._lock` (например, append).
         self._lock = threading.RLock()
 
+        # Merkle scheme is resolved from the DB (or this request) on first load;
+        # persisted immutably in chain_head.merkle_scheme. See R1/R4.
+        self._requested_scheme = merkle_scheme
+        self._scheme = MERKLE_SCHEME_LEGACY
+
         # Cached Merkle state (rebuilt from DB on first load / after rebuild_index).
         self._leaf_hashes: list[str] = []
         self._merkle_tree: MerkleTree | None = None
+        self._rfc_leaves: list[bytes] = []
+        self._rfc_root: str | None = None
         self._length = 0
 
     # ── Lazy init helpers ────────────────────────────────────────────────
@@ -236,6 +259,7 @@ class PostgresVerifiableChainStore:
                 self._owns_pool = True
             if not self._initialized:
                 self._ensure_schema()
+                self._scheme = self._resolve_scheme()
                 self._load_state()
                 self._initialized = True
         return self._pool
@@ -279,8 +303,10 @@ class PostgresVerifiableChainStore:
             # reconstruct the canonical payload byte-for-byte.
             signed_parent = parent_hash
 
-            if parent_hash is None and self._merkle_tree is not None:
-                parent_hash = self._merkle_tree.root
+            if parent_hash is None:
+                prev_root = self._current_root()
+                if prev_root is not None:
+                    parent_hash = prev_root
 
             with pool.connection() as conn:
                 conn.autocommit = False
@@ -345,32 +371,44 @@ class PostgresVerifiableChainStore:
                         ),
                     )
 
-                    self._leaf_hashes.append(leaf_hash)
-                    # ``_leaf_hashes`` уже содержит ``sha256(record_json)``.
-                    # Инкрементный append_leaf даёт тот же root/proofs, что
-                    # from_leaves, но за O(log n) вместо O(n) (RFC-003 BF-19);
-                    # fallback на from_leaves при рассинхроне (напр. после _load_state).
-                    if (
-                        self._merkle_tree is not None
-                        and len(self._merkle_tree.leaves) == len(self._leaf_hashes) - 1
-                    ):
-                        self._merkle_tree.append_leaf(leaf_hash)
+                    if self._scheme == MERKLE_SCHEME_RFC6962:
+                        # RFC 6962 leaf = the record bytes; the root commits to
+                        # the leaf count (SPEC-CHAIN-INTEGRITY-1 R1).
+                        self._rfc_leaves.append(record_json.encode("utf-8"))
+                        self._rfc_root = rfc6962.merkle_tree_hash(
+                            self._rfc_leaves
+                        ).hex()
+                        new_root = self._rfc_root
                     else:
-                        self._merkle_tree = MerkleTree.from_leaves(
-                            list(self._leaf_hashes)
-                        )
+                        self._leaf_hashes.append(leaf_hash)
+                        # ``_leaf_hashes`` уже содержит ``sha256(record_json)``.
+                        # Инкрементный append_leaf даёт тот же root/proofs, что
+                        # from_leaves, но за O(log n) вместо O(n) (RFC-003 BF-19);
+                        # fallback на from_leaves при рассинхроне (после _load_state).
+                        if (
+                            self._merkle_tree is not None
+                            and len(self._merkle_tree.leaves)
+                            == len(self._leaf_hashes) - 1
+                        ):
+                            self._merkle_tree.append_leaf(leaf_hash)
+                        else:
+                            self._merkle_tree = MerkleTree.from_leaves(
+                                list(self._leaf_hashes)
+                            )
+                        new_root = self._merkle_tree.root
                     self._length = seq
 
                     cur.execute(
                         """
-                        INSERT INTO chain_head (id, merkle_root, length, updated_at)
-                        VALUES ('HEAD', %s, %s, now())
+                        INSERT INTO chain_head
+                            (id, merkle_root, length, merkle_scheme, updated_at)
+                        VALUES ('HEAD', %s, %s, %s, now())
                         ON CONFLICT (id) DO UPDATE
                         SET merkle_root = EXCLUDED.merkle_root,
                             length      = EXCLUDED.length,
                             updated_at  = now()
                         """,
-                        (self._merkle_tree.root, seq),
+                        (new_root, seq, self._scheme),
                     )
                 conn.commit()
 
@@ -508,11 +546,19 @@ class PostgresVerifiableChainStore:
             }
 
         record_jsons = list(self._iter_log_records())
-        recomputed_leaves: list[str] = [hash_data(rj) for rj in record_jsons]
-        recomputed_tree = MerkleTree.from_leaves(list(recomputed_leaves))
+        if self._scheme == MERKLE_SCHEME_RFC6962:
+            computed_root = rfc6962.merkle_tree_hash(
+                [rj.encode("utf-8") for rj in record_jsons]
+            ).hex()
+            method = "rfc6962_merkle_root"
+        else:
+            computed_root = MerkleTree.from_leaves(
+                [hash_data(rj) for rj in record_jsons]
+            ).root
+            method = "merkle_root_comparison"
 
         stored_root = self._load_head_root()
-        valid = recomputed_tree.root == stored_root
+        valid = computed_root == stored_root
 
         sigs_verified = 0
         sigs_unverifiable = 0
@@ -545,10 +591,10 @@ class PostgresVerifiableChainStore:
 
         return {
             "valid": valid,
-            "length": len(recomputed_leaves),
+            "length": len(record_jsons),
             "stored_root": stored_root,
-            "computed_root": recomputed_tree.root,
-            "method": "merkle_root_comparison",
+            "computed_root": computed_root,
+            "method": method,
             "signatures_checked": bool(public_key),
             "signatures_verified": sigs_verified,
             "signatures_unverifiable": sigs_unverifiable,
@@ -556,11 +602,10 @@ class PostgresVerifiableChainStore:
             "verified_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    def inclusion_proof(self, op_id: str) -> InclusionProof | None:
+    def inclusion_proof(
+        self, op_id: str
+    ) -> InclusionProof | Rfc6962InclusionProof | None:
         pool = self._get_pool()
-        if self._merkle_tree is None:
-            return None
-
         with pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT seq FROM chain_records WHERE op_id = %s", (op_id,))
@@ -568,6 +613,23 @@ class PostgresVerifiableChainStore:
         if not row:
             return None
         leaf_index = int(row[0]) - 1
+
+        if self._scheme == MERKLE_SCHEME_RFC6962:
+            if leaf_index >= len(self._rfc_leaves) or self._rfc_root is None:
+                return None
+            audit_path = [
+                h.hex() for h in rfc6962.inclusion_proof(leaf_index, self._rfc_leaves)
+            ]
+            return Rfc6962InclusionProof(
+                op_id=op_id,
+                leaf_index=leaf_index,
+                tree_size=self._length,
+                audit_path=audit_path,
+                root_at_proof_time=self._rfc_root,
+            )
+
+        if self._merkle_tree is None:
+            return None
         if leaf_index >= len(self._leaf_hashes):
             return None
 
@@ -587,6 +649,10 @@ class PostgresVerifiableChainStore:
                 "consistent": False,
                 "reason": f"old_length {old_length} > current {self._length}",
             }
+
+        if self._scheme == MERKLE_SCHEME_RFC6962:
+            return self._rfc6962_consistency_proof(old_length, old_root)
+
         if old_length == 0:
             return {"consistent": True, "reason": "empty_prefix"}
 
@@ -599,6 +665,49 @@ class PostgresVerifiableChainStore:
             "recomputed_old_root": old_tree.root,
             "current_length": self._length,
             "current_root": self._merkle_tree.root if self._merkle_tree else None,
+        }
+
+    def _rfc6962_consistency_proof(self, old_length: int, old_root: str) -> dict:
+        """RFC 6962 consistency proof (SPEC-CHAIN-INTEGRITY-1 R4).
+
+        Returns the compact consistency ``proof`` so a witness can verify the
+        append-only invariant INDEPENDENTLY against its OWN remembered old root
+        instead of trusting a self-reported boolean.
+        """
+        current_root = self._current_root()
+        if old_length == 0:
+            return {
+                "scheme": MERKLE_SCHEME_RFC6962,
+                "consistent": True,
+                "reason": "empty_prefix",
+                "old_length": 0,
+                "old_root": old_root,
+                "current_length": self._length,
+                "current_root": current_root,
+                "proof": [],
+            }
+        proof_hex = [
+            h.hex() for h in rfc6962.consistency_proof(old_length, self._rfc_leaves)
+        ]
+        recomputed_old_root = rfc6962.merkle_tree_hash(
+            self._rfc_leaves[:old_length]
+        ).hex()
+        consistent = rfc6962.store_verify_consistency(
+            old_length,
+            self._length,
+            old_root,
+            current_root or "",
+            proof_hex,
+        )
+        return {
+            "scheme": MERKLE_SCHEME_RFC6962,
+            "consistent": consistent,
+            "old_length": old_length,
+            "old_root": old_root,
+            "recomputed_old_root": recomputed_old_root,
+            "current_length": self._length,
+            "current_root": current_root,
+            "proof": proof_hex,
         }
 
     # ══════════════════════════════════════════════════════════════
@@ -643,7 +752,7 @@ class PostgresVerifiableChainStore:
         # Lazy init: без этого ``reopened.merkle_root`` после close() возвращает
         # None, даже если в БД сохранены записи (см. test_reopen_preserves_state).
         self._get_pool()
-        return self._merkle_tree.root if self._merkle_tree else None
+        return self._current_root()
 
     @property
     def merkle_root(self) -> str | None:
@@ -700,7 +809,21 @@ class PostgresVerifiableChainStore:
 
     def _load_state(self) -> None:
         self._leaf_hashes = []
+        self._rfc_leaves = []
         self._length = 0
+
+        if self._scheme == MERKLE_SCHEME_RFC6962:
+            for record_json in self._iter_log_records():
+                self._rfc_leaves.append(record_json.encode("utf-8"))
+                self._length += 1
+            self._rfc_root = (
+                rfc6962.merkle_tree_hash(self._rfc_leaves).hex()
+                if self._rfc_leaves
+                else None
+            )
+            self._merkle_tree = None
+            return
+
         for record_json in self._iter_log_records():
             self._leaf_hashes.append(hash_data(record_json))
             self._length += 1
@@ -709,6 +832,34 @@ class PostgresVerifiableChainStore:
             if self._leaf_hashes
             else None
         )
+
+    def _resolve_scheme(self) -> str:
+        """Determine this log's immutable Merkle scheme.
+
+        Authoritative source is ``chain_head.merkle_scheme`` (present once the
+        log has any records — a pre-scheme deployment reads the ``legacy``
+        column default, so its root stays byte-identical). A fresh log honors
+        the requested scheme / ``TC_MERKLE_SCHEME`` env / ``legacy`` default;
+        that choice is persisted by the genesis ``append``.
+        """
+        with self._pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT merkle_scheme FROM chain_head WHERE id = 'HEAD'")
+                row = cur.fetchone()
+        if row and row[0] in _VALID_MERKLE_SCHEMES:
+            return row[0]
+        scheme = self._requested_scheme or os.environ.get(
+            "TC_MERKLE_SCHEME", MERKLE_SCHEME_LEGACY
+        )
+        if scheme not in _VALID_MERKLE_SCHEMES:
+            raise ValueError(f"unknown merkle_scheme: {scheme!r}")
+        return scheme
+
+    def _current_root(self) -> str | None:
+        """Current Merkle root (hex) for the active scheme, or None if empty."""
+        if self._scheme == MERKLE_SCHEME_RFC6962:
+            return self._rfc_root
+        return self._merkle_tree.root if self._merkle_tree else None
 
     def _iter_log_records(self) -> Iterable[str]:
         """Stream ``record_json`` rows in ``seq`` order."""
