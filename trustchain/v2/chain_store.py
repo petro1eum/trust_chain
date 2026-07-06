@@ -367,7 +367,6 @@ class ChainStore:
                     )
 
         for i in range(1, len(all_ops)):
-            all_ops[i - 1].get("signature")
             this_parent = all_ops[i].get("parent_signature")
             this_parents = all_ops[i].get("parent_signatures")
 

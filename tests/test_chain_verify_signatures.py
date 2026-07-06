@@ -70,3 +70,38 @@ def test_chain_verify_detects_payload_tampering(tmp_path):
     result = tc2.chain.verify(public_key=pk)
     assert result["valid"] is False
     assert any(b.get("error") == "invalid_signature" for b in result["broken_links"])
+
+
+def test_chain_verify_detects_reparenting(tmp_path):
+    """R3 authenticated continuity: the parent link is part of the signed
+    payload, so re-parenting an op to a *different but existing* signature
+    passes the structural (existence) link check yet is caught by cryptographic
+    re-verification. See SPEC-CHAIN-INTEGRITY-1 R3.
+    """
+    tc = _file_tc(tmp_path)
+    s1 = tc.sign("tool_a", {"x": 1})
+    s2 = tc.sign("tool_b", {"y": 2}, parent_signature=s1.signature)
+    tc.sign("tool_c", {"z": 3}, parent_signature=s2.signature)
+    pk = tc.export_public_key()
+
+    # Rewrite op3's parent from s2 to s1. s1 still exists earlier in the chain,
+    # so the structural link check still passes.
+    objs = sorted(glob.glob(os.path.join(str(tmp_path), "objects", "*.json")))
+    reparented = False
+    for path in objs:
+        env = json.loads(open(path).read())
+        if env.get("value", {}).get("parent_signature") == s2.signature:
+            env["value"]["parent_signature"] = s1.signature
+            with open(path, "w") as f:
+                json.dump(env, f)
+            reparented = True
+            break
+    assert reparented
+
+    tc2 = _file_tc(tmp_path)
+    # Structure-only verification cannot detect the re-parenting.
+    assert tc2.chain.verify()["valid"] is True
+    # Crypto re-verification with the signer key catches it (parent was signed).
+    result = tc2.chain.verify(public_key=pk)
+    assert result["valid"] is False
+    assert any(b.get("error") == "invalid_signature" for b in result["broken_links"])
