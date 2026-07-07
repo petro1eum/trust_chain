@@ -7,6 +7,8 @@ carry a signature by that exact key.
 
 from __future__ import annotations
 
+import pytest
+
 from trustchain.v2.certificate import ToolRegistry
 from trustchain.v2.signer import Signer, verify_with_public_key
 
@@ -50,6 +52,7 @@ def test_impostor_key_for_tool_fails(tmp_path):
 
 
 def test_jcs_tool_signature_also_verifies(tmp_path):
+    pytest.importorskip("rfc8785")  # canon="jcs" needs trustchain[jcs]
     # cross-key verify is canon-aware
     reg = ToolRegistry(registry_dir=str(tmp_path), strict=False)
     tool = Signer()

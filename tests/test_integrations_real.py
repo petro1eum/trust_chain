@@ -342,6 +342,7 @@ class TestOpenTelemetryRealIntegration:
         from trustchain.integrations.opentelemetry import (
             ATTR_TRUSTCHAIN_NONCE,
             ATTR_TRUSTCHAIN_SIGNATURE,
+            ATTR_TRUSTCHAIN_SIGNATURE_ID,
             ATTR_TRUSTCHAIN_TIMESTAMP,
             ATTR_TRUSTCHAIN_TOOL_ID,
             instrument_span,
@@ -369,6 +370,7 @@ class TestOpenTelemetryRealIntegration:
             tool_id=attrs[ATTR_TRUSTCHAIN_TOOL_ID],
             data=original_data,  # This would come from span events/logs
             signature=attrs[ATTR_TRUSTCHAIN_SIGNATURE],
+            signature_id=attrs[ATTR_TRUSTCHAIN_SIGNATURE_ID],
             nonce=attrs[ATTR_TRUSTCHAIN_NONCE],
             timestamp=attrs.get(ATTR_TRUSTCHAIN_TIMESTAMP, ""),
             parent_signature=attrs.get("trustchain.parent_signature"),
