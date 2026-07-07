@@ -1,4 +1,4 @@
-# TrustChain v3.1.0
+# TrustChain v3.2.0
 
 > **TrustChain** is **SSL for AI**: every agent, subagent, tool, skill and data artifact carries a verifiable X.509 certificate chain anchored in a public CA. Combined with a **git-like context layer**, it lets you checkpoint, branch, and roll back agent actions — so AI mistakes become undoable, and trust becomes provable offline.
 
@@ -689,4 +689,4 @@ Ed Cherednik
 
 ## Version
 
-3.1.0
+3.2.0

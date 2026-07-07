@@ -7,7 +7,7 @@ Author: Ed Cherednik (edcherednik@gmail.com)
 Telegram: @EdCher
 """
 
-__version__ = "3.1.0"
+__version__ = "3.2.0"
 __author__ = "Ed Cherednik"
 
 from trustchain.attribution import (
