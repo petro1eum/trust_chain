@@ -18,6 +18,7 @@ Example:
 import asyncio
 import functools
 import time
+import uuid
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from .config import TrustChainConfig
@@ -122,7 +123,9 @@ class AsyncTrustChain:
         async with self._lock:
             nonce = None
             if self.config.enable_nonce:
-                nonce = f"{time.time_ns()}-{id(self)}"
+                # uuid4 keeps the nonce unique even when time.time_ns() has
+                # coarse resolution (Windows) and consecutive signs share a tick.
+                nonce = f"{time.time_ns()}-{id(self)}-{uuid.uuid4().hex}"
 
             response = self._signer.sign(
                 tool_id=tool_id,

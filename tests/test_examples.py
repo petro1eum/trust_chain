@@ -23,9 +23,11 @@ def run_example(example_name: str, timeout: int = 30) -> subprocess.CompletedPro
         [sys.executable, str(example_path)],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=timeout,
         cwd=PROJECT_ROOT,
-        env={**os.environ, "PYTHONPATH": str(PROJECT_ROOT)},
+        env={**os.environ, "PYTHONPATH": str(PROJECT_ROOT), "PYTHONUTF8": "1"},
     )
 
     return result
@@ -77,8 +79,11 @@ class TestExamplesRun:
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=10,
             cwd=PROJECT_ROOT,
+            env={**os.environ, "PYTHONUTF8": "1"},
         )
 
         # Import should work
