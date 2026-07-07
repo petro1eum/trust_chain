@@ -356,6 +356,10 @@ class ToolRegistry:
     def _save_cert(self, key: str, cert: ToolCertificate) -> None:
         """Persist certificate to disk."""
         safe_key = key.replace(".", "_").replace("/", "_")
+        # Strip characters forbidden in Windows filenames (< > : " \ | ? *);
+        # the file name is write-only (load reconstructs the key from JSON).
+        for _ch in '<>:"\\|?*':
+            safe_key = safe_key.replace(_ch, "_")
         path = self._registry_dir / f"{safe_key}.json"
         path.write_text(json.dumps(cert.to_dict(), indent=2), encoding="utf-8")
 
