@@ -153,7 +153,7 @@ class TrustChainSession:
         except ImportError:
             # Fallback to simple HTML
             html = self._generate_simple_html()
-            with open(filepath, "w") as f:
+            with open(filepath, "w", encoding="utf-8") as f:
                 f.write(html)
             return html
 
