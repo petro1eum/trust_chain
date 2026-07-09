@@ -464,8 +464,7 @@ class PostgresVerifiableChainStore:
     def status(self) -> dict:
         with self._get_pool().connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    """
+                cur.execute("""
                     SELECT
                         COUNT(*)                              AS total,
                         COUNT(DISTINCT tool)                  AS tools,
@@ -473,18 +472,15 @@ class PostgresVerifiableChainStore:
                         MAX(ts)                               AS last_op,
                         COALESCE(AVG(latency_ms), 0)          AS avg_latency
                     FROM chain_records
-                    """
-                )
+                    """)
                 stats = cur.fetchone()
 
-                cur.execute(
-                    """
+                cur.execute("""
                     SELECT tool, COUNT(*) AS cnt
                     FROM chain_records
                     GROUP BY tool
                     ORDER BY cnt DESC
-                    """
-                )
+                    """)
                 tool_rows = cur.fetchall()
 
                 cur.execute("SELECT pg_total_relation_size('chain_records')")

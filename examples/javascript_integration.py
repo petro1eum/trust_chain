@@ -230,8 +230,7 @@ def main():
     print("   4. Verify cryptographic signatures")
 
     print("\n📝 Example JavaScript usage:")
-    print(
-        """
+    print("""
     const { TrustChainClient } = require('trustchain-js');
     const client = new TrustChainClient('http://localhost:8000');
 
@@ -250,8 +249,7 @@ def main():
         b: 5
     });
     console.log('Result:', calc.data.result);
-    """
-    )
+    """)
 
     print("\n🚀 Starting server... (Press Ctrl+C to stop)")
 
