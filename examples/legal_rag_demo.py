@@ -309,8 +309,7 @@ def print_verified_answer(va: VerifiedAnswer):
 
 
 def main():
-    print(
-        """
+    print("""
     =====================================================
     LEGAL RAG DEMO: Cryptographic Source Verification
     =====================================================
@@ -323,8 +322,7 @@ def main():
     - Contract Analysis
     - Legal Discovery
     - Compliance Audits
-    """
-    )
+    """)
 
     # Initialize RAG system
     rag = LegalRAG(CONTRACT_PAGES)

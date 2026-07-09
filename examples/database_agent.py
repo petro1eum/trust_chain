@@ -44,8 +44,7 @@ class AuditableDatabase:
 
     def _setup_db(self):
         """Create demo tables."""
-        self.cursor.execute(
-            """
+        self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS transactions (
                 id INTEGER PRIMARY KEY,
                 account_from TEXT,
@@ -54,17 +53,14 @@ class AuditableDatabase:
                 timestamp TEXT,
                 description TEXT
             )
-        """
-        )
-        self.cursor.execute(
-            """
+        """)
+        self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS accounts (
                 id TEXT PRIMARY KEY,
                 name TEXT,
                 balance REAL
             )
-        """
-        )
+        """)
 
         # Seed data
         self.cursor.executemany(
