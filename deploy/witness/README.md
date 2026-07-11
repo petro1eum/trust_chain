@@ -20,6 +20,10 @@ observation state stay on the witness host.
 
 ## Run — docker compose
 
+The image is built from the checked-out repository source, so a newly merged
+`tc-witness serve` implementation is never shadowed by an older PyPI wheel.
+Run these commands from `deploy/witness/`:
+
 ```bash
 docker compose up -d                    # serves on :8747
 docker compose run --rm tc-witness init --id bank-witness-1 \

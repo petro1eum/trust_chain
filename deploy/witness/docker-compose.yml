@@ -2,7 +2,9 @@
 # (another team / datacenter / org than the log operator).
 services:
   tc-witness:
-    build: .
+    build:
+      context: ../..
+      dockerfile: deploy/witness/Dockerfile
     ports:
       - "8747:8747"
     volumes:
