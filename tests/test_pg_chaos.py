@@ -9,8 +9,9 @@
    Merkle root восстанавливаются из ``chain_records`` (таблица — SOT).
 3. **Manual DELETE из таблицы** → ``verify()`` детектирует
    несоответствие stored_root vs recomputed_root (tamper evidence).
-4. **Concurrent appenders** → после конкурентных write-ов цепочка остаётся
-   последовательной (seq монотонен, Merkle root пересчитывается корректно).
+4. **Concurrent appenders** → после конкурентных write-ов, включая два
+   независимых process-local store cache, цепочка остаётся последовательной
+   (seq монотонен, Merkle root пересчитывается корректно).
 5. **Index rebuild** → после ``TRUNCATE`` in-memory Merkle кэша
    и ``rebuild_index()`` длина и корень совпадают с до-crash значениями.
 """
@@ -199,6 +200,32 @@ class TestConcurrentAppends:
             assert vlog.verify()["valid"] is True
         finally:
             vlog.close()
+
+    def test_independent_store_instances_catch_up_under_db_lock(
+        self, postgres_chain_reset: str
+    ) -> None:
+        """Two process-local caches must not overwrite HEAD from stale leaves."""
+        first = PostgresVerifiableChainStore(dsn=postgres_chain_reset)
+        second = PostgresVerifiableChainStore(dsn=postgres_chain_reset)
+        try:
+            # Materialize both caches before either writer appends: this
+            # reproduces separate backend/worker processes starting together.
+            assert first.length == 0
+            assert second.length == 0
+
+            first.append("first", {"i": 1}, "sig1", "sid1")
+            second.append("second", {"i": 2}, "sig2", "sid2")
+
+            reopened = PostgresVerifiableChainStore(dsn=postgres_chain_reset)
+            try:
+                assert reopened.length == 2
+                assert reopened.verify()["valid"] is True
+                assert second.merkle_root == reopened.merkle_root
+            finally:
+                reopened.close()
+        finally:
+            first.close()
+            second.close()
 
 
 class TestIndexRebuild:
