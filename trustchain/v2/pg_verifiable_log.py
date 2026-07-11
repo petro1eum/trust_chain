@@ -303,11 +303,6 @@ class PostgresVerifiableChainStore:
             # reconstruct the canonical payload byte-for-byte.
             signed_parent = parent_hash
 
-            if parent_hash is None:
-                prev_root = self._current_root()
-                if prev_root is not None:
-                    parent_hash = prev_root
-
             with pool.connection() as conn:
                 conn.autocommit = False
                 with conn.cursor() as cur:
@@ -315,6 +310,16 @@ class PostgresVerifiableChainStore:
                     cur.execute(
                         "SELECT pg_advisory_xact_lock(%s)", (_ADVISORY_LOCK_KEY,)
                     )
+                    # Another process may have appended since this instance last
+                    # loaded its in-memory Merkle state. Catch up only after the
+                    # database lock is held; otherwise this writer can persist a
+                    # root computed from a stale leaf prefix.
+                    self._catch_up_state(cur)
+
+                    if parent_hash is None:
+                        prev_root = self._current_root()
+                        if prev_root is not None:
+                            parent_hash = prev_root
 
                     cur.execute("SELECT COALESCE(MAX(seq), 0) + 1 FROM chain_records")
                     seq = int(cur.fetchone()[0])
@@ -802,6 +807,48 @@ class PostgresVerifiableChainStore:
                 cur.execute(f'SET LOCAL search_path TO "{self._schema}"')
                 cur.execute(_DDL)
             conn.autocommit = False
+
+    def _catch_up_state(self, cur) -> None:
+        """Catch up rows committed by other processes in the in-memory Merkle state.
+
+        The caller must hold the append advisory lock in the current transaction.
+        Reading after that lock closes the race between a stale process cache and
+        a concurrent append without rebuilding the entire tree for every write.
+        """
+        cur.execute(
+            "SELECT seq, record_json FROM chain_records "
+            "WHERE seq > %s ORDER BY seq ASC",
+            (self._length,),
+        )
+        rows = cur.fetchall()
+        if not rows:
+            return
+
+        expected_seq = self._length + 1
+        for seq, record_json in rows:
+            seq = int(seq)
+            if seq != expected_seq:
+                raise RuntimeError(
+                    "chain_records sequence gap while catching up Merkle state: "
+                    f"expected {expected_seq}, got {seq}"
+                )
+            if self._scheme == MERKLE_SCHEME_RFC6962:
+                self._rfc_leaves.append(record_json.encode("utf-8"))
+            else:
+                leaf_hash = hash_data(record_json)
+                self._leaf_hashes.append(leaf_hash)
+                if (
+                    self._merkle_tree is not None
+                    and len(self._merkle_tree.leaves) == len(self._leaf_hashes) - 1
+                ):
+                    self._merkle_tree.append_leaf(leaf_hash)
+                else:
+                    self._merkle_tree = MerkleTree.from_leaves(list(self._leaf_hashes))
+            self._length = seq
+            expected_seq += 1
+
+        if self._scheme == MERKLE_SCHEME_RFC6962:
+            self._rfc_root = rfc6962.merkle_tree_hash(self._rfc_leaves).hex()
 
     def _load_state(self) -> None:
         self._leaf_hashes = []
