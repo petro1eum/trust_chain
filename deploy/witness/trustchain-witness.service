@@ -1,0 +1,22 @@
+[Unit]
+Description=TrustChain witness node (tc-witness serve)
+Documentation=https://github.com/petro1eum/trust_chain
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=tc-witness
+StateDirectory=tc-witness
+ExecStart=/usr/local/bin/tc-witness serve \
+  --key /var/lib/tc-witness/witness.key.json \
+  --state /var/lib/tc-witness/observed.json \
+  --host 127.0.0.1 --port 8747 --require-consistency
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/tc-witness
+
+[Install]
+WantedBy=multi-user.target

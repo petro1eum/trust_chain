@@ -1,0 +1,13 @@
+# TrustChain witness node — run this in a SECOND trust domain
+# (another team / datacenter / org than the log operator).
+services:
+  tc-witness:
+    build: .
+    ports:
+      - "8747:8747"
+    volumes:
+      - witness-data:/var/lib/tc-witness
+    restart: unless-stopped
+
+volumes:
+  witness-data:
