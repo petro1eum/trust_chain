@@ -197,6 +197,12 @@ def _cmd_quorum(args: argparse.Namespace) -> int:
     return 0 if out.get("ok") else 1
 
 
+def _cmd_serve(args: argparse.Namespace) -> int:
+    from trustchain.tc_witness_serve import run_server
+
+    return run_server(args)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="tc-witness",
@@ -233,6 +239,28 @@ def main(argv: list[str] | None = None) -> int:
     p_quo.add_argument("--min", type=int, required=True)
     p_quo.add_argument("files", nargs="+")
     p_quo.set_defaults(func=_cmd_quorum)
+
+    p_srv = sub.add_parser(
+        "serve", help="run an HTTP witness node (SPEC-WITNESS-NODE-1)"
+    )
+    p_srv.add_argument("--key", required=True, help="witness key file (init)")
+    p_srv.add_argument(
+        "--state",
+        help="observation state file (anti-rollback); default <key>.observed.json",
+    )
+    p_srv.add_argument("--host", default="127.0.0.1")
+    p_srv.add_argument("--port", type=int, default=8747)
+    p_srv.add_argument(
+        "--log-pubkey",
+        action="append",
+        help="pin accepted log public keys (b64, repeatable); default TOFU",
+    )
+    p_srv.add_argument(
+        "--require-consistency",
+        action="store_true",
+        help="refuse growth without a verifiable RFC 6962 consistency proof",
+    )
+    p_srv.set_defaults(func=_cmd_serve)
 
     ns = parser.parse_args(argv)
     return int(ns.func(ns))
