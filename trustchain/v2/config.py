@@ -115,20 +115,23 @@ class TrustChainConfig:
         # поднимать PG ради каждого `TrustChain()` неоправданно, поэтому если
         # ни `chain_dsn`, ни `TC_VERIFIABLE_LOG_DSN` не выставлены —
         # автоматически переключаемся на in-memory backend с предупреждением.
-        # В production DSN гарантируется docker-compose / Helm, и fallback не
-        # активируется.  Явно выставленный `TC_STRICT_CHAIN=1` превращает
-        # отсутствие DSN в hard-error (для runtime-самопроверок).
+        # В production/staging отсутствие DSN всегда является ошибкой: среда
+        # не должна молча терять долговечность. В dev/tests fallback остаётся
+        # доступен, а `TC_STRICT_CHAIN=1` включает тот же режим явно.
         if self.enable_chain and self.chain_storage == "postgres":
             has_dsn = bool(self.chain_dsn or os.environ.get("TC_VERIFIABLE_LOG_DSN"))
             if not has_dsn:
-                if os.environ.get("TC_STRICT_CHAIN", "").lower() in (
+                runtime_env = os.environ.get("TC_ENVIRONMENT", "").strip().lower()
+                strict_chain = os.environ.get("TC_STRICT_CHAIN", "").lower() in (
                     "1",
                     "true",
                     "yes",
-                ):
+                ) or runtime_env in ("production", "staging")
+                if strict_chain:
                     raise RuntimeError(
-                        "chain_storage='postgres' requires TC_VERIFIABLE_LOG_DSN "
-                        "(TC_STRICT_CHAIN=1).  Set the DSN or pass "
+                        "chain_storage='postgres' requires TC_VERIFIABLE_LOG_DSN. "
+                        "Production/staging and TC_STRICT_CHAIN=1 do not allow "
+                        "an in-memory fallback; set the DSN or pass "
                         "chain_storage='memory' explicitly."
                     )
                 warnings.warn(

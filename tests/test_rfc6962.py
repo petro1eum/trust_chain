@@ -74,6 +74,28 @@ def test_out_of_range_index():
     )
 
 
+@pytest.mark.parametrize(
+    ("tree_size", "proof"),
+    [
+        (2, []),
+        (4, [b"\x00" * 32]),
+        (2, [b"short"]),
+    ],
+)
+def test_malformed_or_short_inclusion_proof_returns_false(tree_size, proof):
+    leaves = [bytes([i]) for i in range(tree_size)]
+    root = rfc6962.merkle_tree_hash(leaves)
+    assert rfc6962.verify_inclusion(0, tree_size, leaves[0], proof, root) is False
+
+
+def test_malformed_inclusion_root_returns_false():
+    assert rfc6962.verify_inclusion(0, 1, b"x", [], b"short") is False
+
+
+def test_store_inclusion_adapter_rejects_invalid_hex_type():
+    assert rfc6962.store_verify_inclusion(0, 1, "x", [None], "00" * 32) is False
+
+
 @pytest.mark.parametrize("n", range(1, 25))
 def test_consistency_roundtrip_and_tamper(n):
     leaves = [bytes([i, (i * 3) & 0xFF]) for i in range(n)]

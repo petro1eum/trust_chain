@@ -16,6 +16,24 @@ def test_strict_chain_requires_dsn(monkeypatch):
         TrustChainConfig(chain_storage="postgres", enable_chain=True)
 
 
+@pytest.mark.parametrize("environment", ["production", "staging"])
+def test_deployed_environment_requires_chain_dsn(monkeypatch, environment):
+    monkeypatch.delenv("TC_STRICT_CHAIN", raising=False)
+    monkeypatch.delenv("TC_VERIFIABLE_LOG_DSN", raising=False)
+    monkeypatch.setenv("TC_ENVIRONMENT", environment)
+    with pytest.raises(RuntimeError, match="Production/staging"):
+        TrustChainConfig(chain_storage="postgres", enable_chain=True)
+
+
+def test_development_keeps_explicit_warning_fallback(monkeypatch):
+    monkeypatch.delenv("TC_STRICT_CHAIN", raising=False)
+    monkeypatch.delenv("TC_VERIFIABLE_LOG_DSN", raising=False)
+    monkeypatch.setenv("TC_ENVIRONMENT", "development")
+    with pytest.warns(RuntimeWarning, match="in-memory backend"):
+        cfg = TrustChainConfig(chain_storage="postgres", enable_chain=True)
+    assert cfg.chain_storage == "memory"
+
+
 def test_strict_chain_allows_explicit_memory(monkeypatch):
     monkeypatch.setenv("TC_STRICT_CHAIN", "1")
     monkeypatch.delenv("TC_VERIFIABLE_LOG_DSN", raising=False)
@@ -26,11 +44,19 @@ def test_strict_chain_allows_explicit_memory(monkeypatch):
 def test_strict_nonce_rejects_memory_backend(monkeypatch):
     monkeypatch.setenv("TC_STRICT_NONCE", "1")
     with pytest.raises(RuntimeError, match="nonce_backend='memory'"):
-        TrustChainConfig(enable_nonce=True, nonce_backend="memory")
+        TrustChainConfig(
+            enable_nonce=True,
+            nonce_backend="memory",
+            chain_storage="memory",
+        )
 
 
 def test_production_memory_nonce_warns(monkeypatch):
     monkeypatch.setenv("TC_ENVIRONMENT", "production")
     monkeypatch.delenv("TC_STRICT_NONCE", raising=False)
     with pytest.warns(RuntimeWarning, match="nonce_backend='memory'"):
-        TrustChainConfig(enable_nonce=True, nonce_backend="memory")
+        TrustChainConfig(
+            enable_nonce=True,
+            nonce_backend="memory",
+            chain_storage="memory",
+        )

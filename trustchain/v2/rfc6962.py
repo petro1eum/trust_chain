@@ -87,9 +87,22 @@ def verify_inclusion(
     """Verify an RFC 6962 inclusion proof by recomputing the root from the leaf."""
     if not (0 <= leaf_index < tree_size):
         return False
-    computed, remaining = _recompute(
-        leaf_index, tree_size, leaf_hash(leaf_data), list(proof)
-    )
+    try:
+        nodes = list(proof)
+        if (
+            not isinstance(root, bytes)
+            or len(root) != hashlib.sha256().digest_size
+            or any(
+                not isinstance(node, bytes) or len(node) != hashlib.sha256().digest_size
+                for node in nodes
+            )
+        ):
+            return False
+        computed, remaining = _recompute(
+            leaf_index, tree_size, leaf_hash(leaf_data), nodes
+        )
+    except (IndexError, TypeError, ValueError):
+        return False
     return len(remaining) == 0 and computed == root
 
 
@@ -177,7 +190,7 @@ def store_verify_inclusion(
     try:
         proof = [bytes.fromhex(h) for h in audit_path_hex]
         root = bytes.fromhex(root_hex)
-    except ValueError:
+    except (TypeError, ValueError):
         return False
     return verify_inclusion(
         leaf_index, tree_size, record_json.encode("utf-8"), proof, root
