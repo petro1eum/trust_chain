@@ -814,7 +814,11 @@ class ChainStore:
         # `len(list(objects_dir.glob("*.json")))` без read_text/json.loads,
         # и выполняется за миллисекунды даже на сотнях тысяч файлов.
         try:
-            self._length = self._storage.size()
+            high_watermark = getattr(self._storage, "sequence_high_watermark", None)
+            if callable(high_watermark):
+                self._length = int(high_watermark("op_"))
+            else:
+                self._length = self._storage.size()
         except Exception:
             self._length = 0
         # «derive HEAD from last op» убран намеренно: он требовал list_all

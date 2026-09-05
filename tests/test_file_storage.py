@@ -75,6 +75,14 @@ class TestFileStorage:
         assert fs2.get("op_0001") == {"tool": "bash", "data": "ls -la"}
         assert fs2.get("op_0002") == {"tool": "view", "data": "file.txt"}
 
+    def test_sparse_operation_ids_report_high_watermark(self, tmp_dir):
+        fs = FileStorage(tmp_dir)
+        fs.store("op_0001", {"tool": "first"})
+        fs.store("op_0283", {"tool": "latest"})
+
+        assert fs.size() == 2
+        assert fs.sequence_high_watermark() == 283
+
     def test_directory_creation(self, tmp_dir):
         nested = f"{tmp_dir}/deep/nested/dir"
         fs = FileStorage(nested)
@@ -113,6 +121,28 @@ class TestChainStore:
         assert len(log) == 2
         assert log[0]["tool"] == "bash_tool"
         assert log[1]["tool"] == "view_file"
+
+    def test_sparse_file_ledger_appends_after_high_watermark(self, tmp_dir):
+        fs = FileStorage(tmp_dir)
+        first = {"id": "op_0001", "tool": "first", "signature": "A"}
+        latest = {"id": "op_0283", "tool": "latest", "signature": "Z"}
+        fs.store("op_0001", first)
+        fs.store("op_0283", latest)
+        Path(tmp_dir, "HEAD").write_text("Z", encoding="utf-8")
+
+        cs = ChainStore(fs, root_dir=tmp_dir)
+        assert cs.length == 283
+        appended = cs.commit(
+            tool="after-merge",
+            data={},
+            signature="NEXT",
+            signature_id="sid-next",
+            parent_signature="Z",
+        )
+
+        assert appended["id"] == "op_0284"
+        assert fs.get("op_0283") == latest
+        assert fs.get("op_0284")["tool"] == "after-merge"
 
     def test_head_tracking(self, tmp_dir):
         fs = FileStorage(tmp_dir)
