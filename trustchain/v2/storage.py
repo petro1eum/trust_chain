@@ -227,6 +227,20 @@ class FileStorage(Storage):
         """Count stored objects."""
         return len(list(self._objects_dir.glob("*.json")))
 
+    def sequence_high_watermark(self, prefix: str = "op_") -> int:
+        """Return the highest numeric object suffix without reading payloads.
+
+        File-backed ledgers can become sparse after branch merges, retention, or
+        recovery. Their next sequence must follow the highest existing id, not
+        the number of files, otherwise a later append overwrites signed history.
+        """
+        maximum = 0
+        for path in self._objects_dir.glob(f"{prefix}*.json"):
+            suffix = path.stem[len(prefix) :]
+            if suffix.isdigit():
+                maximum = max(maximum, int(suffix))
+        return maximum
+
     def stats(self) -> Dict[str, Any]:
         """Get storage statistics."""
         files = sorted(self._objects_dir.glob("*.json"))
