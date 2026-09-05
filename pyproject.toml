@@ -150,7 +150,7 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.0.0",
     "black==26.5.1",
-    "isort==8.0.1",
+    "isort==9.0.1",
     "mypy>=1.0.0",
     "pre-commit>=3.0.0",
     "coverage>=7.0.0",
