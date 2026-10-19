@@ -64,6 +64,8 @@ export declare class SignedResponse {
     timestamp: number;
     nonce: string | null;
     is_verified: boolean;
+    /** Preserved on decoding; declared profiles require the Python verifier. */
+    canon?: string | null;
     
     constructor(data: {
         tool_id: string;
@@ -73,6 +75,7 @@ export declare class SignedResponse {
         timestamp?: number;
         nonce?: string | null;
         is_verified?: boolean;
+        canon?: string | null;
     });
     
     toDict(): {
@@ -83,6 +86,7 @@ export declare class SignedResponse {
         timestamp: number;
         nonce: string | null;
         is_verified: boolean;
+        canon?: string | null;
     };
     
     getSignaturePreview(): string;

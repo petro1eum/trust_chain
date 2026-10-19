@@ -5,6 +5,12 @@
 [![npm version](https://badge.fury.io/js/trustchain-js.svg)](https://badge.fury.io/js/trustchain-js)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+The JS verifiers retain their existing unmarked legacy format. An explicit
+`canon` value (including `jcs` and `json-sort-keys-minified`) is preserved during
+decoding and rejected by local verification, rather than silently ignored.
+Use the Python `Receipt.verify()` / `Signer.verify()` APIs for those profiles.
+See the [signed contract catalogue](../../docs/SIGNED-CONTRACT-PROFILES.md).
+
 ## 🚀 Quick Start
 
 ### Installation
