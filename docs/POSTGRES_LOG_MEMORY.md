@@ -16,9 +16,12 @@ is needed. Existing legacy and RFC 6962 hashing rules remain distinct.
 Integrity verification always streams the entire history in one read-only,
 repeatable-read snapshot. It does not trust the cached frontier as an
 integrity oracle. Explicit rebuild also rereads all rows. Inclusion and
-consistency proofs stream the necessary disjoint ranges with bounded memory;
-they preserve the original proof format but cost O(N) disk reads in the worst
-case. Persisted subtree indexes could reduce that cost in a future release.
+consistency proofs stream the necessary disjoint ranges of existing leaf
+digests with bounded memory. Only the requested record body is read for an
+inclusion proof, and the generated proof is checked against that body and the
+computed HEAD before return. A corrupt digest index fails closed. These proofs
+preserve the original format but cost O(N) digest reads in the worst case.
+Persisted subtree indexes could reduce that cost in a future release.
 The explicit `export_json()` API still materializes its requested output,
 because its existing contract returns the complete JSON string.
 
@@ -36,7 +39,8 @@ python -m pytest -o addopts= -q tests/test_pg_verifiable_log.py \
 The independent existing tree implementations are the root/proof oracles.
 Additional tests cover every prefix, odd subtrees, restart, a bounded retained
 heap, real Ed25519 signatures and wrong keys, failed HEAD writes, concurrent
-writers, verification snapshots, and tampered history behind an unchanged HEAD.
+writers, verification snapshots, tampered history behind an unchanged HEAD,
+and a corrupted proof digest index.
 
 A local macOS same-dataset experiment on 2026-10-29 used 100,000 synthetic
 records (211,077,790 JSON bytes) in a temporary PostgreSQL container. Separate
@@ -45,8 +49,8 @@ HEAD; all roots and the sampled proofs matched.
 
 | Scheme | Old loaded RSS | New loaded RSS | Old unchanged refresh | New unchanged refresh | Old/new proof time |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Legacy | 87.7 MiB | 61.3 MiB | 1.09 s | 0.002 s | 0.001 / 1.45 s |
-| RFC 6962 | 307.5 MiB | 61.5 MiB | 1.40 s | 0.004 s | 0.23 / 1.43 s |
+| Legacy | 87.1 MiB | 61.6 MiB | 1.14 s | 0.003 s | 0.001 / 0.30 s |
+| RFC 6962 | 307.5 MiB | 61.6 MiB | 1.29 s | 0.003 s | 0.25 / 0.25 s |
 
 These are synthetic local measurements, not production RAM measurements or
 capacity guarantees. Proof latency is the explicit memory/I/O tradeoff.

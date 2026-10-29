@@ -585,7 +585,10 @@ class PostgresVerifiableChainStore:
             conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             size, root = self._length, self._current_root()
             with conn.cursor() as cur:
-                cur.execute("SELECT seq FROM chain_records WHERE op_id = %s", (op_id,))
+                cur.execute(
+                    "SELECT seq, record_json FROM chain_records WHERE op_id = %s",
+                    (op_id,),
+                )
                 row = cur.fetchone()
             if not row or not root:
                 return None
@@ -597,13 +600,18 @@ class PostgresVerifiableChainStore:
                     self._range_root(conn, start, count)
                     for start, count in inclusion_ranges(index, size)
                 ]
-                return Rfc6962InclusionProof(
+                rfc_proof = Rfc6962InclusionProof(
                     op_id=op_id,
                     leaf_index=index,
                     tree_size=size,
                     audit_path=path,
                     root_at_proof_time=root,
                 )
+                if not rfc_proof.verify(row[1]):
+                    raise RuntimeError(
+                        "stored leaf hashes do not prove the requested record"
+                    )
+                return rfc_proof
             siblings = []
             for level in range((size - 1).bit_length()):
                 block = (index >> level) ^ 1
@@ -613,8 +621,15 @@ class PostgresVerifiableChainStore:
                 start = block * width
                 sibling = self._range_root(conn, start, min(width, size - start), level)
                 siblings.append((sibling, "left" if (index >> level) & 1 else "right"))
-            proof = MerkleProof(index, self._range_root(conn, index, 1), siblings, root)
-            return InclusionProof(op_id, index, proof, size, root)
+            merkle_proof = MerkleProof(
+                index, self._range_root(conn, index, 1), siblings, root
+            )
+            proof = InclusionProof(op_id, index, merkle_proof, size, root)
+            if not proof.verify(row[1]):
+                raise RuntimeError(
+                    "stored leaf hashes do not prove the requested record"
+                )
+            return proof
 
     def consistency_proof(self, old_length: int, old_root: str) -> dict:
         pool = self._get_pool()
@@ -861,10 +876,20 @@ class PostgresVerifiableChainStore:
         self, conn, start: int, count: int, pad_height: int | None = None
     ) -> str:
         state = MerkleFrontier(self._scheme)
-        for seq, record_json in self._stream_records(conn, start, start + count):
-            if seq != start + state.length + 1:
-                raise RuntimeError("chain_records sequence gap in proof range")
-            state.append(record_json.encode("utf-8"))
+        # Proof nodes need the existing immutable leaf digests, not full bodies.
+        # Integrity verification and frontier rebuild still hash original bytes.
+        # Each returned inclusion proof is checked against its actual record and
+        # the already-computed HEAD, so a corrupt digest index fails closed.
+        with conn.cursor(name="chain_proof_hashes") as cur:
+            cur.itersize = 1024  # fixed-size hashes permit a larger safe prefetch
+            cur.execute(
+                "SELECT seq, leaf_hash FROM chain_records WHERE seq > %s AND seq <= %s ORDER BY seq",
+                (start, start + count),
+            )
+            for seq, digest in cur:
+                if int(seq) != start + state.length + 1:
+                    raise RuntimeError("chain_records sequence gap in proof range")
+                state.append_leaf_hash(bytes.fromhex(digest))
         if state.length != count or count <= 0:
             raise RuntimeError("chain_records proof range is incomplete")
         return state.root_bytes(pad_to_height=pad_height).hex()

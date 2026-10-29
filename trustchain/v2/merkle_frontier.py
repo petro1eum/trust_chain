@@ -33,7 +33,12 @@ class MerkleFrontier:
         return bytes.fromhex(hash_pair(left.hex(), right.hex()))
 
     def append(self, record: bytes) -> None:
-        node = rfc6962.leaf_hash(record)
+        self.append_leaf_hash(rfc6962.leaf_hash(record))
+
+    def append_leaf_hash(self, node: bytes) -> None:
+        """Fold a stored SHA-256 leaf digest without fetching its record body."""
+        if len(node) != 32:
+            raise ValueError("a Merkle leaf digest must contain 32 bytes")
         level = 0
         while level < len(self.peaks) and self.peaks[level] is not None:
             node = self.pair(self.peaks[level], node)

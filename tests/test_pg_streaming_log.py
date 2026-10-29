@@ -268,3 +268,38 @@ def test_cached_head_does_not_hide_history_tampering(postgres_chain_reset):
         assert store.verify()["valid"] is False  # integrity must still stream every row
     finally:
         store.close()
+
+
+@pytest.mark.parametrize("scheme", ["legacy", "rfc6962"])
+def test_proofs_read_digests_and_reject_a_corrupted_digest_index(
+    postgres_chain_reset, monkeypatch, scheme
+):
+    from tests.conftest import _PG_STATE
+
+    store = PostgresVerifiableChainStore(dsn=postgres_chain_reset, merkle_scheme=scheme)
+    try:
+        append(store, 0)
+        record = append(store, 1)
+        raw = json.dumps(record, sort_keys=True, default=str)
+
+        def no_history_bodies(*args, **kwargs):
+            raise AssertionError("a proof must not fetch the full record history")
+
+        monkeypatch.setattr(store, "_stream_records", no_history_bodies)
+        assert store.inclusion_proof(record["id"]).verify(raw)
+        # Corrupt only the derived index in this disposable local test database.
+        with psycopg.connect(_PG_STATE["admin_dsn"]) as conn:
+            conn.execute(
+                "ALTER TABLE tc_verifiable_log.chain_records DISABLE TRIGGER chain_records_no_mutation"
+            )
+            conn.execute(
+                "UPDATE tc_verifiable_log.chain_records SET leaf_hash=%s WHERE seq=1",
+                ("0" * 64,),
+            )
+            conn.execute(
+                "ALTER TABLE tc_verifiable_log.chain_records ENABLE TRIGGER chain_records_no_mutation"
+            )
+        with pytest.raises(RuntimeError, match="stored leaf hashes"):
+            store.inclusion_proof(record["id"])
+    finally:
+        store.close()
