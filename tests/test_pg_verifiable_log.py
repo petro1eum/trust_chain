@@ -159,6 +159,33 @@ class TestPersistence:
         finally:
             reopened.close()
 
+    def test_stale_writer_catches_up_across_tree_growth(self, postgres_chain_reset: str) -> None:
+        first = PostgresVerifiableChainStore(dsn=postgres_chain_reset)
+        second = None
+        try:
+            for i in range(31):
+                first.append("sample", {"i": i}, f"sig-{i}", f"sid-{i}")
+            second = PostgresVerifiableChainStore(dsn=postgres_chain_reset)
+            historical = first.show(first.log()[0]["id"])
+            historical_proof = first.inclusion_proof(historical["id"])
+            historical_json = json.dumps(historical, sort_keys=True, default=str)
+            for i in range(31, 130):
+                first.append("sample", {"i": i}, f"sig-{i}", f"sid-{i}")
+            # This writer holds a much older prefix; append must catch it up
+            # under the unchanged PG advisory lock before committing its root.
+            result = second.append("sample", {"i": 130}, "sig-130", "sid-130")
+            assert result["seq"] == 131
+            assert second.verify()["valid"] is True
+            assert historical_proof.verify(historical_json) is True
+            for item in (historical, result):
+                assert second.inclusion_proof(item["id"]).verify(
+                    json.dumps(item, sort_keys=True, default=str)
+                ) is True
+        finally:
+            first.close()
+            if second is not None:
+                second.close()
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Fail-closed when DSN is missing (ADR-SEC-002)
