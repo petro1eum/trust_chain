@@ -21,6 +21,8 @@ export interface ReceiptEnvelope {
     timestamp: number;
     nonce?: string | null;
     parent_signature?: string | null;
+    /** Declared profiles require the Python verifier; JS rejects them explicitly. */
+    canon?: string | null;
     metadata?: Record<string, unknown> | null;
     certificate?: Record<string, unknown> | null;
     tsa_proof?: Record<string, unknown> | null;

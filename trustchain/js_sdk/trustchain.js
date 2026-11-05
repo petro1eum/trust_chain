@@ -35,13 +35,15 @@ class SignedResponse {
         this.timestamp = data.timestamp || Date.now() / 1000;
         this.nonce = data.nonce || null;
         this.is_verified = data.is_verified || false;
+        // Retain the signed selector even when this verifier cannot interpret it.
+        if (data.canon !== undefined) this.canon = data.canon;
     }
 
     /**
      * Convert to dictionary for serialization.
      */
     toDict() {
-        return {
+        const result = {
             tool_id: this.tool_id,
             data: this.data,
             signature: this.signature,
@@ -50,6 +52,8 @@ class SignedResponse {
             nonce: this.nonce,
             is_verified: this.is_verified
         };
+        if (this.canon !== undefined) result.canon = this.canon;
+        return result;
     }
 
     /**
@@ -440,6 +444,11 @@ class TrustChainVerifier {
     async verify(signedResponse) {
         if (!this._cryptoKey && !this.publicKey) {
             throw new TrustChainError('Verifier not initialized. Call initialize() first or provide publicKey.');
+        }
+
+        // Declared profiles must not be silently decoded as legacy responses.
+        if (signedResponse.canon !== undefined && signedResponse.canon !== null) {
+            return false;
         }
 
         if (!this._cryptoKey) {

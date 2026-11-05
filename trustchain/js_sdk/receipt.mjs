@@ -81,6 +81,11 @@ export function canonicalize(x) {
  * @returns {Uint8Array}
  */
 export function buildCanonicalEnvelope(env, includeSignatureId = true) {
+  // This legacy verifier has no declared-profile encoder. Never reinterpret
+  // a marked document using the legacy bytes (even for the legacy alias).
+  if (env.canon !== undefined && env.canon !== null) {
+    throw new Error('Unsupported canonicalization profile; use the Python receipt verifier for declared profiles');
+  }
   const obj = {
     tool_id: env.tool_id ?? null,
     data: env.data ?? null,

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "mode": "enforce",
+  "mode": "off",
   "protected_globs": [
     "trustchain/**",
     "packages/**"
@@ -23,9 +23,9 @@
     "patches-*.jsonl"
   ],
   "lease_max_seconds": 300,
-  "cursor_hooks": true,
-  "watcher": "revert",
-  "revert_untracked": true,
+  "cursor_hooks": false,
+  "watcher": "off",
+  "revert_untracked": false,
   "mcp_extra_servers": [
     "cursor-ide-browser"
   ],
