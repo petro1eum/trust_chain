@@ -1,0 +1,24 @@
+name: Executable notebooks
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths: ['examples/**', 'scripts/check_notebook*', 'trustchain*/**', '.github/workflows/notebooks.yml', 'pyproject.toml']
+permissions:
+  contents: read
+jobs:
+  notebooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install notebook dependencies
+        run: |
+          python -m pip install "trustchain[all,otel]==3.3.0" nbformat nbclient ipykernel reportlab
+          python -m pip install -e .
+      - run: python scripts/check_notebook_hygiene.py
+      - name: Execute clean kernels without model credentials
+        run: python scripts/check_notebooks.py examples/*.ipynb

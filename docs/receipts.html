@@ -189,7 +189,8 @@
             .steps { grid-template-columns: 1fr; }
             main { padding-inline: 1.1rem; }
         }
-    </style>
+    .layout > * { min-width: 0; } .layout { grid-template-columns: 230px minmax(0,1fr); } @media (max-width: 920px) { .layout { grid-template-columns: minmax(0,1fr); } table { display:block; max-width:100%; overflow-x:auto; } }
+</style>
 </head>
 
 <body>
@@ -358,7 +359,7 @@ assert result.valid</code></pre>
                     </table>
                 </section>
 
-                <section id="cli">
+                <section id="anchoring">
                     <h2>6. Anchoring</h2>
                     <p>
                         A local hash chain detects edits inside the chain, but an attacker with full filesystem control could rewrite the whole chain.

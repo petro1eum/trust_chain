@@ -13,3 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify docs/ relative markdown targets exist
         run: python scripts/check_doc_links.py
+      - name: Check saved notebook hygiene
+        run: python scripts/check_notebook_hygiene.py
+      - name: Check Pages navigation and local anchors
+        run: python scripts/check_site.py

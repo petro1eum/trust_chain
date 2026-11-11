@@ -409,7 +409,9 @@
         }
         .cta-block h3 { margin: 0; font-size: 1.2rem; color: var(--text-primary); }
         .cta-block p { margin: 0.25rem 0 0; color: var(--text-secondary); font-size: 0.92rem; }
-    </style>
+    @media (max-width: 1000px) { nav { flex-wrap: wrap; } .nav-links { flex-wrap: wrap; gap: .75rem; } } .doc-grid > *, .tier-grid > * { min-width: 0; }
+@media (max-width: 900px) { table.matrix { display: block; max-width: 100%; overflow-x: auto; } pre { max-width: 100%; overflow-x: auto; } }
+</style>
 </head>
 
 <body>
@@ -446,7 +448,7 @@
         </ul>
         <div class="nav-cta">
             <a href="https://github.com/petro1eum/trust_chain" class="btn btn-ghost" target="_blank" rel="noopener">GitHub</a>
-            <a href="index.html#install" class="btn btn-primary">Install</a>
+            <a href="index.html#quick-start" class="btn btn-primary">Install</a>
         </div>
     </nav>
 
