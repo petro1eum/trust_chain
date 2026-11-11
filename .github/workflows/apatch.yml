@@ -2,15 +2,9 @@
 # Or: apatch init-consumer --with-ci
 name: apatch
 
+# Owner decision 2026-10-19: direct development; no automatic APatch gates.
 on:
-  pull_request:
-    paths:
-      - "**/*.py"
-      - "**/*.ts"
-      - "**/*.tsx"
-      - "patches.jsonl"
-      - "manifests/**"
-      - ".apatch/**"
+  workflow_dispatch:
 
 jobs:
   plan:

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FactCrypt · TrustChain</title><meta name="description" content="Typed confidential facts, source-side encryption, agent permissions and local formula evaluation in TrustChain Pro."><link rel="stylesheet" href="docs.css"></head><body><a class="skip" href="#content">Skip to content</a><header><a href="index.html">TrustChain</a><nav aria-label="Documentation"><a href="documentation.html">Documentation</a><a href="receipts.html">Receipts</a><a href="factcrypt.html">FactCrypt</a><a href="https://github.com/petro1eum/trust_chain">GitHub</a></nav></header><main id="content">
+<p class="eyebrow">TrustChain Pro · confidential facts</p><h1>Give an agent the structure. Keep the values with their owner.</h1>
+<p class="lead">FactCrypt protects selected facts in Markdown and source tables. An external model proposes formulas over opaque references. The owner validates the plan, decrypts locally and calculates the result.</p>
+<p><span class="status">Licensed Pro library</span><span class="status">Synthetic examples available</span></p>
+<pre aria-label="FactCrypt data flow">Owner permission + recipient public key
+                    ↓
+Trusted source adapter → encrypt each row
+                    ↓
+Agent: document structure + typed references
+                    ↓
+Declarative formula plan
+                    ↓
+Owner: validate → decrypt → calculate → local result</pre>
+<h2>Three separate responsibilities</h2>
+<table><thead><tr><th>Component</th><th>What it establishes</th></tr></thead><tbody>
+<tr><td>Agent passport</td><td>Identity and verified evidence about the agent. Its presence alone grants no source access.</td></tr>
+<tr><td>Source permission</td><td>Which tenant and agent may use a source, which operations are permitted, the recipient public key, authority versions and expiry.</td></tr>
+<tr><td>FactCrypt connector</td><td>Checks permission before reading; encrypts source values before they enter the external agent's context.</td></tr>
+</tbody></table>
+<h2>What the agent sees</h2><p>The public document contains random fact references, declared types, units, roles and allowed operations. A table heading remains a heading and a cell remains a cell. The model can propose <code>round(fact("price_id") * fact("quantity_id"), 2)</code> without seeing either value.</p>
+<p>The local interpreter uses bounded Decimal arithmetic and checks the entire plan before decryption. Arbitrary Python/JavaScript, file access and network calls are not executed. Derived results remain secret and are not returned to the model automatically.</p>
+<h2>Encryption begins at the trusted source boundary</h2><p>A fresh document key encrypts the facts with XChaCha20-Poly1305. The key is wrapped for the owner's Curve25519 public key. The source signs the export. A separately pinned Platform authority can sign permissions while the owner retains its private decryption and result-signing keys.</p>
+<div class="note">The E2E recipient is the owner/local resolver. An ordinary encrypted channel ending at the external agent would reveal the values to that agent. If an adapter runs after a remote fetch, that preceding transport remains inside the trusted boundary.</div>
+<h2>Run the complete example</h2><ul>
+<li><a href="https://github.com/petro1eum/trust_chain_pro/blob/main/examples/trustchain_factcrypt.ipynb">FactCrypt notebook · Pro repository access and license required</a></li>
+<li><a href="https://github.com/petro1eum/trust_chain_pro/blob/main/docs/FACTCRYPT.md">CLI, source adapter and permissions API</a></li>
+<li><a href="https://github.com/petro1eum/trust_chain_pro/blob/main/docs/specs/SPEC-FACTCRYPT-1.md">Protocol, threat boundaries and integration contract</a></li></ul>
+<p>The reproducible notebook covers annotated Markdown, source acquisition and an agent-bound permission. Its worker and identity fixture are explicitly synthetic. Production deployment and live model verification are separate acceptance steps.</p>
+<h2>What confidentiality does not promise</h2><p>Unmarked prose, row order, counts, units and other public metadata can reveal context. The disclosure report lists this exposure; it does not prove that a model cannot infer a hidden value. Signatures establish attribution and integrity, not the truth of a source or the business correctness of a formula.</p>
+<p>FactCrypt uses authenticated encryption and symbolic local calculation. It does not make ordinary arithmetic work on ciphertext. The source is trusted with its original data; key custody, recipient changes and outward disclosure of aggregates require explicit policy.</p>
+<section lang="ru"><h2>Кратко по-русски</h2><p>Режим задаётся в разрешении «агент → источник» и отображается в паспорте. Источник шифрует значения для владельца; внешняя модель видит структуру и пишет формулы по ссылкам. Локальный исполнитель проверяет формулы, расшифровывает факты и получает точный результат. Ключ расшифровки внешнему агенту не передаётся.</p></section></main><footer>Reviewed 11 November 2026. Source, tests and deployment status are recorded separately. <a href="https://github.com/petro1eum/trust_chain/tree/main/docs">Edit documentation on GitHub</a>.</footer></body></html>
+
