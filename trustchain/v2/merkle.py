@@ -156,25 +156,31 @@ class MerkleTree:
         """
         self.leaves.append(leaf_hash)
         if len(self.leaves) == 1:
-            self.levels = [list(self.leaves)]
+            self.levels = [self.leaves]
             self.root = leaf_hash
             return
-        new_levels: List[List[str]] = [self.leaves]
+        # Reuse the existing level arrays, not only their hashes. Copying every
+        # unchanged prefix still costs O(n) per append and stalls catch-up while
+        # the writer holds the database's cross-process append lock.
+        self.levels[0] = self.leaves
         level = self.leaves
         i = 1
         while len(level) > 1:
             n = len(level)
             pcount = (n + 1) // 2
-            prev = self.levels[i] if i < len(self.levels) else []
-            parent_level = list(prev[: pcount - 1])
+            if i == len(self.levels):
+                self.levels.append([])
+            parent_level = self.levels[i]
             last = pcount - 1
             left = level[last * 2]
             right = level[last * 2 + 1] if (last * 2 + 1) < n else left
-            parent_level.append(hash_pair(left, right))
-            new_levels.append(parent_level)
+            parent_hash = hash_pair(left, right)
+            if last == len(parent_level):
+                parent_level.append(parent_hash)
+            else:
+                parent_level[last] = parent_hash
             level = parent_level
             i += 1
-        self.levels = new_levels
         self.root = level[0]
 
     def get_proof(self, chunk_index: int) -> MerkleProof:

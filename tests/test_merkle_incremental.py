@@ -35,6 +35,36 @@ def test_incremental_append_proofs_verify():
         assert verify_proof(c, inc.get_proof(idx), inc.root)
 
 
+def test_catch_up_does_not_copy_unchanged_tree_prefixes():
+    """Bound reads/copies on large existing levels, independently of wall time."""
+    class MeasuredList(list):
+        read_items = 0
+
+        def __getitem__(self, key):
+            if isinstance(key, slice):
+                type(self).read_items += len(range(*key.indices(len(self))))
+            else:
+                type(self).read_items += 1
+            return super().__getitem__(key)
+
+        def __iter__(self):
+            type(self).read_items += len(self)
+            return super().__iter__()
+
+    size = 8191
+    inc = MerkleTree.from_leaves([_leaf(i) for i in range(size)])
+    inc.levels = [MeasuredList(level) for level in inc.levels]
+    inc.leaves = inc.levels[0]
+    for i in range(size, size + 17):
+        inc.append_leaf(_leaf(i))
+    # Each append visits one path, including the new level across 8192 leaves.
+    assert MeasuredList.read_items < 17 * 14 * 4
+    full = MerkleTree.from_leaves([_leaf(i) for i in range(size + 17)])
+    assert inc.root == full.root
+    for index in (0, size - 1, size, size + 16):
+        assert inc.get_proof(index).to_dict() == full.get_proof(index).to_dict()
+
+
 def test_incremental_append_is_not_quadratic():
     # Sanity: 4000 incremental appends are far cheaper than 4000 full rebuilds.
     inc = MerkleTree.from_leaves([])
