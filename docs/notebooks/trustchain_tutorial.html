@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Getting started · Executed TrustChain notebook</title><link rel="stylesheet" href="../docs.css"><link rel="stylesheet" href="../notebook.css"></head>
+<body><a class="skip" href="#content">Skip to notebook</a><header><a href="../index.html">TrustChain</a><nav aria-label="Notebook"><a href="../notebooks.html">Notebook catalog</a><a href="https://github.com/petro1eum/trust_chain/blob/main/examples/trustchain_tutorial.ipynb">Source on GitHub</a><a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_tutorial.ipynb">Run in Colab</a></nav></header>
+<main id="content"><p class="eyebrow">OSS · saved execution</p><h1>Getting started</h1><p class="lead">Read the code alongside its actual synthetic outputs.</p><div class="note">Executed 2026-11-13 in a fresh local Python 3.12.11 kernel with Core 3.3.0. Dependencies were installed before the run, so installation cells are omitted here. Provider credentials were removed; no live model was called. Local environment paths are redacted. Optional external services may show a skipped or unavailable result. This page is a saved preview, not a live Python session.</div><p class="small">14 code cells completed without execution errors. <a href="manifest.json">Source hash and run metadata</a>.</p><article class="notebook-output"><div class="cell border-box-sizing text_cell rendered" id="cell-id=a29bdc25"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="🔗-TrustChain-Interactive-Tutorial">🔗 TrustChain Interactive Tutorial<a class="anchor-link" href="#%F0%9F%94%97-TrustChain-Interactive-Tutorial">¶</a></h1><p><strong>SSL for AI-Agents</strong> — Cryptographic signatures for AI tool responses.</p>
+<p>This notebook demonstrates key TrustChain features:</p>
+<ol>
+<li>Basic tool signing</li>
+<li>Chain of Trust (linked operations)</li>
+<li>Multi-tenant isolation</li>
+<li>Tampering detection</li>
+<li>Async tools &amp; performance</li>
+<li>Audit trail visualization</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=10a4b5bc"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Reviewed with TrustChain 3.3 / Python 3.12. This notebook uses synthetic data. Offline examples use an in-memory log; production persistence, PKI and authorization require configuration. Signatures establish attribution and byte integrity, not the truth of a tool result. <a href="https://github.com/petro1eum/trust_chain/blob/main/examples/README.md">Notebook guide</a>.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=92c5d2ac">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Install TrustChain 3.x + all OSS integrations (LangChain, LangSmith, MCP, OTel, pytest plugin)</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">trustchain</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrustChain</span><span class="p">,</span> <span class="n">TrustChainConfig</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=08e09f0c"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="1️⃣-Basic-Usage-—-Signing-Tool-Responses">1️⃣ Basic Usage — Signing Tool Responses<a class="anchor-link" href="#1%EF%B8%8F%E2%83%A3-Basic-Usage-%E2%80%94-Signing-Tool-Responses">¶</a></h2><p>Every tool response is automatically signed with Ed25519.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=e3d2c55e">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Create TrustChain instance</span>
+<span class="n">tc</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+<span class="c1"># Define a trusted tool</span>
+<span class="nd">@tc</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"weather_api"</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_weather</span><span class="p">(</span><span class="n">city</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Get current weather for a city."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"city"</span><span class="p">:</span> <span class="n">city</span><span class="p">,</span>
+        <span class="s2">"temperature"</span><span class="p">:</span> <span class="mf">22.5</span><span class="p">,</span>
+        <span class="s2">"conditions"</span><span class="p">:</span> <span class="s2">"Sunny"</span><span class="p">,</span>
+        <span class="s2">"timestamp"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span>
+    <span class="p">}</span>
+
+<span class="c1"># Call the tool - response is automatically signed!</span>
+<span class="n">response</span> <span class="o">=</span> <span class="n">get_weather</span><span class="p">(</span><span class="s2">"Moscow"</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"📍 City: </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'city'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"🌡️ Temperature: </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'temperature'</span><span class="p">]</span><span class="si">}</span><span class="s2">°C"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">🔐 Signature: </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">signature</span><span class="p">[:</span><span class="mi">48</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"✅ Verified: </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">is_verified</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>📍 City: Moscow
+🌡️ Temperature: 22.5°C
+
+🔐 Signature: mBGF8IgEzvmSyg9xJSQxCzJyOZg+6FdGABtHkYQZ8HEKKV5m...
+✅ Verified: True
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/tmp/ipykernel_4716/4087761473.py:2: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  tc = TrustChain(TrustChainConfig(enable_nonce=False))
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=9b425582"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="2️⃣-Chain-of-Trust-—-Linked-Operations">2️⃣ Chain of Trust — Linked Operations<a class="anchor-link" href="#2%EF%B8%8F%E2%83%A3-Chain-of-Trust-%E2%80%94-Linked-Operations">¶</a></h2><p>Link operations together for complete audit trails.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=912658d5">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">tc_chain</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+<span class="nd">@tc_chain</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"step_processor"</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">process_step</span><span class="p">(</span><span class="n">step</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">"step"</span><span class="p">:</span> <span class="n">step</span><span class="p">,</span> <span class="s2">"processed"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="s2">"timestamp"</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()}</span>
+
+<span class="c1"># Build a chain of operations using the PUBLIC API — tc.sign().</span>
+<span class="c1"># It auto-chains via chain HEAD, so we don't need to thread parent_signature</span>
+<span class="c1"># manually. Pass parent_signature=None for the first link if you want to</span>
+<span class="c1"># force a fresh root; here we just let auto-chain do its job.</span>
+<span class="n">step1</span> <span class="o">=</span> <span class="n">tc_chain</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="s2">"step1"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"action"</span><span class="p">:</span> <span class="s2">"fetch_data"</span><span class="p">,</span> <span class="s2">"source"</span><span class="p">:</span> <span class="s2">"API"</span><span class="p">})</span>
+<span class="n">step2</span> <span class="o">=</span> <span class="n">tc_chain</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="s2">"step2"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"action"</span><span class="p">:</span> <span class="s2">"transform"</span><span class="p">,</span> <span class="s2">"rows"</span><span class="p">:</span> <span class="mi">1000</span><span class="p">})</span>
+<span class="n">step3</span> <span class="o">=</span> <span class="n">tc_chain</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="s2">"step3"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"action"</span><span class="p">:</span> <span class="s2">"store"</span><span class="p">,</span> <span class="s2">"destination"</span><span class="p">:</span> <span class="s2">"DB"</span><span class="p">})</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"⛓️ Chain of Trust:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Step 1: </span><span class="si">{</span><span class="n">step1</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'action'</span><span class="p">]</span><span class="si">}</span><span class="s2"> → </span><span class="si">{</span><span class="n">step1</span><span class="o">.</span><span class="n">signature</span><span class="p">[:</span><span class="mi">24</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Step 2: </span><span class="si">{</span><span class="n">step2</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'action'</span><span class="p">]</span><span class="si">}</span><span class="s2"> → </span><span class="si">{</span><span class="n">step2</span><span class="o">.</span><span class="n">signature</span><span class="p">[:</span><span class="mi">24</span><span class="p">]</span><span class="si">}</span><span class="s2">... (parent: </span><span class="si">{</span><span class="n">step2</span><span class="o">.</span><span class="n">parent_signature</span><span class="p">[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2">...)"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Step 3: </span><span class="si">{</span><span class="n">step3</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'action'</span><span class="p">]</span><span class="si">}</span><span class="s2"> → </span><span class="si">{</span><span class="n">step3</span><span class="o">.</span><span class="n">signature</span><span class="p">[:</span><span class="mi">24</span><span class="p">]</span><span class="si">}</span><span class="s2">... (parent: </span><span class="si">{</span><span class="n">step3</span><span class="o">.</span><span class="n">parent_signature</span><span class="p">[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2">...)"</span><span class="p">)</span>
+
+<span class="c1"># The whole chain is auditable via tc.chain (git-like log/verify):</span>
+<span class="n">chain_log</span> <span class="o">=</span> <span class="n">tc_chain</span><span class="o">.</span><span class="n">chain</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">limit</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">📜 Chain length: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">chain_log</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># And the built-in Merkle tree gives you a single root hash over all</span>
+<span class="c1"># signatures — perfect for anchoring into external audit systems.</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">trustchain.v2.merkle</span><span class="w"> </span><span class="kn">import</span> <span class="n">MerkleTree</span>
+
+<span class="n">tree</span> <span class="o">=</span> <span class="n">MerkleTree</span><span class="o">.</span><span class="n">from_chunks</span><span class="p">([</span><span class="n">step1</span><span class="o">.</span><span class="n">signature</span><span class="p">,</span> <span class="n">step2</span><span class="o">.</span><span class="n">signature</span><span class="p">,</span> <span class="n">step3</span><span class="o">.</span><span class="n">signature</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"🌳 Merkle Root: </span><span class="si">{</span><span class="n">tree</span><span class="o">.</span><span class="n">root</span><span class="p">[:</span><span class="mi">32</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>⛓️ Chain of Trust:
+  Step 1: fetch_data → ViQ/7alDsUSZD454Bp6TZTU4...
+  Step 2: transform → uJkMEE3YCzwxZrU41trOyaK9... (parent: ViQ/7alDsUSZD454...)
+  Step 3: store → lFfkmPdFIHZ3YGaKmdYjaBj3... (parent: uJkMEE3YCzwxZrU4...)
+
+📜 Chain length: 3
+🌳 Merkle Root: c52e1f5c59dc205328b38846b116d7ce...
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/tmp/ipykernel_4716/3705877145.py:1: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  tc_chain = TrustChain(TrustChainConfig(enable_nonce=False))
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=0541b8b4"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="3️⃣-Multi-Tenant-Isolation">3️⃣ Multi-Tenant Isolation<a class="anchor-link" href="#3%EF%B8%8F%E2%83%A3-Multi-Tenant-Isolation">¶</a></h2><p>Each tenant has isolated keys — signatures from one tenant cannot verify in another.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=aae8a2bb">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">trustchain.v2.tenants</span><span class="w"> </span><span class="kn">import</span> <span class="n">TenantManager</span>
+
+<span class="c1"># Create tenant manager</span>
+<span class="n">manager</span> <span class="o">=</span> <span class="n">TenantManager</span><span class="p">()</span>
+
+<span class="c1"># Create isolated tenants (get_or_create returns TrustChain instance)</span>
+<span class="n">tc_a</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_or_create</span><span class="p">(</span><span class="s2">"company_a"</span><span class="p">)</span>
+<span class="n">tc_b</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_or_create</span><span class="p">(</span><span class="s2">"company_b"</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"🏢 Tenant A key ID:"</span><span class="p">,</span> <span class="n">tc_a</span><span class="o">.</span><span class="n">get_key_id</span><span class="p">()[:</span><span class="mi">16</span><span class="p">]</span> <span class="o">+</span> <span class="s2">"..."</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"🏢 Tenant B key ID:"</span><span class="p">,</span> <span class="n">tc_b</span><span class="o">.</span><span class="n">get_key_id</span><span class="p">()[:</span><span class="mi">16</span><span class="p">]</span> <span class="o">+</span> <span class="s2">"..."</span><span class="p">)</span>
+
+<span class="c1"># Sign with Tenant A's TrustChain (public API)</span>
+<span class="n">response_a</span> <span class="o">=</span> <span class="n">tc_a</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="s2">"api_call"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"data"</span><span class="p">:</span> <span class="s2">"secret"</span><span class="p">,</span> <span class="s2">"tenant"</span><span class="p">:</span> <span class="s2">"A"</span><span class="p">})</span>
+
+<span class="c1"># Try to verify with Tenant B (will fail!)</span>
+<span class="n">is_valid_b</span> <span class="o">=</span> <span class="n">tc_b</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">response_a</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">❌ Cross-tenant verification: </span><span class="si">{</span><span class="n">is_valid_b</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Verify with correct tenant</span>
+<span class="n">is_valid_a</span> <span class="o">=</span> <span class="n">tc_a</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">response_a</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"✅ Same-tenant verification: </span><span class="si">{</span><span class="n">is_valid_a</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>🏢 Tenant A key ID: b60736e2-07b3-4f...
+🏢 Tenant B key ID: 600778e5-e64c-4b...
+
+❌ Cross-tenant verification: False
+✅ Same-tenant verification: True
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>&lt;python-environment&gt;/lib/python3.12/site-packages/trustchain/v2/tenants.py:38: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  self._base_config = base_config or TrustChainConfig()
+&lt;python-environment&gt;/lib/python3.12/site-packages/trustchain/v2/tenants.py:56: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  config = TrustChainConfig(
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=fa0cfba2"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="4️⃣-Tampering-Detection-—-Security-Demo">4️⃣ Tampering Detection — Security Demo<a class="anchor-link" href="#4%EF%B8%8F%E2%83%A3-Tampering-Detection-%E2%80%94-Security-Demo">¶</a></h2><p>Any modification to signed data is immediately detected.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=1f3a4780">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">tc_secure</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+<span class="nd">@tc_secure</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"bank_api"</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_balance</span><span class="p">(</span><span class="n">account_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">"account"</span><span class="p">:</span> <span class="n">account_id</span><span class="p">,</span> <span class="s2">"balance"</span><span class="p">:</span> <span class="mf">1000.00</span><span class="p">,</span> <span class="s2">"currency"</span><span class="p">:</span> <span class="s2">"USD"</span><span class="p">}</span>
+
+<span class="c1"># Get legitimate response</span>
+<span class="n">response</span> <span class="o">=</span> <span class="n">get_balance</span><span class="p">(</span><span class="s2">"ACC-12345"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"💰 Original balance: $</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'balance'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"✅ Original verified: </span><span class="si">{</span><span class="n">tc_secure</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">response</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Simulate tampering attack</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+
+<span class="n">tampered</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+<span class="n">tampered</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">"balance"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">999999.99</span>  <span class="c1"># Attacker modifies balance!</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">🦹 Tampered balance: $</span><span class="si">{</span><span class="n">tampered</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'balance'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"🚫 Tampered verified: </span><span class="si">{</span><span class="n">tc_secure</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">tampered</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">✅ Tampering detected! Signature doesn't match modified data."</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>💰 Original balance: $1000.0
+✅ Original verified: True
+
+🦹 Tampered balance: $999999.99
+🚫 Tampered verified: False
+
+✅ Tampering detected! Signature doesn't match modified data.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/tmp/ipykernel_4716/3665881863.py:1: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  tc_secure = TrustChain(TrustChainConfig(enable_nonce=False))
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=f044279c"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="5️⃣-Async-Tools-&amp;-Performance">5️⃣ Async Tools &amp; Performance<a class="anchor-link" href="#5%EF%B8%8F%E2%83%A3-Async-Tools-&amp;-Performance">¶</a></h2><p>This example measures async signing time locally; the result depends on hardware and configuration.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=a77676bd">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">tc_async</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+<span class="nd">@tc_async</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"async_processor"</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">process_data</span><span class="p">(</span><span class="n">items</span><span class="p">:</span> <span class="nb">list</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Async data processing with signature."""</span>
+    <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.01</span><span class="p">)</span>  <span class="c1"># Simulate async work</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"count"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">),</span>
+        <span class="s2">"sum"</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">items</span><span class="p">),</span>
+        <span class="s2">"avg"</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">items</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span> <span class="k">if</span> <span class="n">items</span> <span class="k">else</span> <span class="mi">0</span>
+    <span class="p">}</span>
+
+<span class="c1"># Measure performance</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">benchmark</span><span class="p">():</span>
+    <span class="n">times</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+        <span class="k">await</span> <span class="n">process_data</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">])</span>
+        <span class="n">times</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">times</span>
+
+<span class="n">times</span> <span class="o">=</span> <span class="k">await</span> <span class="n">benchmark</span><span class="p">()</span>
+<span class="n">avg_time</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">times</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"⚡ Performance (100 calls):"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Average: </span><span class="si">{</span><span class="n">avg_time</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">ms"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Min: </span><span class="si">{</span><span class="nb">min</span><span class="p">(</span><span class="n">times</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">ms"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Max: </span><span class="si">{</span><span class="nb">max</span><span class="p">(</span><span class="n">times</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">ms"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Throughput: ~</span><span class="si">{</span><span class="mi">1000</span><span class="o">/</span><span class="n">avg_time</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> ops/sec"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/tmp/ipykernel_4716/1271739192.py:1: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  tc_async = TrustChain(TrustChainConfig(enable_nonce=False))
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>⚡ Performance (100 calls):
+   Average: 11.33ms
+   Min: 10.33ms
+   Max: 14.63ms
+   Throughput: ~88 ops/sec
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=d175bea5"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="6️⃣-Git-like-Versioning-&amp;-Revert-(Undo-for-AI)">6️⃣ Git-like Versioning &amp; Revert (Undo for AI)<a class="anchor-link" href="#6%EF%B8%8F%E2%83%A3-Git-like-Versioning-&amp;-Revert-(Undo-for-AI)">¶</a></h2><p>TrustChain has a <strong>built-in git-like audit and version control layer</strong> in the OSS version.
+Under the hood, every signed operation behaves like a commit with parent links. This enables operators to checkpoint, tag, branch, blame, reset, and revert agent states with ease.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=0727c318">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">trustchain</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrustChain</span><span class="p">,</span> <span class="n">TrustChainConfig</span>
+
+<span class="c1"># Create a local file-based TrustChain repository in a temporary folder</span>
+<span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmpdir</span><span class="p">:</span>
+    <span class="n">tc_git</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span>
+        <span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">chain_storage</span><span class="o">=</span><span class="s2">"file"</span><span class="p">,</span>
+        <span class="n">chain_dir</span><span class="o">=</span><span class="n">tmpdir</span>
+    <span class="p">))</span>
+
+    <span class="c1"># 1. Sign a few operations (simulating agent actions)</span>
+    <span class="n">op1</span> <span class="o">=</span> <span class="n">tc_git</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="s2">"database_tool"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"action"</span><span class="p">:</span> <span class="s2">"INSERT"</span><span class="p">,</span> <span class="s2">"user"</span><span class="p">:</span> <span class="s2">"alice"</span><span class="p">})</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"📝 Created op1: </span><span class="si">{</span><span class="n">op1</span><span class="o">.</span><span class="n">signature_id</span><span class="p">[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+
+    <span class="n">op2</span> <span class="o">=</span> <span class="n">tc_git</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="s2">"payment_tool"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"action"</span><span class="p">:</span> <span class="s2">"PAY"</span><span class="p">,</span> <span class="s2">"amount"</span><span class="p">:</span> <span class="mf">100.00</span><span class="p">})</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"📝 Created op2: </span><span class="si">{</span><span class="n">op2</span><span class="o">.</span><span class="n">signature_id</span><span class="p">[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+
+    <span class="c1"># 2. Git-like Version Control API</span>
+    <span class="c1"># Create a tag, checkpoint and branch</span>
+    <span class="n">tc_git</span><span class="o">.</span><span class="n">chain</span><span class="o">.</span><span class="n">tag</span><span class="p">(</span><span class="s2">"v1.0-release"</span><span class="p">)</span>
+    <span class="n">tc_git</span><span class="o">.</span><span class="n">chain</span><span class="o">.</span><span class="n">checkpoint</span><span class="p">(</span><span class="s2">"payment-checkpoint"</span><span class="p">)</span>
+    <span class="n">tc_git</span><span class="o">.</span><span class="n">chain</span><span class="o">.</span><span class="n">branch</span><span class="p">(</span><span class="s2">"hotfix-branch"</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">📁 Created Git-like references:"</span><span class="p">)</span>
+    <span class="n">refs</span> <span class="o">=</span> <span class="n">tc_git</span><span class="o">.</span><span class="n">chain</span><span class="o">.</span><span class="n">list_refs</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"   Tags:"</span><span class="p">,</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">refs</span><span class="p">[</span><span class="s2">"tag"</span><span class="p">]])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"   Checkpoints:"</span><span class="p">,</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">refs</span><span class="p">[</span><span class="s2">"checkpoint"</span><span class="p">]])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"   Branches:"</span><span class="p">,</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">refs</span><span class="p">[</span><span class="s2">"head"</span><span class="p">]])</span>
+
+    <span class="c1"># 3. Forensic Blame</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">🔍 Forensic audit log (blame payment_tool):"</span><span class="p">)</span>
+    <span class="n">blamed_ops</span> <span class="o">=</span> <span class="n">tc_git</span><span class="o">.</span><span class="n">chain</span><span class="o">.</span><span class="n">blame</span><span class="p">(</span><span class="s2">"payment_tool"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">blamed_ops</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   [</span><span class="si">{</span><span class="n">op</span><span class="p">[</span><span class="s1">'timestamp'</span><span class="p">]</span><span class="si">}</span><span class="s2">] ID: </span><span class="si">{</span><span class="n">op</span><span class="p">[</span><span class="s1">'id'</span><span class="p">]</span><span class="si">}</span><span class="s2"> | Data: </span><span class="si">{</span><span class="n">op</span><span class="p">[</span><span class="s1">'data'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="c1"># 4. Undo for AI (Compensatory Revert)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">🔄 Reverting op2 (Undo action):"</span><span class="p">)</span>
+    <span class="c1"># Resolve the local operation ID of op2 from the log</span>
+    <span class="n">op2_id</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">op</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">tc_git</span><span class="o">.</span><span class="n">chain</span><span class="o">.</span><span class="n">log</span><span class="p">()</span> <span class="k">if</span> <span class="n">op</span><span class="p">[</span><span class="s2">"signature"</span><span class="p">]</span> <span class="o">==</span> <span class="n">op2</span><span class="o">.</span><span class="n">signature</span><span class="p">)</span>
+    <span class="n">revert_op</span> <span class="o">=</span> <span class="n">tc_git</span><span class="o">.</span><span class="n">revert</span><span class="p">(</span><span class="n">op_id</span><span class="o">=</span><span class="n">op2_id</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"User cancelled transaction"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Revert op created: </span><span class="si">{</span><span class="n">revert_op</span><span class="o">.</span><span class="n">signature_id</span><span class="p">[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Revert payload: </span><span class="si">{</span><span class="n">revert_op</span><span class="o">.</span><span class="n">data</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="c1"># 5. Cryptographic Diffing (Compare Operations)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">🔍 Diffing op1 and op2:"</span><span class="p">)</span>
+    <span class="n">op1_id</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">op</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">tc_git</span><span class="o">.</span><span class="n">chain</span><span class="o">.</span><span class="n">log</span><span class="p">()</span> <span class="k">if</span> <span class="n">op</span><span class="p">[</span><span class="s2">"signature"</span><span class="p">]</span> <span class="o">==</span> <span class="n">op1</span><span class="o">.</span><span class="n">signature</span><span class="p">)</span>
+    <span class="n">diff_res</span> <span class="o">=</span> <span class="n">tc_git</span><span class="o">.</span><span class="n">chain</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">op1_id</span><span class="p">,</span> <span class="n">op2_id</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Same tool: </span><span class="si">{</span><span class="n">diff_res</span><span class="p">[</span><span class="s1">'same_tool'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Time delta: </span><span class="si">{</span><span class="n">diff_res</span><span class="p">[</span><span class="s1">'time_delta_seconds'</span><span class="p">]</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">s"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Operation A: </span><span class="si">{</span><span class="n">diff_res</span><span class="p">[</span><span class="s1">'a'</span><span class="p">][</span><span class="s1">'tool'</span><span class="p">]</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">diff_res</span><span class="p">[</span><span class="s1">'a'</span><span class="p">][</span><span class="s1">'data'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Operation B: </span><span class="si">{</span><span class="n">diff_res</span><span class="p">[</span><span class="s1">'b'</span><span class="p">][</span><span class="s1">'tool'</span><span class="p">]</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">diff_res</span><span class="p">[</span><span class="s1">'b'</span><span class="p">][</span><span class="s1">'data'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="c1"># 6. Soft Reset (Time-Travel / Rollback)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">⏳ Resetting HEAD to op1 (soft rollback):"</span><span class="p">)</span>
+    <span class="n">reset_res</span> <span class="o">=</span> <span class="n">tc_git</span><span class="o">.</span><span class="n">chain</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">op1_id</span><span class="p">,</span> <span class="n">soft</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   New HEAD signature: </span><span class="si">{</span><span class="n">reset_res</span><span class="p">[</span><span class="s1">'new_head'</span><span class="p">][:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Detached operations: </span><span class="si">{</span><span class="n">reset_res</span><span class="p">[</span><span class="s1">'detached_ids'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Current HEAD matches op1: </span><span class="si">{</span><span class="n">tc_git</span><span class="o">.</span><span class="n">chain</span><span class="o">.</span><span class="n">head</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">op1</span><span class="o">.</span><span class="n">signature</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>📝 Created op1: 306d480b-6355-4d...
+📝 Created op2: 46cccdb4-7218-48...
+
+📁 Created Git-like references:
+   Tags: ['v1.0-release']
+   Checkpoints: ['payment-checkpoint']
+   Branches: ['hotfix-branch']
+
+🔍 Forensic audit log (blame payment_tool):
+   [2026-11-13T20:05:59.700701+00:00] ID: op_0002 | Data: {'action': 'PAY', 'amount': 100.0}
+
+🔄 Reverting op2 (Undo action):
+   Revert op created: f5348913-95af-4e...
+   Revert payload: {'action': 'revert', 'target_op': 'op_0002', 'reason': 'User cancelled transaction'}
+
+🔍 Diffing op1 and op2:
+   Same tool: False
+   Time delta: 0.000606s
+   Operation A: database_tool -&gt; {'action': 'INSERT', 'user': 'alice'}
+   Operation B: payment_tool -&gt; {'action': 'PAY', 'amount': 100.0}
+
+⏳ Resetting HEAD to op1 (soft rollback):
+   New HEAD signature: DrprzqTQuXn63oFl...
+   Detached operations: ['op_0003', 'op_0002']
+   Current HEAD matches op1: True
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=0b20634e"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="7️⃣-Real-World-Use-Case:-RAG-Pipeline">7️⃣ Real-World Use Case: RAG Pipeline<a class="anchor-link" href="#7%EF%B8%8F%E2%83%A3-Real-World-Use-Case:-RAG-Pipeline">¶</a></h2><p>Secure a Retrieval-Augmented Generation pipeline with cryptographic provenance.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=f0281c06">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">tc_rag</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+<span class="nd">@tc_rag</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"document_retriever"</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">retrieve_documents</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">top_k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Retrieve relevant documents for a query."""</span>
+    <span class="c1"># Simulated document retrieval</span>
+    <span class="n">docs</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span><span class="s2">"id"</span><span class="p">:</span> <span class="s2">"doc1"</span><span class="p">,</span> <span class="s2">"text"</span><span class="p">:</span> <span class="s2">"TrustChain provides cryptographic signatures..."</span><span class="p">,</span> <span class="s2">"score"</span><span class="p">:</span> <span class="mf">0.95</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">"id"</span><span class="p">:</span> <span class="s2">"doc2"</span><span class="p">,</span> <span class="s2">"text"</span><span class="p">:</span> <span class="s2">"AI hallucinations can be prevented with verification..."</span><span class="p">,</span> <span class="s2">"score"</span><span class="p">:</span> <span class="mf">0.87</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">"id"</span><span class="p">:</span> <span class="s2">"doc3"</span><span class="p">,</span> <span class="s2">"text"</span><span class="p">:</span> <span class="s2">"Ed25519 is used for high-performance signing..."</span><span class="p">,</span> <span class="s2">"score"</span><span class="p">:</span> <span class="mf">0.82</span><span class="p">}</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">"query"</span><span class="p">:</span> <span class="n">query</span><span class="p">,</span> <span class="s2">"documents"</span><span class="p">:</span> <span class="n">docs</span><span class="p">[:</span><span class="n">top_k</span><span class="p">],</span> <span class="s2">"total_found"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">docs</span><span class="p">)}</span>
+
+<span class="nd">@tc_rag</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"llm_synthesizer"</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">synthesize_answer</span><span class="p">(</span><span class="n">documents</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Synthesize answer from documents."""</span>
+    <span class="c1"># Simulated LLM response</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"answer"</span><span class="p">:</span> <span class="s2">"TrustChain uses Ed25519 signatures to prevent AI hallucinations."</span><span class="p">,</span>
+        <span class="s2">"sources"</span><span class="p">:</span> <span class="p">[</span><span class="n">d</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">documents</span><span class="p">],</span>
+        <span class="s2">"confidence"</span><span class="p">:</span> <span class="mf">0.92</span>
+    <span class="p">}</span>
+
+<span class="c1"># Execute RAG pipeline</span>
+<span class="n">retrieval</span> <span class="o">=</span> <span class="n">retrieve_documents</span><span class="p">(</span><span class="s2">"How does TrustChain work?"</span><span class="p">)</span>
+<span class="n">synthesis</span> <span class="o">=</span> <span class="n">synthesize_answer</span><span class="p">(</span><span class="n">retrieval</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">"documents"</span><span class="p">],</span> <span class="s2">"How does TrustChain work?"</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"🔍 RAG Pipeline with Cryptographic Provenance:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">1. Retrieval Step:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Query: '</span><span class="si">{</span><span class="n">retrieval</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'query'</span><span class="p">]</span><span class="si">}</span><span class="s2">'"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Documents found: </span><span class="si">{</span><span class="n">retrieval</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'total_found'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Signature: </span><span class="si">{</span><span class="n">retrieval</span><span class="o">.</span><span class="n">signature</span><span class="p">[:</span><span class="mi">32</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">2. Synthesis Step:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Answer: '</span><span class="si">{</span><span class="n">synthesis</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'answer'</span><span class="p">]</span><span class="si">}</span><span class="s2">'"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Sources: </span><span class="si">{</span><span class="n">synthesis</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'sources'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Confidence: </span><span class="si">{</span><span class="n">synthesis</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'confidence'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Signature: </span><span class="si">{</span><span class="n">synthesis</span><span class="o">.</span><span class="n">signature</span><span class="p">[:</span><span class="mi">32</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">✅ Both steps cryptographically verified!"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Retrieval valid: </span><span class="si">{</span><span class="n">tc_rag</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">retrieval</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Synthesis valid: </span><span class="si">{</span><span class="n">tc_rag</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">synthesis</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>🔍 RAG Pipeline with Cryptographic Provenance:
+
+1. Retrieval Step:
+   Query: 'How does TrustChain work?'
+   Documents found: 3
+   Signature: Fqh3yEZay6nSEL7DC9nYSDLM0RqXFz4T...
+
+2. Synthesis Step:
+   Answer: 'TrustChain uses Ed25519 signatures to prevent AI hallucinations.'
+   Sources: ['doc1', 'doc2', 'doc3']
+   Confidence: 0.92
+   Signature: NL99+BPD6jwyED+N/I3yycejtoI07Gfs...
+
+✅ Both steps cryptographically verified!
+   Retrieval valid: True
+   Synthesis valid: True
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/tmp/ipykernel_4716/3845289287.py:1: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  tc_rag = TrustChain(TrustChainConfig(enable_nonce=False))
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=136e866f"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="🚀-AsyncTrustChain-—-Native-async/await">🚀 AsyncTrustChain — Native async/await<a class="anchor-link" href="#%F0%9F%9A%80-AsyncTrustChain-%E2%80%94-Native-async/await">¶</a></h2><p>For FastAPI and other async frameworks.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=4c2fe57c">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">trustchain.v2.async_core</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncTrustChain</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">demo_async</span><span class="p">():</span>
+    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncTrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">chain_storage</span><span class="o">=</span><span class="s2">"memory"</span><span class="p">))</span> <span class="k">as</span> <span class="n">atc</span><span class="p">:</span>
+        <span class="c1"># Sign async tool call</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">atc</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span>
+            <span class="n">tool_id</span><span class="o">=</span><span class="s2">"async_db_query"</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s2">"query"</span><span class="p">:</span> <span class="s2">"SELECT * FROM users"</span><span class="p">,</span> <span class="s2">"rows"</span><span class="p">:</span> <span class="mi">42</span><span class="p">}</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"🔐 Async signature: </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">signature</span><span class="p">[:</span><span class="mi">32</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+        <span class="n">verified</span> <span class="o">=</span> <span class="k">await</span> <span class="n">atc</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">verified</span> <span class="ow">is</span> <span class="kc">True</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"✅ Verified: </span><span class="si">{</span><span class="n">verified</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="k">await</span> <span class="n">demo_async</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>🔐 Async signature: LaXGZk0k3JIJyWkZNjw1rqyumCe/Iwj4...
+✅ Verified: True
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=a0e6e4db"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="📋-Pydantic-v2-Integration">📋 Pydantic v2 Integration<a class="anchor-link" href="#%F0%9F%93%8B-Pydantic-v2-Integration">¶</a></h2><p>Auto-sign Pydantic models with <code>TrustChainModel</code>.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=a3a244a9">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">trustchain.integrations.pydantic_v2</span><span class="w"> </span><span class="kn">import</span> <span class="n">SignedField</span><span class="p">,</span> <span class="n">TrustChainModel</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">UserProfile</span><span class="p">(</span><span class="n">TrustChainModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""User profile with auto-signing."""</span>
+    <span class="n">user_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">SignedField</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">"User ID"</span><span class="p">)</span>
+    <span class="n">email</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">SignedField</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">"Email"</span><span class="p">)</span>
+    <span class="n">balance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">SignedField</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">"Account balance"</span><span class="p">)</span>
+
+<span class="c1"># Create signed model</span>
+<span class="n">user</span> <span class="o">=</span> <span class="n">UserProfile</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"U-12345"</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="s2">"test@example.com"</span><span class="p">,</span> <span class="n">balance</span><span class="o">=</span><span class="mf">1000.0</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"👤 User: </span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">user_id</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"🔐 Signature: </span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">signature_id</span><span class="p">[:</span><span class="mi">32</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"✅ Valid: </span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">verify</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Tampering detection</span>
+<span class="n">user</span><span class="o">.</span><span class="n">balance</span> <span class="o">=</span> <span class="mf">999999.99</span>  <span class="c1"># Attack!</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"🚫 After tampering: </span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">verify</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>👤 User: U-12345
+🔐 Signature: 0eb2444c-2578-42c1-b48e-3b6684b6...
+✅ Valid: True
+🚫 After tampering: False
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=902c786f"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="🦜-LangChain/LangSmith-Callback">🦜 LangChain/LangSmith Callback<a class="anchor-link" href="#%F0%9F%A6%9C-LangChain/LangSmith-Callback">¶</a></h2><p>Auto-sign all tool calls in LangChain agents.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=0673fa53">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">uuid</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">trustchain.integrations.langsmith</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrustChainCallbackHandler</span>
+
+<span class="c1"># Create callback handler</span>
+<span class="n">handler</span> <span class="o">=</span> <span class="n">TrustChainCallbackHandler</span><span class="p">(</span><span class="n">sign_inputs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sign_outputs</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Simulate tool calls</span>
+<span class="n">run_id</span> <span class="o">=</span> <span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()</span>
+<span class="n">handler</span><span class="o">.</span><span class="n">on_tool_start</span><span class="p">(</span>
+    <span class="n">serialized</span><span class="o">=</span><span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"calculator"</span><span class="p">},</span>
+    <span class="n">input_str</span><span class="o">=</span><span class="s2">"2 + 2"</span><span class="p">,</span>
+    <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span>
+<span class="p">)</span>
+<span class="n">handler</span><span class="o">.</span><span class="n">on_tool_end</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="s2">"4"</span><span class="p">,</span> <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">)</span>
+
+<span class="c1"># Get signed chain</span>
+<span class="n">chain</span> <span class="o">=</span> <span class="n">handler</span><span class="o">.</span><span class="n">get_signed_chain</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"📝 Signed events: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">chain</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">resp</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">chain</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">. </span><span class="si">{</span><span class="n">resp</span><span class="o">.</span><span class="n">tool_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">resp</span><span class="o">.</span><span class="n">signature</span><span class="p">[:</span><span class="mi">24</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>📝 Signed events: 2
+  1. calculator:input: YbzNQAZdqdq+8o/loo6I4ouP...
+  2. calculator:output: nK0TaJq+ykrlaYvQYX/Rk95y...
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=523050bd"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="📊-OpenTelemetry-Integration">📊 OpenTelemetry Integration<a class="anchor-link" href="#%F0%9F%93%8A-OpenTelemetry-Integration">¶</a></h2><p>Add TrustChain signatures to OTel spans for observability.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=758bd790">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Note: Requires opentelemetry-api</span>
+<span class="c1"># !pip install opentelemetry-api opentelemetry-sdk -q</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">trustchain.integrations.opentelemetry</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+        <span class="n">ATTR_TRUSTCHAIN_SIGNATURE</span><span class="p">,</span>
+        <span class="n">ATTR_TRUSTCHAIN_TOOL_ID</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"📊 OpenTelemetry attributes available:"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   - </span><span class="si">{</span><span class="n">ATTR_TRUSTCHAIN_TOOL_ID</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   - </span><span class="si">{</span><span class="n">ATTR_TRUSTCHAIN_SIGNATURE</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">💡 Use TrustChainSpanProcessor to auto-sign spans!"</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"⚠️ Install opentelemetry-api for this feature"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>📊 OpenTelemetry attributes available:
+   - trustchain.tool_id
+   - trustchain.signature
+
+💡 Use TrustChainSpanProcessor to auto-sign spans!
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=b4fcd880"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="🧪-pytest-Plugin">🧪 pytest Plugin<a class="anchor-link" href="#%F0%9F%A7%AA-pytest-Plugin">¶</a></h2><p>Built-in fixtures for testing TrustChain integrations.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=019e2457">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">trustchain.pytest_plugin</span><span class="w"> </span><span class="kn">import</span> <span class="n">tc</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"🧪 pytest fixtures available:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"   - tc: TrustChain instance"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"   - async_tc: AsyncTrustChain instance"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"   - signed_chain: SignedChainCollector"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">📖 Example test:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">'''</span>
+<span class="s1">def test_my_tool(tc):</span>
+<span class="s1">    response = tc.sign("my_tool", {"result": 42})</span>
+<span class="s1">    assert tc.verify(response)</span>
+<span class="s1">'''</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>🧪 pytest fixtures available:
+   - tc: TrustChain instance
+   - async_tc: AsyncTrustChain instance
+   - signed_chain: SignedChainCollector
+
+📖 Example test:
+
+def test_my_tool(tc):
+    response = tc.sign("my_tool", {"result": 42})
+    assert tc.verify(response)
+
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=5af8fd1b"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="🧾-.tcreceipt-—-Portable-Proof-of-Signature-(v3.0+)">🧾 <code>.tcreceipt</code> — Portable Proof-of-Signature (v3.0+)<a class="anchor-link" href="#%F0%9F%A7%BE-.tcreceipt-%E2%80%94-Portable-Proof-of-Signature-(v3.0+)">¶</a></h2><p>A <code>.tcreceipt</code> is a single JSON file that bundles the <em>signed envelope</em> + <em>public key</em> + <em>(optional) identity</em>.
+Anyone can verify it <strong>offline</strong> — Python CLI, JS SDK, or the single-file HTML verifier (<code>examples/verify.html</code>).</p>
+<p>The canonical payload is <strong>byte-identical</strong> across all three verifiers, so a receipt produced in Python
+verifies in the browser and vice versa.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=f653512b">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">trustchain</span><span class="w"> </span><span class="kn">import</span> <span class="n">Receipt</span><span class="p">,</span> <span class="n">TrustChain</span><span class="p">,</span> <span class="n">TrustChainConfig</span><span class="p">,</span> <span class="n">build_receipt</span>
+
+<span class="n">tc</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+<span class="c1"># Sign a tool fact as usual — think "AI just pulled a record from the DB".</span>
+<span class="n">signed</span> <span class="o">=</span> <span class="n">tc</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="s2">"database_query"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"user_id"</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span> <span class="s2">"balance"</span><span class="p">:</span> <span class="mf">1234.56</span><span class="p">})</span>
+<span class="k">assert</span> <span class="n">tc</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">signed</span><span class="p">)</span>
+
+<span class="c1"># Build a portable receipt — this is the file you'd hand to a regulator /</span>
+<span class="c1"># a downstream partner / a skeptical user. No server call, no key exchange.</span>
+<span class="c1"># key_id пришивается к receipt явно — его используют verifiers для pinning.</span>
+<span class="n">receipt</span> <span class="o">=</span> <span class="n">build_receipt</span><span class="p">(</span><span class="n">signed</span><span class="p">,</span> <span class="n">tc</span><span class="o">.</span><span class="n">export_public_key</span><span class="p">(),</span> <span class="n">key_id</span><span class="o">=</span><span class="n">tc</span><span class="o">.</span><span class="n">get_key_id</span><span class="p">())</span>
+
+<span class="n">json_blob</span> <span class="o">=</span> <span class="n">receipt</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"📄 .tcreceipt size :"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">json_blob</span><span class="p">),</span> <span class="s2">"bytes"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"🔑 pinned key_id   :"</span><span class="p">,</span> <span class="p">(</span><span class="n">receipt</span><span class="o">.</span><span class="n">key</span><span class="p">[</span><span class="s2">"key_id"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)[:</span><span class="mi">16</span><span class="p">],</span> <span class="s2">"..."</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"🔏 algorithm       :"</span><span class="p">,</span> <span class="n">receipt</span><span class="o">.</span><span class="n">key</span><span class="p">[</span><span class="s2">"algorithm"</span><span class="p">])</span>
+
+<span class="c1"># Roundtrip: load it back, verify it — no reference to the signing TrustChain instance.</span>
+<span class="n">loaded</span> <span class="o">=</span> <span class="n">Receipt</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">json_blob</span><span class="p">)</span>
+
+<span class="c1"># Pin the receipt to a known-good public key (anti-impersonation) and reject</span>
+<span class="c1"># envelopes older than an hour (anti-replay for short-lived claims).</span>
+<span class="n">pinned_pk</span> <span class="o">=</span> <span class="n">tc</span><span class="o">.</span><span class="n">export_public_key</span><span class="p">()</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">loaded</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span>
+    <span class="n">max_age_seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>
+    <span class="n">expected_public_key_b64</span><span class="o">=</span><span class="n">pinned_pk</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">✅ verify:"</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">valid</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"   errors:"</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">errors</span> <span class="ow">or</span> <span class="s2">"—"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"   warnings:"</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">warnings</span> <span class="ow">or</span> <span class="s2">"—"</span><span class="p">)</span>
+
+<span class="c1"># Try the same blob with examples/verify.html — drag &amp; drop, WebCrypto check,</span>
+<span class="c1"># no installation, works on an airgapped laptop.</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>📄 .tcreceipt size : 790 bytes
+🔑 pinned key_id   : c7ce7949-d91e-45 ...
+🔏 algorithm       : ed25519
+
+✅ verify: True
+   errors: —
+   warnings: —
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/tmp/ipykernel_4716/2693442502.py:3: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  tc = TrustChain(TrustChainConfig(enable_nonce=False))
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=0171b988"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="📚-Summary">📚 Summary<a class="anchor-link" href="#%F0%9F%93%9A-Summary">¶</a></h2><p>TrustChain provides:</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🔐 Ed25519 Signatures</td>
+<td>High-performance cryptographic signing</td>
+</tr>
+<tr>
+<td>⛓️ Chain of Trust</td>
+<td>Linked operations with Merkle proofs</td>
+</tr>
+<tr>
+<td>🏢 Multi-Tenancy</td>
+<td>Isolated keys per tenant</td>
+</tr>
+<tr>
+<td>🛡️ Tampering Detection</td>
+<td>Instant detection of data modification</td>
+</tr>
+<tr>
+<td>⚡ Performance</td>
+<td>Local timing example; no production throughput guarantee</td>
+</tr>
+<tr>
+<td>📊 Audit Trail</td>
+<td>HTML visualization and JSON export</td>
+</tr>
+<tr>
+<td>🧾 <code>.tcreceipt</code></td>
+<td>Portable offline-verifiable proof (Python · JS · WebCrypto)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Learn more:</strong> <a href="https://github.com/petro1eum/trust_chain">GitHub</a> | <a href="https://github.com/petro1eum/trust_chain/wiki">Documentation</a></p>
+</div>
+</div>
+</div>
+</article></main><footer><a href="../notebooks.html">All public notebooks</a> · <a href="../factcrypt-demo.html">FactCrypt example · paid Pro</a></footer></body></html>

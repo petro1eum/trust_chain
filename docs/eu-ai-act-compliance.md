@@ -166,10 +166,7 @@ basic anchoring, and offline verification.
 
 ### Full Compliance (Pro + Platform)
 
-```bash
-pip install trustchain-pro
-# + Deploy TrustChain Platform (CA, registry, dashboard)
-```
+[Request licensed Pro access](https://petro1eum.github.io/trust_chain/pro.html) for the private package and installation instructions, then deploy TrustChain Platform (CA, registry, dashboard). Pro is not distributed through public PyPI.
 
 Provides: PolicyEngine, FactSeal v2, ComplianceReport, TSA timestamps, 
 public certificate registry, real-time monitoring dashboard.

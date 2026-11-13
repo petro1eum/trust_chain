@@ -271,7 +271,7 @@ Also OSS:
 
 ---
 
-## 4. Pro tier — `pip install trustchain-pro`
+## 4. Pro tier — licensed private distribution
 
 Pro is a **separate commercial package** that *uses* the OSS core. It adds governance, streaming, compliance exports, and production-grade storage. It is gated by an Ed25519-signed license token (`TRUSTCHAIN_PRO_LICENSE`).
 
@@ -335,7 +335,7 @@ Aggregated signed-operation metrics (hit rate, failure reasons, tool latency dis
 
 Offline verification bundle — sealed package of `{public keys, CRL snapshot, TSA certs, policy bundle}` for environments with no internet egress.
 
-→ Docs: [`trust_chain_pro/docs/LICENSING_GUIDE.md`](https://github.com/petro1eum/trust_chain_pro/blob/main/docs/LICENSING_GUIDE.md), license issuance via `tc-license`.
+→ [Request a Pro license and private access](https://petro1eum.github.io/trust_chain/pro.html). Pro is a paid module supplied as an authorized wheel or private checkout, not through public PyPI. Full documentation and notebooks accompany the licensed distribution.
 
 ---
 

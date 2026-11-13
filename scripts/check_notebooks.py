@@ -12,7 +12,10 @@ from nbclient import NotebookClient
 from jupyter_client import KernelManager
 
 
-def run(path: Path, *, test_license: bool = False) -> dict:
+def run(path: Path, *, test_license: bool = False, preview_dir: Path | None = None) -> dict:
+    if preview_dir is not None:
+        from notebook_preview import validate_preview_source
+        validate_preview_source(path, test_license)
     notebook = nbformat.read(path, as_version=4)
     nbformat.validate(notebook)
     notebook.cells = [c for c in notebook.cells if "install" not in c.metadata.get("tags", [])]
@@ -43,6 +46,9 @@ def run(path: Path, *, test_license: bool = False) -> dict:
             # NotebookClient doesn't own an explicitly supplied kernel manager.
             if manager.has_kernel:
                 manager.shutdown_kernel(now=True)
+    if preview_dir is not None:
+        from notebook_preview import save_preview
+        save_preview(path, notebook, preview_dir)
     return {"notebook":str(path), "code_cells":sum(c.cell_type=="code" for c in notebook.cells),
             "executed":True, "install_cells_skipped":True, "test_license":test_license,
             "live_model_called":False}
@@ -52,11 +58,12 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("notebooks", nargs="+")
     parser.add_argument("--test-license", action="store_true")
+    parser.add_argument("--preview-dir", type=Path, help="Save executed canonical OSS HTML previews (requires nbconvert)")
     args=parser.parse_args()
     failures=0
     for name in args.notebooks:
         try:
-            print(json.dumps(run(Path(name).resolve(), test_license=args.test_license)), flush=True)
+            print(json.dumps(run(Path(name).resolve(), test_license=args.test_license, preview_dir=args.preview_dir)), flush=True)
         except Exception as exc:
             failures+=1
             print(json.dumps({"notebook":name,"executed":False,"error":str(exc)}), flush=True)

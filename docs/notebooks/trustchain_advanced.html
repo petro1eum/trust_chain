@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Keys, batches &amp; tenants · Executed TrustChain notebook</title><link rel="stylesheet" href="../docs.css"><link rel="stylesheet" href="../notebook.css"></head>
+<body><a class="skip" href="#content">Skip to notebook</a><header><a href="../index.html">TrustChain</a><nav aria-label="Notebook"><a href="../notebooks.html">Notebook catalog</a><a href="https://github.com/petro1eum/trust_chain/blob/main/examples/trustchain_advanced.ipynb">Source on GitHub</a><a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_advanced.ipynb">Run in Colab</a></nav></header>
+<main id="content"><p class="eyebrow">OSS · saved execution</p><h1>Keys, batches &amp; tenants</h1><p class="lead">Read the code alongside its actual synthetic outputs.</p><div class="note">Executed 2026-11-13 in a fresh local Python 3.12.11 kernel with Core 3.3.0. Dependencies were installed before the run, so installation cells are omitted here. Provider credentials were removed; no live model was called. Local environment paths are redacted. Optional external services may show a skipped or unavailable result. This page is a saved preview, not a live Python session.</div><p class="small">7 code cells completed without execution errors. <a href="manifest.json">Source hash and run metadata</a>.</p><article class="notebook-output"><div class="cell border-box-sizing text_cell rendered" id="cell-id=4b4aba21"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_advanced.ipynb"><img alt="Open In Colab" src="https://colab.research.google.com/assets/colab-badge.svg"/></a></p>
+<h1 id="🚀-TrustChain-Advanced-Scenarios">🚀 TrustChain Advanced Scenarios<a class="anchor-link" href="#%F0%9F%9A%80-TrustChain-Advanced-Scenarios">¶</a></h1><p>This notebook covers <strong>advanced integration patterns</strong>:</p>
+<ol>
+<li>LangChain Integration</li>
+<li>Key Persistence &amp; Rotation</li>
+<li>Redis-backed Nonce Storage</li>
+<li>Batch Operations &amp; Streaming</li>
+<li>Custom Verification Pipelines</li>
+<li>Distributed Multi-Agent Setup</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=74da20a1"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Reviewed with TrustChain 3.3 / Python 3.12. This notebook uses synthetic data. Offline examples use an in-memory log; production persistence, PKI and authorization require configuration. Signatures establish attribution and byte integrity, not the truth of a tool result. <a href="https://github.com/petro1eum/trust_chain/blob/main/examples/README.md">Notebook guide</a>.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=54b34f7c">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">trustchain</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrustChain</span><span class="p">,</span> <span class="n">TrustChainConfig</span><span class="p">,</span> <span class="n">TrustChainVerifier</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=06bfedb0"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="1️⃣-LangChain-Integration">1️⃣ LangChain Integration<a class="anchor-link" href="#1%EF%B8%8F%E2%83%A3-LangChain-Integration">¶</a></h2><p>Convert TrustChain tools to LangChain-compatible format.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=6331782f">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">tc</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+<span class="nd">@tc</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"database_query"</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">query_database</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Execute database query with signed results."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"query"</span><span class="p">:</span> <span class="n">query</span><span class="p">,</span>
+        <span class="s2">"rows"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"id"</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span> <span class="s2">"value"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"row_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span><span class="p">}</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">limit</span><span class="p">)],</span>
+        <span class="s2">"count"</span><span class="p">:</span> <span class="n">limit</span>
+    <span class="p">}</span>
+
+<span class="nd">@tc</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"send_notification"</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">send_notification</span><span class="p">(</span><span class="n">recipient</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">priority</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"normal"</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Send notification with audit trail."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"recipient"</span><span class="p">:</span> <span class="n">recipient</span><span class="p">,</span>
+        <span class="s2">"message"</span><span class="p">:</span> <span class="n">message</span><span class="p">,</span>
+        <span class="s2">"priority"</span><span class="p">:</span> <span class="n">priority</span><span class="p">,</span>
+        <span class="s2">"sent_at"</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">(),</span>
+        <span class="s2">"status"</span><span class="p">:</span> <span class="s2">"delivered"</span>
+    <span class="p">}</span>
+
+<span class="c1"># Convert to LangChain format</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">trustchain.integrations.langchain</span><span class="w"> </span><span class="kn">import</span> <span class="n">to_langchain_tools</span>
+
+    <span class="n">lc_tools</span> <span class="o">=</span> <span class="n">to_langchain_tools</span><span class="p">(</span><span class="n">tc</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"🔗 LangChain tools created:"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">lc_tools</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   • </span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">description</span><span class="p">[:</span><span class="mi">50</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"⚠️ LangChain not installed. Run: uv pip install langchain-core"</span><span class="p">)</span>
+
+<span class="c1"># Get OpenAI-compatible schema for function calling</span>
+<span class="n">schemas</span> <span class="o">=</span> <span class="n">tc</span><span class="o">.</span><span class="n">get_tools_schema</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">📋 OpenAI function schemas: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">schemas</span><span class="p">)</span><span class="si">}</span><span class="s2"> tools"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">schemas</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)[:</span><span class="mi">300</span><span class="p">]</span> <span class="o">+</span> <span class="s2">"..."</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="p">{</span><span class="n">s</span><span class="p">[</span><span class="s1">'function'</span><span class="p">][</span><span class="s1">'name'</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">schemas</span><span class="p">}</span> <span class="o">==</span> <span class="p">{</span><span class="s1">'database_query'</span><span class="p">,</span> <span class="s1">'send_notification'</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/tmp/ipykernel_4282/106054120.py:1: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  tc = TrustChain(TrustChainConfig(enable_nonce=False))
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>🔗 LangChain tools created:
+   • database_query: Execute database query with signed results....
+   • send_notification: Send notification with audit trail....
+
+📋 OpenAI function schemas: 2 tools
+{
+  "type": "function",
+  "function": {
+    "name": "database_query",
+    "description": "Execute database query with signed results.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "int...
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=ba637af7"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="2️⃣-Key-Persistence-&amp;-Rotation">2️⃣ Key Persistence &amp; Rotation<a class="anchor-link" href="#2%EF%B8%8F%E2%83%A3-Key-Persistence-&amp;-Rotation">¶</a></h2><p>Save keys to disk and rotate them securely.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=b89ddd4f">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Create TrustChain with persistent keys</span>
+<span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmpdir</span><span class="p">:</span>
+    <span class="n">key_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">,</span> <span class="s2">"keys.json"</span><span class="p">)</span>
+
+    <span class="c1"># First instance - generates new keys</span>
+    <span class="n">tc1</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span>
+        <span class="n">key_file</span><span class="o">=</span><span class="n">key_file</span><span class="p">,</span>
+        <span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">))</span>
+    <span class="n">tc1</span><span class="o">.</span><span class="n">save_keys</span><span class="p">()</span>
+    <span class="n">key_id_1</span> <span class="o">=</span> <span class="n">tc1</span><span class="o">.</span><span class="n">get_key_id</span><span class="p">()</span>
+
+    <span class="nd">@tc1</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"test"</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_tool</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"result"</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span><span class="p">}</span>
+
+    <span class="n">signed1</span> <span class="o">=</span> <span class="n">test_tool</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"🔑 Key ID: </span><span class="si">{</span><span class="n">key_id_1</span><span class="p">[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"📝 Signed response: </span><span class="si">{</span><span class="n">signed1</span><span class="o">.</span><span class="n">data</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="c1"># Second instance - loads existing keys</span>
+    <span class="n">tc2</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span>
+        <span class="n">key_file</span><span class="o">=</span><span class="n">key_file</span><span class="p">,</span>
+        <span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">))</span>
+    <span class="n">key_id_2</span> <span class="o">=</span> <span class="n">tc2</span><span class="o">.</span><span class="n">get_key_id</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">key_id_1</span> <span class="o">==</span> <span class="n">key_id_2</span> <span class="ow">and</span> <span class="n">tc2</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">signed1</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">🔄 Second instance loaded same key: </span><span class="si">{</span><span class="n">key_id_1</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">key_id_2</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"✅ Can verify previous signature: </span><span class="si">{</span><span class="n">tc2</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">signed1</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="c1"># Key rotation - generates completely new keys</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">🔄 Rotating keys..."</span><span class="p">)</span>
+    <span class="n">new_key_id</span> <span class="o">=</span> <span class="n">tc2</span><span class="o">.</span><span class="n">rotate_keys</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">new_key_id</span> <span class="o">!=</span> <span class="n">key_id_1</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">tc2</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">signed1</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"🆕 New Key ID: </span><span class="si">{</span><span class="n">new_key_id</span><span class="p">[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"❌ Old signature with new key: </span><span class="si">{</span><span class="n">tc2</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">signed1</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>🔑 Key ID: 9d8ee2da-321e-44...
+📝 Signed response: {'result': 10}
+
+🔄 Second instance loaded same key: True
+✅ Can verify previous signature: True
+
+🔄 Rotating keys...
+🆕 New Key ID: 18b7cceb-0994-47...
+❌ Old signature with new key: False
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/tmp/ipykernel_4282/120636926.py:6: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  tc1 = TrustChain(TrustChainConfig(
+/tmp/ipykernel_4282/120636926.py:22: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  tc2 = TrustChain(TrustChainConfig(
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=76d7f891"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="3️⃣-Redis-backed-Nonce-Storage">3️⃣ Redis-backed Nonce Storage<a class="anchor-link" href="#3%EF%B8%8F%E2%83%A3-Redis-backed-Nonce-Storage">¶</a></h2><p>Prevent replay attacks in distributed systems.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=c0115e4d">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Redis config (requires running Redis server)</span>
+<span class="n">redis_url</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">"REDIS_URL"</span><span class="p">,</span> <span class="s2">"redis://localhost:6379"</span><span class="p">)</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">tc_redis</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span>
+        <span class="n">redis_url</span><span class="o">=</span><span class="n">redis_url</span><span class="p">,</span>
+        <span class="n">nonce_backend</span><span class="o">=</span><span class="s2">"redis"</span><span class="p">,</span>
+        <span class="n">nonce_ttl</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>  <span class="c1"># 1 hour</span>
+        <span class="n">enable_nonce</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">))</span>
+
+    <span class="nd">@tc_redis</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"secure_action"</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">secure_action</span><span class="p">(</span><span class="n">action</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"action"</span><span class="p">:</span> <span class="n">action</span><span class="p">,</span> <span class="s2">"executed"</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+
+    <span class="n">response</span> <span class="o">=</span> <span class="n">secure_action</span><span class="p">(</span><span class="s2">"transfer_funds"</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">tc_redis</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>  <span class="c1"># Exercise the configured nonce store before claiming success.</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"✅ Action executed with nonce: </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">nonce</span><span class="p">[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"🔐 Redis-backed replay protection active"</span><span class="p">)</span>
+
+<span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"⚠️ Redis not available: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"   Using memory-based nonce storage instead"</span><span class="p">)</span>
+
+    <span class="n">tc_memory</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span>
+        <span class="n">nonce_backend</span><span class="o">=</span><span class="s2">"memory"</span><span class="p">,</span>
+        <span class="n">enable_nonce</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">))</span>
+
+    <span class="nd">@tc_memory</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"secure_action"</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">secure_action_mem</span><span class="p">(</span><span class="n">action</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"action"</span><span class="p">:</span> <span class="n">action</span><span class="p">,</span> <span class="s2">"executed"</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+
+    <span class="n">response</span> <span class="o">=</span> <span class="n">secure_action_mem</span><span class="p">(</span><span class="s2">"transfer_funds"</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">tc_memory</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"✅ Action with memory nonce: </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">nonce</span><span class="p">[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>✅ Action executed with nonce: 3fa62afd-07af-47...
+🔐 Redis-backed replay protection active
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/tmp/ipykernel_4282/901459567.py:5: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  tc_redis = TrustChain(TrustChainConfig(
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=af9d879a"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="4️⃣-Batch-Operations-&amp;-Streaming">4️⃣ Batch Operations &amp; Streaming<a class="anchor-link" href="#4%EF%B8%8F%E2%83%A3-Batch-Operations-&amp;-Streaming">¶</a></h2><p>Sign multiple operations efficiently.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=039d73d8">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">tc_batch</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+<span class="nd">@tc_batch</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"process_item"</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">process_item</span><span class="p">(</span><span class="n">item_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">"id"</span><span class="p">:</span> <span class="n">item_id</span><span class="p">,</span> <span class="s2">"processed"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="s2">"ts"</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()}</span>
+
+<span class="c1"># Batch processing</span>
+<span class="n">items</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"data_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">)]</span>
+
+<span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+<span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">process_item</span><span class="p">(</span><span class="nb">id</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span> <span class="k">for</span> <span class="nb">id</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">items</span><span class="p">]</span>
+<span class="n">elapsed</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1000</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"📦 Batch processed </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span><span class="si">}</span><span class="s2"> items in </span><span class="si">{</span><span class="n">elapsed</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">ms"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"⚡ </span><span class="si">{</span><span class="n">elapsed</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">ms per item"</span><span class="p">)</span>
+<span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">tc_batch</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">)</span>
+<span class="k">assert</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">"processed"</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span> <span class="o">==</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"DATA_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">)]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"✅ All verified: </span><span class="si">{</span><span class="nb">all</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">is_verified</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">results</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Streaming with generator</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">stream_processor</span><span class="p">(</span><span class="n">count</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span><span class="p">):</span>
+        <span class="k">yield</span> <span class="n">process_item</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"stream_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">🌊 Streaming mode:"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">stream_processor</span><span class="p">(</span><span class="mi">5</span><span class="p">)):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Item </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: sig=</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">signature</span><span class="p">[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2">... ✓"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>📦 Batch processed 20 items in 2.87ms
+⚡ 0.14ms per item
+✅ All verified: True
+
+🌊 Streaming mode:
+   Item 0: sig=0LKfQuF8nM811sIl... ✓
+   Item 1: sig=wtFUFOCMqqu2fr+S... ✓
+   Item 2: sig=eAQtrMnklPWabB//... ✓
+   Item 3: sig=aW11C3LtpnJtRMqt... ✓
+   Item 4: sig=qytix2oJ2lukgWOA... ✓
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/tmp/ipykernel_4282/2040156637.py:1: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  tc_batch = TrustChain(TrustChainConfig(enable_nonce=False))
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=69f2df33"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="5️⃣-Custom-Verification-Pipeline">5️⃣ Custom Verification Pipeline<a class="anchor-link" href="#5%EF%B8%8F%E2%83%A3-Custom-Verification-Pipeline">¶</a></h2><p>Build complex verification workflows.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=47184390">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">tc_verify</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+<span class="nd">@tc_verify</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"financial_transaction"</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_transaction</span><span class="p">(</span><span class="n">amount</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">currency</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">recipient</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"amount"</span><span class="p">:</span> <span class="n">amount</span><span class="p">,</span>
+        <span class="s2">"currency"</span><span class="p">:</span> <span class="n">currency</span><span class="p">,</span>
+        <span class="s2">"recipient"</span><span class="p">:</span> <span class="n">recipient</span><span class="p">,</span>
+        <span class="s2">"tx_id"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"TX-</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span><span class="si">}</span><span class="s2">"</span>
+    <span class="p">}</span>
+
+<span class="c1"># Create a transaction</span>
+<span class="n">tx</span> <span class="o">=</span> <span class="n">create_transaction</span><span class="p">(</span><span class="mf">1000.0</span><span class="p">,</span> <span class="s2">"USD"</span><span class="p">,</span> <span class="s2">"vendor@example.com"</span><span class="p">)</span>
+
+<span class="c1"># Create standalone verifier (can be on different machine)</span>
+<span class="n">verifier</span> <span class="o">=</span> <span class="n">TrustChainVerifier</span><span class="p">(</span><span class="n">tc_verify</span><span class="o">.</span><span class="n">export_public_key</span><span class="p">())</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"🔍 Verification Pipeline:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   1. Transaction created: </span><span class="si">{</span><span class="n">tx</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'tx_id'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Step 1: Signature verification</span>
+<span class="n">is_valid</span> <span class="o">=</span> <span class="n">verifier</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">tx</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   2. Signature valid: </span><span class="si">{</span><span class="n">is_valid</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Step 2: Business rules check</span>
+<span class="n">amount_ok</span> <span class="o">=</span> <span class="n">tx</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">"amount"</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">10000</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   3. Amount within limit: </span><span class="si">{</span><span class="n">amount_ok</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Step 3: Timestamp freshness</span>
+<span class="n">is_fresh</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tx</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">300</span>  <span class="c1"># 5 min</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   4. Timestamp fresh: </span><span class="si">{</span><span class="n">is_fresh</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Final verdict</span>
+<span class="n">approved</span> <span class="o">=</span> <span class="n">is_valid</span> <span class="ow">and</span> <span class="n">amount_ok</span> <span class="ow">and</span> <span class="n">is_fresh</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="si">{</span><span class="s1">'✅'</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">approved</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'❌'</span><span class="si">}</span><span class="s2"> Transaction </span><span class="si">{</span><span class="s1">'APPROVED'</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">approved</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'REJECTED'</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="n">is_valid</span> <span class="ow">and</span> <span class="n">amount_ok</span> <span class="ow">and</span> <span class="n">is_fresh</span> <span class="ow">and</span> <span class="n">approved</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>🔍 Verification Pipeline:
+   1. Transaction created: TX-1794600353
+   2. Signature valid: VerificationResult(valid=True, tool_id='financial_transaction', key_id=None, error=None)
+   3. Amount within limit: True
+   4. Timestamp fresh: True
+
+✅ Transaction APPROVED
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/tmp/ipykernel_4282/3057042201.py:1: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  tc_verify = TrustChain(TrustChainConfig(enable_nonce=False))
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=1bf0d2dc"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="6️⃣-Distributed-Multi-Agent-Setup">6️⃣ Distributed Multi-Agent Setup<a class="anchor-link" href="#6%EF%B8%8F%E2%83%A3-Distributed-Multi-Agent-Setup">¶</a></h2><p>Multiple AI agents with independent key pairs.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=36261319">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">trustchain</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrustChainConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">trustchain.v2.tenants</span><span class="w"> </span><span class="kn">import</span> <span class="n">TenantManager</span>
+
+<span class="c1"># Central agent registry with nonces disabled for demo</span>
+<span class="n">manager</span> <span class="o">=</span> <span class="n">TenantManager</span><span class="p">(</span><span class="n">base_config</span><span class="o">=</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+<span class="c1"># Create specialized agents</span>
+<span class="n">agents</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"research_agent"</span><span class="p">:</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_or_create</span><span class="p">(</span><span class="s2">"research_agent"</span><span class="p">),</span>
+    <span class="s2">"code_agent"</span><span class="p">:</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_or_create</span><span class="p">(</span><span class="s2">"code_agent"</span><span class="p">),</span>
+    <span class="s2">"review_agent"</span><span class="p">:</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_or_create</span><span class="p">(</span><span class="s2">"review_agent"</span><span class="p">),</span>
+<span class="p">}</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"🤖 Distributed Agent Setup:"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">tc</span> <span class="ow">in</span> <span class="n">agents</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: key=</span><span class="si">{</span><span class="n">tc</span><span class="o">.</span><span class="n">get_key_id</span><span class="p">()[:</span><span class="mi">12</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+
+<span class="c1"># Simulate multi-agent workflow</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">📋 Multi-Agent Workflow:"</span><span class="p">)</span>
+
+<span class="c1"># Each agent uses the PUBLIC tc.sign() API — its own keys, its own chain HEAD.</span>
+<span class="n">research_result</span> <span class="o">=</span> <span class="n">agents</span><span class="p">[</span><span class="s2">"research_agent"</span><span class="p">]</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span>
+    <span class="s2">"research"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"topic"</span><span class="p">:</span> <span class="s2">"quantum computing"</span><span class="p">,</span> <span class="s2">"sources"</span><span class="p">:</span> <span class="mi">15</span><span class="p">}</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   1. Research: </span><span class="si">{</span><span class="n">research_result</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'sources'</span><span class="p">]</span><span class="si">}</span><span class="s2"> sources found"</span><span class="p">)</span>
+
+<span class="n">code_result</span> <span class="o">=</span> <span class="n">agents</span><span class="p">[</span><span class="s2">"code_agent"</span><span class="p">]</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span>
+    <span class="s2">"implementation"</span><span class="p">,</span>
+    <span class="p">{</span><span class="s2">"language"</span><span class="p">:</span> <span class="s2">"python"</span><span class="p">,</span> <span class="s2">"lines"</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span> <span class="s2">"parent"</span><span class="p">:</span> <span class="n">research_result</span><span class="o">.</span><span class="n">signature</span><span class="p">[:</span><span class="mi">16</span><span class="p">]},</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   2. Code: </span><span class="si">{</span><span class="n">code_result</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'lines'</span><span class="p">]</span><span class="si">}</span><span class="s2"> lines written"</span><span class="p">)</span>
+
+<span class="n">review_result</span> <span class="o">=</span> <span class="n">agents</span><span class="p">[</span><span class="s2">"review_agent"</span><span class="p">]</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span>
+    <span class="s2">"review"</span><span class="p">,</span>
+    <span class="p">{</span>
+        <span class="s2">"approved"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">"research_valid"</span><span class="p">:</span> <span class="n">agents</span><span class="p">[</span><span class="s2">"research_agent"</span><span class="p">]</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">research_result</span><span class="p">),</span>
+        <span class="s2">"code_valid"</span><span class="p">:</span> <span class="n">agents</span><span class="p">[</span><span class="s2">"code_agent"</span><span class="p">]</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">code_result</span><span class="p">),</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   3. Review: approved=</span><span class="si">{</span><span class="n">review_result</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'approved'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Cross-agent verification</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">🔐 Cross-Agent Verification:"</span><span class="p">)</span>
+<span class="n">can_research_verify_code</span> <span class="o">=</span> <span class="n">agents</span><span class="p">[</span><span class="s2">"research_agent"</span><span class="p">]</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">code_result</span><span class="p">)</span>
+<span class="n">can_code_verify_own</span> <span class="o">=</span> <span class="n">agents</span><span class="p">[</span><span class="s2">"code_agent"</span><span class="p">]</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">code_result</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Research→Code: </span><span class="si">{</span><span class="n">can_research_verify_code</span><span class="si">}</span><span class="s2"> (expected: False)"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   Code→Code: </span><span class="si">{</span><span class="n">can_code_verify_own</span><span class="si">}</span><span class="s2"> (expected: True)"</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="ow">not</span> <span class="n">can_research_verify_code</span> <span class="ow">and</span> <span class="n">can_code_verify_own</span>
+<span class="k">assert</span> <span class="n">review_result</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">"research_valid"</span><span class="p">]</span> <span class="ow">and</span> <span class="n">review_result</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">"code_valid"</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>🤖 Distributed Agent Setup:
+   research_agent: key=f2d9cd47-3c4...
+   code_agent: key=2196fd00-954...
+   review_agent: key=4b6d47b7-13a...
+
+📋 Multi-Agent Workflow:
+   1. Research: 15 sources found
+   2. Code: 150 lines written
+   3. Review: approved=True
+
+🔐 Cross-Agent Verification:
+   Research→Code: False (expected: False)
+   Code→Code: True (expected: True)
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/tmp/ipykernel_4282/3714795214.py:5: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  manager = TenantManager(base_config=TrustChainConfig(enable_nonce=False))
+&lt;python-environment&gt;/lib/python3.12/site-packages/trustchain/v2/tenants.py:56: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  config = TrustChainConfig(
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=d03b4ab8"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="📚-Next-Steps">📚 Next Steps<a class="anchor-link" href="#%F0%9F%93%9A-Next-Steps">¶</a></h2><ul>
+<li>See <code>trustchain_full_demo.ipynb</code> for a broader end-to-end walkthrough</li>
+<li>Check <a href="https://github.com/petro1eum/trust_chain/wiki/API-Reference">API Reference</a></li>
+<li>Deploy with <a href="https://github.com/petro1eum/trust_chain/wiki/Examples#mcp-server">MCP Server</a></li>
+</ul>
+</div>
+</div>
+</div>
+</article></main><footer><a href="../notebooks.html">All public notebooks</a> · <a href="../factcrypt-demo.html">FactCrypt example · paid Pro</a></footer></body></html>

@@ -15,13 +15,16 @@
 
 ## Pro — `trustchain-pro` (commercial)
 
+Paid private distribution: authorized wheel or private repository access, not public PyPI. [License and access](https://petro1eum.github.io/trust_chain/pro.html).
+
 - **License:** Ed25519 v2 token (`TRUSTCHAIN_PRO_LICENSE`); issue via `tc-license print-dev-token` (dev) or license server.  
-- **Modules:** PolicyEngine (YAML governance), StreamingReasoningChain, Redis HA nonces, ExecutionGraph, TSA, FactSeal, KMS helpers, ComplianceReport, Analytics, Airgap, ChainExplorer HTML/PDF export + reasoning HTML audit reports (`export_reasoning_html`).  
+- **Modules:** PolicyEngine (YAML governance), StreamingReasoningChain, Redis HA nonces, ExecutionGraph, TSA, FactSeal, FactCrypt (source encryption and owner-local formula calculation), KMS helpers, ComplianceReport, Analytics, Airgap, ChainExplorer HTML/PDF export + reasoning HTML audit reports (`export_reasoning_html`).
 - **Note:** LangChain / MCP adapters, `.tcreceipt`, standards exports, Tool PKI, and basic anchoring ship in **OSS**; Pro adds governance, reporting, scheduled workflows, and enterprise hardening on top.
 
 ## SaaS — `TrustChain_Platform`
 
 - Platform **Root / Intermediate CA**, CRL, public registry (`/api/pub/*`)  
+- FactCrypt agent-to-source permissions, source authority and passport projection
 - Agent certificate issuance and revocation  
 - Tool/agent registry, CRL-backed revocation, and cross-company trust distribution  
 - Transparency/custody path for anchors, witnesses, retention, and third-party evidence stores  
