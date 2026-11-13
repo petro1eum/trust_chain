@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Portable receipts · Executed TrustChain notebook</title><link rel="stylesheet" href="../docs.css"><link rel="stylesheet" href="../notebook.css"></head>
 <body><a class="skip" href="#content">Skip to notebook</a><header><a href="../index.html">TrustChain</a><nav aria-label="Notebook"><a href="../notebooks.html">Notebook catalog</a><a href="https://github.com/petro1eum/trust_chain/blob/main/examples/trustchain_receipts.ipynb">Source on GitHub</a><a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_receipts.ipynb">Run in Colab</a></nav></header>
-<main id="content"><p class="eyebrow">OSS · saved execution</p><h1>Portable receipts</h1><p class="lead">Read the code alongside its actual synthetic outputs.</p><div class="note">Executed 2026-11-13 in a fresh local Python 3.12.11 kernel with Core 3.3.0. Dependencies were installed before the run, so installation cells are omitted here. Provider credentials were removed; no live model was called. Local environment paths are redacted. Optional external services may show a skipped or unavailable result. This page is a saved preview, not a live Python session.</div><p class="small">4 code cells completed without execution errors. <a href="manifest.json">Source hash and run metadata</a>.</p><article class="notebook-output"><div class="cell border-box-sizing text_cell rendered" id="cell-id=518aa2b4"><div class="inner_cell">
+<main id="content"><p class="eyebrow">OSS · saved execution</p><h1>Portable receipts</h1><p class="lead">Read the code alongside its actual synthetic outputs.</p><div class="note">Executed 2026-11-13 in a fresh Google Colab Python 3.13.18 runtime with Core 3.3.0. Every original code cell ran, including dependency installation. TrustChain Pro and its license were absent before and after execution. No new dependency conflicts were introduced. Baseline pip check: ipython 7.34.0 requires jedi, which is not installed. No live model was called. Optional external services may show an unavailable result. This page is a saved preview, not a live Python session.</div><p class="small">5 code cells completed without execution errors. <a href="manifest.json">Source hash and run metadata</a>.</p><article class="notebook-output"><div class="cell border-box-sizing text_cell rendered" id="cell-id=518aa2b4"><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p><a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_receipts.ipynb"><img alt="Open In Colab" src="https://colab.research.google.com/assets/colab-badge.svg"/></a></p>
 <h1 id="🧾-.tcreceipt-—-Portable-Proof-of-Every-Signed-Fact">🧾 <code>.tcreceipt</code> — Portable Proof of Every Signed Fact<a class="anchor-link" href="#%F0%9F%A7%BE-.tcreceipt-%E2%80%94-Portable-Proof-of-Every-Signed-Fact">¶</a></h1><blockquote>
@@ -65,6 +65,16 @@ is how you <em>hand that proof to someone else</em>.</p>
 </div>
 </div>
 </div>
+<div class="cell border-box-sizing code_cell rendered celltag_install" id="cell-id=fdac091f">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-python"><pre><span></span><span class="o">%</span><span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">q</span> <span class="o">--</span><span class="n">upgrade</span> <span class="s1">'trustchain&gt;=3.3.0,&lt;4'</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
 <div class="cell border-box-sizing text_cell rendered" id="cell-id=c90fcdb8"><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <h2 id="1️⃣-Build-a-receipt-from-a-signed-fact">1️⃣ Build a receipt from a signed fact<a class="anchor-link" href="#1%EF%B8%8F%E2%83%A3-Build-a-receipt-from-a-signed-fact">¶</a></h2><p><code>tc.sign(tool_id, data)</code> returns a <code>SignedResponse</code>. Pass it to <code>build_receipt()</code>
@@ -77,7 +87,7 @@ a single JSON blob — save it with the <code>.tcreceipt</code> extension for co
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<div class="highlight hl-python"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">trustchain</span><span class="w"> </span><span class="kn">import</span> <span class="n">Receipt</span><span class="p">,</span> <span class="n">TrustChain</span><span class="p">,</span> <span class="n">TrustChainConfig</span><span class="p">,</span> <span class="n">build_receipt</span>
 
@@ -126,15 +136,15 @@ a single JSON blob — save it with the <code>.tcreceipt</code> extension for co
       "fiscal_year": 2025,
       "revenue_usd": 4812300000
     },
-    "nonce": "e252bf90-662c-4ea6-ac5f-7f6db04952f4",
+    "nonce": "867a7e94-16c8-450c-b8f1-451581d348bd",
     "parent_signature": null,
-    "signature": "2uwn1Wf5RaffT/+xlXwp/GWiREG4Ae56z3QxC3aMDBPOR9J/JuklRBddGFoGQUJhWSB …
+    "signature": "BnDz/rDKI+sjQnBK8mJKp7xehmqABsFTmOb5lfI4coooFk2mooxEt6Fq1yUiYLbUQUM …
 </pre>
 </div>
 </div>
 <div class="output_area">
 <div class="output_subarea output_stream output_stderr output_text">
-<pre>/tmp/ipykernel_4622/3629658181.py:5: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+<pre>/tmp/ipykernel_553/3629658181.py:5: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
   tc = TrustChain(TrustChainConfig(enable_nonce=False))
 </pre>
 </div>
@@ -161,7 +171,7 @@ boolean — so you can tell <strong>why</strong> something is invalid.</p>
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">loaded</span> <span class="o">=</span> <span class="n">Receipt</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+<div class="highlight hl-python"><pre><span></span><span class="n">loaded</span> <span class="o">=</span> <span class="n">Receipt</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
 
 <span class="n">v</span> <span class="o">=</span> <span class="n">loaded</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span>
     <span class="n">expected_public_key_b64</span><span class="o">=</span><span class="n">tc</span><span class="o">.</span><span class="n">export_public_key</span><span class="p">(),</span>
@@ -207,7 +217,7 @@ Let's confirm, and see the exact error message you'd show to a user.</p>
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<div class="highlight hl-python"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 
 <span class="n">tampered</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
 <span class="n">tampered</span><span class="p">[</span><span class="s2">"envelope"</span><span class="p">][</span><span class="s2">"data"</span><span class="p">][</span><span class="s2">"revenue_usd"</span><span class="p">]</span> <span class="o">=</span> <span class="mi">9_999_999_999</span>  <span class="c1"># 💰 lie</span>
@@ -245,7 +255,7 @@ Let's confirm, and see the exact error message you'd show to a user.</p>
 </div>
 <div class="output_area">
 <div class="output_subarea output_stream output_stderr output_text">
-<pre>/tmp/ipykernel_4622/425736112.py:15: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+<pre>/tmp/ipykernel_553/425736112.py:15: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
   wrong_key = TrustChain(TrustChainConfig(enable_nonce=False))
 </pre>
 </div>
@@ -275,7 +285,7 @@ tc<span class="w"> </span>receipt<span class="w"> </span>verify<span class="w"> 
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Toy certificate for the demo — in production this comes from your internal CA.</span>
+<div class="highlight hl-python"><pre><span></span><span class="c1"># Toy certificate for the demo — in production this comes from your internal CA.</span>
 <span class="n">demo_cert</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">"subject_cn"</span><span class="p">:</span> <span class="s2">"agent-prod-42.acme.example"</span><span class="p">,</span>
     <span class="s2">"issuer_cn"</span><span class="p">:</span> <span class="s2">"Acme Internal CA G2"</span><span class="p">,</span>
@@ -331,7 +341,7 @@ Synthetic certificate metadata only; trusted PKI verification is not claimed.
 </div>
 <div class="output_area">
 <div class="output_subarea output_stream output_stderr output_text">
-<pre>/tmp/ipykernel_4622/3215979135.py:11: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+<pre>/tmp/ipykernel_553/3215979135.py:11: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
   TrustChainConfig(enable_nonce=False, certificate=demo_cert),
 </pre>
 </div>
