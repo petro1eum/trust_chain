@@ -17,7 +17,7 @@ jobs:
           cache: pip
       - name: Install notebook dependencies
         run: |
-          python -m pip install "trustchain[all,otel]==3.3.0" nbformat nbclient ipykernel reportlab
+          python -m pip install "trustchain[all,otel]==3.3.0" "mcp>=1.0.0,<2" nbformat nbclient ipykernel reportlab
           python -m pip install -e .
       - run: python scripts/check_notebook_hygiene.py
       - name: Execute clean kernels without model credentials
