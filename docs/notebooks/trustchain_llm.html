@@ -1,9 +1,19 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>The LLM tool boundary · Executed TrustChain notebook</title><link rel="stylesheet" href="../docs.css"><link rel="stylesheet" href="../notebook.css"></head>
 <body><a class="skip" href="#content">Skip to notebook</a><header><a href="../index.html">TrustChain</a><nav aria-label="Notebook"><a href="../notebooks.html">Notebook catalog</a><a href="https://github.com/petro1eum/trust_chain/blob/main/examples/trustchain_llm.ipynb">Source on GitHub</a><a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_llm.ipynb">Run in Colab</a></nav></header>
-<main id="content"><p class="eyebrow">OSS · saved execution</p><h1>The LLM tool boundary</h1><p class="lead">Read the code alongside its actual synthetic outputs.</p><div class="note">Executed 2026-11-13 in a fresh local Python 3.12.11 kernel with Core 3.3.0. Dependencies were installed before the run, so installation cells are omitted here. Provider credentials were removed; no live model was called. Local environment paths are redacted. Optional external services may show a skipped or unavailable result. This page is a saved preview, not a live Python session.</div><p class="small">4 code cells completed without execution errors. <a href="manifest.json">Source hash and run metadata</a>.</p><article class="notebook-output"><div class="cell border-box-sizing text_cell rendered" id="cell-id=5e7c6a35"><div class="inner_cell">
+<main id="content"><p class="eyebrow">OSS · saved execution</p><h1>The LLM tool boundary</h1><p class="lead">Read the code alongside its actual synthetic outputs.</p><div class="note">Executed 2026-11-13 in a fresh Google Colab Python 3.13.18 runtime with Core 3.3.0. Every original code cell ran, including dependency installation. TrustChain Pro and its license were absent before and after execution. No new dependency conflicts were introduced. Baseline pip check: ipython 7.34.0 requires jedi, which is not installed. No live model was called. Optional external services may show an unavailable result. This page is a saved preview, not a live Python session.</div><p class="small">5 code cells completed without execution errors. <a href="manifest.json">Source hash and run metadata</a>.</p><article class="notebook-output"><div class="cell border-box-sizing text_cell rendered" id="cell-id=5e7c6a35"><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <h1 id="Verified-tool-calls-for-an-external-model">Verified tool calls for an external model<a class="anchor-link" href="#Verified-tool-calls-for-an-external-model">¶</a></h1><p>OSS tutorial · synthetic data · no model call by default. The external model proposes tool arguments; the host validates and executes a fixed function. FactCrypt extends this pattern when even the values must remain private.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered celltag_install" id="cell-id=f548bb2e">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-python"><pre><span></span><span class="o">%</span><span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">q</span> <span class="s2">"trustchain&gt;=3.3.0,&lt;4"</span>
+</pre></div>
+</div>
 </div>
 </div>
 </div>
@@ -11,7 +21,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<div class="highlight hl-python"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">trustchain.v2.signer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Signer</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">trustchain.receipt</span><span class="w"> </span><span class="kn">import</span> <span class="n">Receipt</span><span class="p">,</span> <span class="n">build_receipt</span>
 <span class="n">signer</span> <span class="o">=</span> <span class="n">Signer</span><span class="p">()</span>
@@ -25,7 +35,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
+<div class="highlight hl-python"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">decimal</span><span class="w"> </span><span class="kn">import</span> <span class="n">Decimal</span><span class="p">,</span> <span class="n">localcontext</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">calculate</span><span class="p">(</span><span class="n">expression</span><span class="p">):</span>
@@ -80,7 +90,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">execute_proposal</span><span class="p">(</span><span class="n">proposal</span><span class="p">):</span>
+<div class="highlight hl-python"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">execute_proposal</span><span class="p">(</span><span class="n">proposal</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">proposal</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">dict</span> <span class="ow">or</span> <span class="nb">set</span><span class="p">(</span><span class="n">proposal</span><span class="p">)</span> <span class="o">!=</span> <span class="p">{</span><span class="s2">"tool"</span><span class="p">,</span> <span class="s2">"arguments"</span><span class="p">}:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Unexpected proposal"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">proposal</span><span class="p">[</span><span class="s2">"tool"</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">"calculate"</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">proposal</span><span class="p">[</span><span class="s2">"arguments"</span><span class="p">])</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">dict</span><span class="p">:</span>
@@ -121,7 +131,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<div class="highlight hl-python"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="n">RUN_OPENROUTER</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="k">if</span> <span class="n">RUN_OPENROUTER</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">openai</span><span class="w"> </span><span class="kn">import</span> <span class="n">OpenAI</span>

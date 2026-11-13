@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>A complete agent workflow · Executed TrustChain notebook</title><link rel="stylesheet" href="../docs.css"><link rel="stylesheet" href="../notebook.css"></head>
 <body><a class="skip" href="#content">Skip to notebook</a><header><a href="../index.html">TrustChain</a><nav aria-label="Notebook"><a href="../notebooks.html">Notebook catalog</a><a href="https://github.com/petro1eum/trust_chain/blob/main/examples/trustchain_full_demo.ipynb">Source on GitHub</a><a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_full_demo.ipynb">Run in Colab</a></nav></header>
-<main id="content"><p class="eyebrow">OSS · saved execution</p><h1>A complete agent workflow</h1><p class="lead">Read the code alongside its actual synthetic outputs.</p><div class="note">Executed 2026-11-13 in a fresh local Python 3.12.11 kernel with Core 3.3.0. Dependencies were installed before the run, so installation cells are omitted here. Provider credentials were removed; no live model was called. Local environment paths are redacted. Optional external services may show a skipped or unavailable result. This page is a saved preview, not a live Python session.</div><p class="small">10 code cells completed without execution errors. <a href="manifest.json">Source hash and run metadata</a>.</p><article class="notebook-output"><div class="cell border-box-sizing text_cell rendered" id="cell-id=50dd4de2"><div class="inner_cell">
+<main id="content"><p class="eyebrow">OSS · saved execution</p><h1>A complete agent workflow</h1><p class="lead">Read the code alongside its actual synthetic outputs.</p><div class="note">Executed 2026-11-13 in a fresh Google Colab Python 3.13.18 runtime with Core 3.3.0. Every original code cell ran, including dependency installation. TrustChain Pro and its license were absent before and after execution. No new dependency conflicts were introduced. Baseline pip check: ipython 7.34.0 requires jedi, which is not installed. No live model was called. Optional external services may show an unavailable result. This page is a saved preview, not a live Python session.</div><p class="small">11 code cells completed without execution errors. <a href="manifest.json">Source hash and run metadata</a>.</p><article class="notebook-output"><div class="cell border-box-sizing text_cell rendered" id="cell-id=50dd4de2"><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p><a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_full_demo.ipynb"><img alt="Open In Colab" src="https://colab.research.google.com/assets/colab-badge.svg"/></a></p>
 <h1 id="TrustChain-Full-Demo-with-Optional-Real-LLM">TrustChain Full Demo with Optional Real LLM<a class="anchor-link" href="#TrustChain-Full-Demo-with-Optional-Real-LLM">¶</a></h1><p>This notebook demonstrates selected TrustChain capabilities with a deterministic offline workflow. A live OpenRouter call requires explicit <code>RUN_OPENROUTER = True</code> plus externally configured <code>OPENROUTER_API_KEY</code> and <code>OPENROUTER_MODEL</code>.</p>
@@ -24,11 +24,21 @@
 </div>
 </div>
 </div>
+<div class="cell border-box-sizing code_cell rendered celltag_install" id="cell-id=011fa3c9">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-python"><pre><span></span><span class="o">%</span><span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">q</span> <span class="o">--</span><span class="n">upgrade</span> <span class="s1">'trustchain[ai]&gt;=3.3.0,&lt;4'</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
 <div class="cell border-box-sizing code_cell rendered" id="cell-id=6631c9a1">
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Explicit opt-in; an ambient credential never triggers a paid call.</span>
+<div class="highlight hl-python"><pre><span></span><span class="c1"># Explicit opt-in; an ambient credential never triggers a paid call.</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="n">RUN_OPENROUTER</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="n">API_KEY</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"OPENROUTER_API_KEY"</span><span class="p">)</span> <span class="k">if</span> <span class="n">RUN_OPENROUTER</span> <span class="k">else</span> <span class="kc">None</span>
@@ -55,7 +65,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Setup</span>
+<div class="highlight hl-python"><pre><span></span><span class="c1"># Setup</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
@@ -91,13 +101,13 @@
 <div class="output_subarea output_stream output_stdout output_text">
 <pre>✅ TrustChain ready
 🌐 OpenRouter client: offline demo mode
-🔑 Key ID: 9c178395-48cf-4893-ae8f-f5b7a09410f5
+🔑 Key ID: f7ca8c17-dd08-4e3d-96ee-d013155bfe7a
 </pre>
 </div>
 </div>
 <div class="output_area">
 <div class="output_subarea output_stream output_stderr output_text">
-<pre>/tmp/ipykernel_4503/3849351094.py:22: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+<pre>/tmp/ipykernel_536/3849351094.py:22: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
   tc = TrustChain(TrustChainConfig(enable_nonce=False))
 </pre>
 </div>
@@ -109,7 +119,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
+<div class="highlight hl-python"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">decimal</span><span class="w"> </span><span class="kn">import</span> <span class="n">Decimal</span><span class="p">,</span> <span class="n">localcontext</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">calculate</span><span class="p">(</span><span class="n">expression</span><span class="p">):</span>
@@ -165,7 +175,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Sign a tool fact using the public TrustChain API — auto-chain + auto-commit.</span>
+<div class="highlight hl-python"><pre><span></span><span class="c1"># Sign a tool fact using the public TrustChain API — auto-chain + auto-commit.</span>
 <span class="n">signed</span> <span class="o">=</span> <span class="n">tc</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span>
     <span class="n">tool_id</span><span class="o">=</span><span class="s1">'test_tool'</span><span class="p">,</span>
     <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s1">'message'</span><span class="p">:</span> <span class="s1">'Hello TrustChain!'</span><span class="p">},</span>
@@ -188,8 +198,8 @@
 <pre>📝 Signed response:
    Tool: test_tool
    Data: {'message': 'Hello TrustChain!'}
-   Signature: wNUVfqoRRuhyW8ySNh6YdvjOg/r7SjHrVWZ47Es5...
-   Timestamp: 1794600354.801676
+   Signature: NsQs90F7CI6YzXOOYJhIEtBckUeb7m4OuS5zo8ox...
+   Timestamp: 1794602596.6728222
 
 ✅ Verified: True
 </pre>
@@ -209,7 +219,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Define tools for the LLM</span>
+<div class="highlight hl-python"><pre><span></span><span class="c1"># Define tools for the LLM</span>
 <span class="n">tools</span> <span class="o">=</span> <span class="p">[</span>
     <span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'function'</span><span class="p">,</span> <span class="s1">'function'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'name'</span><span class="p">:</span> <span class="s1">'get_weather'</span><span class="p">,</span> <span class="s1">'parameters'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'object'</span><span class="p">,</span> <span class="s1">'properties'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'city'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'string'</span><span class="p">}}}}},</span>
     <span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'function'</span><span class="p">,</span> <span class="s1">'function'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'name'</span><span class="p">:</span> <span class="s1">'calculate'</span><span class="p">,</span> <span class="s1">'parameters'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'object'</span><span class="p">,</span> <span class="s1">'properties'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'expr'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'string'</span><span class="p">}}}}},</span>
@@ -305,18 +315,18 @@
 
 📤 Step 1: What is the weather in Tokyo? Use the tool.
    ✅ get_weather: Sunny, 22°C in Tokyo
-   🔏 Signature: FvqlGNstDysvOe53XuLscZFB67bozJUh...
-   ⛓️ Linked to parent: wNUVfqoRRuhyW8ySNh6YdvjOg/r7SjHr...
+   🔏 Signature: tzXi5OVrahsWMe0Yk4TQmp3O+P9UOdw5...
+   ⛓️ Linked to parent: NsQs90F7CI6YzXOOYJhIEtBckUeb7m4O...
 
 📤 Step 2: Calculate 2 ** 10 using the calculate tool.
    ✅ calculate: 1024
-   🔏 Signature: L79d5ogbv4LSYFnCf8QSaL+sBZfSPanO...
-   ⛓️ Linked to parent: FvqlGNstDysvOe53XuLscZFB67bozJUh...
+   🔏 Signature: yUiviB0VJS1tTC5zqvmpZp7qJp9kRxTy...
+   ⛓️ Linked to parent: tzXi5OVrahsWMe0Yk4TQmp3O+P9UOdw5...
 
 📤 Step 3: Search for AI security using the search tool.
    ✅ search: Found 5 results for: AI security
-   🔏 Signature: khKfKWUn0vKuqAGJJy1QwA/RuUyT3sLw...
-   ⛓️ Linked to parent: L79d5ogbv4LSYFnCf8QSaL+sBZfSPanO...
+   🔏 Signature: 5CM12koXJOrieUSDHFLSj27ZeVeSC6FJ...
+   ⛓️ Linked to parent: yUiviB0VJS1tTC5zqvmpZp7qJp9kRxTy...
 
 📊 Chain complete: 3 tool calls
 ✅ All signatures valid: True
@@ -337,7 +347,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Build Merkle tree from chain signatures</span>
+<div class="highlight hl-python"><pre><span></span><span class="c1"># Build Merkle tree from chain signatures</span>
 <span class="n">signatures</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">signature</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">chain</span><span class="p">]</span>
 <span class="n">tree</span> <span class="o">=</span> <span class="n">MerkleTree</span><span class="o">.</span><span class="n">from_chunks</span><span class="p">(</span><span class="n">signatures</span><span class="p">)</span>
 
@@ -362,7 +372,7 @@
 <div class="output_area">
 <div class="output_subarea output_stream output_stdout output_text">
 <pre>🌳 Merkle Tree Audit Trail
-   Root: b63b4b59f7d29138062bc381983b5e109045d772199e0f39...
+   Root: c6196f333c17709eeca81d1e601b2840affb072f7a8877b1...
    Leaves: 3
 
 🔍 Verifying signature[0] is in tree...
@@ -385,7 +395,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Copy original and tamper with it</span>
+<div class="highlight hl-python"><pre><span></span><span class="c1"># Copy original and tamper with it</span>
 <span class="n">original</span> <span class="o">=</span> <span class="n">chain</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 <span class="n">tampered</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">original</span><span class="p">)</span>
 <span class="n">tampered</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'result'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'HACKED: 999999 BTC'</span>
@@ -430,7 +440,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">key_dir</span><span class="p">:</span>
+<div class="highlight hl-python"><pre><span></span><span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">key_dir</span><span class="p">:</span>
     <span class="c1"># Create tenant manager</span>
     <span class="n">manager</span> <span class="o">=</span> <span class="n">TenantManager</span><span class="p">(</span><span class="n">key_storage_dir</span><span class="o">=</span><span class="n">key_dir</span><span class="p">)</span>
 
@@ -466,9 +476,9 @@
 <div class="output_area">
 <div class="output_subarea output_stream output_stdout output_text">
 <pre>🏢 Multi-Tenant Isolation Test
-   company_a: Key dc72ffbe-4b6c-4d53-b...
-   company_b: Key dce0181f-6e4c-48b9-9...
-   company_c: Key eb4c53bd-970b-4dee-9...
+   company_a: Key e4d0a7bf-8135-49ed-8...
+   company_b: Key aa1f0320-819d-4b7f-9...
+   company_c: Key 17792428-0446-4a0e-b...
 
 📝 Company A signed order #12345
    Company B can verify A's data: False ❌
@@ -478,9 +488,9 @@
 </div>
 <div class="output_area">
 <div class="output_subarea output_stream output_stderr output_text">
-<pre>&lt;python-environment&gt;/lib/python3.12/site-packages/trustchain/v2/tenants.py:38: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+<pre>/usr/local/lib/python3.13/dist-packages/trustchain/v2/tenants.py:38: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
   self._base_config = base_config or TrustChainConfig()
-&lt;python-environment&gt;/lib/python3.12/site-packages/trustchain/v2/tenants.py:56: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+/usr/local/lib/python3.13/dist-packages/trustchain/v2/tenants.py:56: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
   config = TrustChainConfig(
 </pre>
 </div>
@@ -499,7 +509,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Audit trail export — OSS path.</span>
+<div class="highlight hl-python"><pre><span></span><span class="c1"># Audit trail export — OSS path.</span>
 <span class="c1"># ChainExplorer HTML export requires the authorized Pro wheel or private checkout.</span>
 <span class="n">audit_rows</span> <span class="o">=</span> <span class="p">[</span>
     <span class="p">{</span>
@@ -536,9 +546,9 @@
    Entries: 3
 
 📄 JSON Preview:
-   - get_weather: sig=FvqlGNstDysvOe53XuLs...
-   - calculate: sig=L79d5ogbv4LSYFnCf8QS...
-   - search: sig=khKfKWUn0vKuqAGJJy1Q...
+   - get_weather: sig=tzXi5OVrahsWMe0Yk4TQ...
+   - calculate: sig=yUiviB0VJS1tTC5zqvmp...
+   - search: sig=5CM12koXJOrieUSDHFLS...
 
 💡 Pro tier adds HTML/PDF ComplianceReport and ChainExplorer:
    Install the authorized Pro wheel or private checkout; see the Pro guide.
@@ -564,7 +574,7 @@ WebCrypto Ed25519 check, <strong>no network required</strong>.</p>
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<div class="highlight hl-python"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">trustchain</span><span class="w"> </span><span class="kn">import</span> <span class="n">Receipt</span><span class="p">,</span> <span class="n">build_receipt</span>
 

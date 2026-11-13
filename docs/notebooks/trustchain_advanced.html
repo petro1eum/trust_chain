@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Keys, batches &amp; tenants · Executed TrustChain notebook</title><link rel="stylesheet" href="../docs.css"><link rel="stylesheet" href="../notebook.css"></head>
 <body><a class="skip" href="#content">Skip to notebook</a><header><a href="../index.html">TrustChain</a><nav aria-label="Notebook"><a href="../notebooks.html">Notebook catalog</a><a href="https://github.com/petro1eum/trust_chain/blob/main/examples/trustchain_advanced.ipynb">Source on GitHub</a><a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_advanced.ipynb">Run in Colab</a></nav></header>
-<main id="content"><p class="eyebrow">OSS · saved execution</p><h1>Keys, batches &amp; tenants</h1><p class="lead">Read the code alongside its actual synthetic outputs.</p><div class="note">Executed 2026-11-13 in a fresh local Python 3.12.11 kernel with Core 3.3.0. Dependencies were installed before the run, so installation cells are omitted here. Provider credentials were removed; no live model was called. Local environment paths are redacted. Optional external services may show a skipped or unavailable result. This page is a saved preview, not a live Python session.</div><p class="small">7 code cells completed without execution errors. <a href="manifest.json">Source hash and run metadata</a>.</p><article class="notebook-output"><div class="cell border-box-sizing text_cell rendered" id="cell-id=4b4aba21"><div class="inner_cell">
+<main id="content"><p class="eyebrow">OSS · saved execution</p><h1>Keys, batches &amp; tenants</h1><p class="lead">Read the code alongside its actual synthetic outputs.</p><div class="note">Executed 2026-11-13 in a fresh Google Colab Python 3.13.18 runtime with Core 3.3.0. Every original code cell ran, including dependency installation. TrustChain Pro and its license were absent before and after execution. No new dependency conflicts were introduced. Baseline pip check: ipython 7.34.0 requires jedi, which is not installed. No live model was called. Optional external services may show an unavailable result. This page is a saved preview, not a live Python session.</div><p class="small">8 code cells completed without execution errors. <a href="manifest.json">Source hash and run metadata</a>.</p><article class="notebook-output"><div class="cell border-box-sizing text_cell rendered" id="cell-id=4b4aba21"><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p><a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_advanced.ipynb"><img alt="Open In Colab" src="https://colab.research.google.com/assets/colab-badge.svg"/></a></p>
 <h1 id="🚀-TrustChain-Advanced-Scenarios">🚀 TrustChain Advanced Scenarios<a class="anchor-link" href="#%F0%9F%9A%80-TrustChain-Advanced-Scenarios">¶</a></h1><p>This notebook covers <strong>advanced integration patterns</strong>:</p>
@@ -22,11 +22,21 @@
 </div>
 </div>
 </div>
+<div class="cell border-box-sizing code_cell rendered celltag_install" id="cell-id=543b7624">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-python"><pre><span></span><span class="o">%</span><span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">q</span> <span class="s1">'trustchain[integrations,redis]&gt;=3.3.0,&lt;4'</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
 <div class="cell border-box-sizing code_cell rendered" id="cell-id=54b34f7c">
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<div class="highlight hl-python"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
@@ -47,7 +57,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">tc</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+<div class="highlight hl-python"><pre><span></span><span class="n">tc</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
 
 <span class="nd">@tc</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"database_query"</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">query_database</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">):</span>
@@ -94,7 +104,7 @@
 <div class="output">
 <div class="output_area">
 <div class="output_subarea output_stream output_stderr output_text">
-<pre>/tmp/ipykernel_4282/106054120.py:1: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+<pre>/tmp/ipykernel_3011/106054120.py:1: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
   tc = TrustChain(TrustChainConfig(enable_nonce=False))
 </pre>
 </div>
@@ -135,7 +145,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Create TrustChain with persistent keys</span>
+<div class="highlight hl-python"><pre><span></span><span class="c1"># Create TrustChain with persistent keys</span>
 <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmpdir</span><span class="p">:</span>
     <span class="n">key_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">,</span> <span class="s2">"keys.json"</span><span class="p">)</span>
 
@@ -181,23 +191,23 @@
 <div class="output">
 <div class="output_area">
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>🔑 Key ID: 9d8ee2da-321e-44...
+<pre>🔑 Key ID: 3e146aa7-3fef-49...
 📝 Signed response: {'result': 10}
 
 🔄 Second instance loaded same key: True
 ✅ Can verify previous signature: True
 
 🔄 Rotating keys...
-🆕 New Key ID: 18b7cceb-0994-47...
+🆕 New Key ID: 40cb2529-ef81-43...
 ❌ Old signature with new key: False
 </pre>
 </div>
 </div>
 <div class="output_area">
 <div class="output_subarea output_stream output_stderr output_text">
-<pre>/tmp/ipykernel_4282/120636926.py:6: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+<pre>/tmp/ipykernel_3011/120636926.py:6: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
   tc1 = TrustChain(TrustChainConfig(
-/tmp/ipykernel_4282/120636926.py:22: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+/tmp/ipykernel_3011/120636926.py:22: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
   tc2 = TrustChain(TrustChainConfig(
 </pre>
 </div>
@@ -215,7 +225,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Redis config (requires running Redis server)</span>
+<div class="highlight hl-python"><pre><span></span><span class="c1"># Redis config (requires running Redis server)</span>
 <span class="n">redis_url</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">"REDIS_URL"</span><span class="p">,</span> <span class="s2">"redis://localhost:6379"</span><span class="p">)</span>
 
 <span class="k">try</span><span class="p">:</span>
@@ -258,16 +268,24 @@
 <div class="output_wrapper">
 <div class="output">
 <div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/tmp/ipykernel_3011/901459567.py:5: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  tc_redis = TrustChain(TrustChainConfig(
+</pre>
+</div>
+</div>
+<div class="output_area">
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>✅ Action executed with nonce: 3fa62afd-07af-47...
-🔐 Redis-backed replay protection active
+<pre>⚠️ Redis not available: Error 111 connecting to localhost:6379. Connection refused.
+   Using memory-based nonce storage instead
+✅ Action with memory nonce: 21a63bda-b862-4d...
 </pre>
 </div>
 </div>
 <div class="output_area">
 <div class="output_subarea output_stream output_stderr output_text">
-<pre>/tmp/ipykernel_4282/901459567.py:5: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
-  tc_redis = TrustChain(TrustChainConfig(
+<pre>/tmp/ipykernel_3011/901459567.py:25: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  tc_memory = TrustChain(TrustChainConfig(
 </pre>
 </div>
 </div>
@@ -284,7 +302,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">tc_batch</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+<div class="highlight hl-python"><pre><span></span><span class="n">tc_batch</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
 
 <span class="nd">@tc_batch</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"process_item"</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">process_item</span><span class="p">(</span><span class="n">item_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
@@ -319,22 +337,22 @@
 <div class="output">
 <div class="output_area">
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>📦 Batch processed 20 items in 2.87ms
-⚡ 0.14ms per item
+<pre>📦 Batch processed 20 items in 6.42ms
+⚡ 0.32ms per item
 ✅ All verified: True
 
 🌊 Streaming mode:
-   Item 0: sig=0LKfQuF8nM811sIl... ✓
-   Item 1: sig=wtFUFOCMqqu2fr+S... ✓
-   Item 2: sig=eAQtrMnklPWabB//... ✓
-   Item 3: sig=aW11C3LtpnJtRMqt... ✓
-   Item 4: sig=qytix2oJ2lukgWOA... ✓
+   Item 0: sig=d3CTFaqEOVffakeK... ✓
+   Item 1: sig=r4LC+3/uQhHf8lm3... ✓
+   Item 2: sig=xEmeFeVNk9wriqv6... ✓
+   Item 3: sig=W5tQywqOljPDOTqQ... ✓
+   Item 4: sig=45fpaJua7etTvxbj... ✓
 </pre>
 </div>
 </div>
 <div class="output_area">
 <div class="output_subarea output_stream output_stderr output_text">
-<pre>/tmp/ipykernel_4282/2040156637.py:1: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+<pre>/tmp/ipykernel_3011/2040156637.py:1: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
   tc_batch = TrustChain(TrustChainConfig(enable_nonce=False))
 </pre>
 </div>
@@ -352,7 +370,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">tc_verify</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+<div class="highlight hl-python"><pre><span></span><span class="n">tc_verify</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
 
 <span class="nd">@tc_verify</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="s2">"financial_transaction"</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">create_transaction</span><span class="p">(</span><span class="n">amount</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">currency</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">recipient</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
@@ -398,7 +416,7 @@
 <div class="output_area">
 <div class="output_subarea output_stream output_stdout output_text">
 <pre>🔍 Verification Pipeline:
-   1. Transaction created: TX-1794600353
+   1. Transaction created: TX-1794602106
    2. Signature valid: VerificationResult(valid=True, tool_id='financial_transaction', key_id=None, error=None)
    3. Amount within limit: True
    4. Timestamp fresh: True
@@ -409,7 +427,7 @@
 </div>
 <div class="output_area">
 <div class="output_subarea output_stream output_stderr output_text">
-<pre>/tmp/ipykernel_4282/3057042201.py:1: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+<pre>/tmp/ipykernel_3011/3057042201.py:1: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
   tc_verify = TrustChain(TrustChainConfig(enable_nonce=False))
 </pre>
 </div>
@@ -427,7 +445,7 @@
 <div class="input">
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">trustchain</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrustChainConfig</span>
+<div class="highlight hl-python"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">trustchain</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrustChainConfig</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">trustchain.v2.tenants</span><span class="w"> </span><span class="kn">import</span> <span class="n">TenantManager</span>
 
 <span class="c1"># Central agent registry with nonces disabled for demo</span>
@@ -487,9 +505,9 @@
 <div class="output_area">
 <div class="output_subarea output_stream output_stdout output_text">
 <pre>🤖 Distributed Agent Setup:
-   research_agent: key=f2d9cd47-3c4...
-   code_agent: key=2196fd00-954...
-   review_agent: key=4b6d47b7-13a...
+   research_agent: key=d752ae49-b17...
+   code_agent: key=180abfd5-280...
+   review_agent: key=66bffd43-f49...
 
 📋 Multi-Agent Workflow:
    1. Research: 15 sources found
@@ -504,9 +522,9 @@
 </div>
 <div class="output_area">
 <div class="output_subarea output_stream output_stderr output_text">
-<pre>/tmp/ipykernel_4282/3714795214.py:5: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+<pre>/tmp/ipykernel_3011/3714795214.py:5: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
   manager = TenantManager(base_config=TrustChainConfig(enable_nonce=False))
-&lt;python-environment&gt;/lib/python3.12/site-packages/trustchain/v2/tenants.py:56: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+/usr/local/lib/python3.13/dist-packages/trustchain/v2/tenants.py:56: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
   config = TrustChainConfig(
 </pre>
 </div>
