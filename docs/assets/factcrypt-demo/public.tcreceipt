@@ -1,0 +1,141 @@
+{
+  "envelope": {
+    "data": {
+      "export_id": "e61a33e3413f4fb5a1f7f47649a49553",
+      "facts": [
+        {
+          "id": "f_009827dc23e64028b45f5af4faa9aadf",
+          "role": "table_cell",
+          "type": "string",
+          "unit": ""
+        },
+        {
+          "id": "f_9e9af50f45304c4bb649751dec05b041",
+          "role": "table_cell",
+          "type": "decimal",
+          "unit": "RUB/item"
+        },
+        {
+          "id": "f_89bf0773ce8b404384292bdecce86970",
+          "role": "table_cell",
+          "type": "integer",
+          "unit": "item"
+        },
+        {
+          "id": "f_a679526f4092470e8325bd55e32e0a87",
+          "role": "table_cell",
+          "type": "string",
+          "unit": ""
+        },
+        {
+          "id": "f_9473fef367db42069a3fff97cf3e4cdc",
+          "role": "table_cell",
+          "type": "decimal",
+          "unit": "RUB/item"
+        },
+        {
+          "id": "f_6d2e319f9ea94fe0b92b3432ee2567d3",
+          "role": "table_cell",
+          "type": "integer",
+          "unit": "item"
+        }
+      ],
+      "markdown": "# Защищённые данные источника\n\n| Клиент | Цена | Количество |\n|---|---:|---:|\n| {{fact:f_009827dc23e64028b45f5af4faa9aadf}} | {{fact:f_9e9af50f45304c4bb649751dec05b041}} | {{fact:f_89bf0773ce8b404384292bdecce86970}} |\n| {{fact:f_a679526f4092470e8325bd55e32e0a87}} | {{fact:f_9473fef367db42069a3fff97cf3e4cdc}} | {{fact:f_6d2e319f9ea94fe0b92b3432ee2567d3}} |\n",
+      "operations": [
+        "abs",
+        "add",
+        "div",
+        "fact",
+        "max",
+        "min",
+        "mul",
+        "neg",
+        "result",
+        "round",
+        "sub",
+        "sum"
+      ],
+      "schema": "factcrypt.view.v1",
+      "source_activation": {
+        "envelope": {
+          "data": {
+            "activation_id": "7d3e9322d45340e5b65b6ebad703b252",
+            "agent_binding": {
+              "context": {
+                "agent_id": "factcrypt-demo-20261111",
+                "authority_version": 0,
+                "certificate_digest": "3cc13195c41e18c1458c6ae373441305459a41fd4208195d3992716344b314ce",
+                "fence_version": 0,
+                "policy_digest": "7ecebffdbe544e3e55c133ebdc730495dc02d755d7e2770c064b8b608015e424",
+                "tenant_id": "factcrypt-acceptance-20261111"
+              },
+              "decrypt": false,
+              "mode": "symbolic",
+              "read_plaintext": false,
+              "schema": "factcrypt.agent-binding.v1",
+              "write_formulas": true
+            },
+            "expires_at": 1794521519,
+            "operations": [
+              "abs",
+              "add",
+              "div",
+              "fact",
+              "max",
+              "min",
+              "mul",
+              "neg",
+              "result",
+              "round",
+              "sub",
+              "sum"
+            ],
+            "recipient_public_key": "pqkhdk/wP3/SNpgfwx1zTy6jKdZXc1EXS6kMunxXjzw=",
+            "schema": "factcrypt.source-activation.v1",
+            "source_id": "inventory",
+            "source_public_key": "UOeCdkJhrJLrB3zdDiS/FxPqY4BfgIo87+NCI4nfx+g="
+          },
+          "nonce": "f9d953fa-cced-403d-8d03-2378391f6665",
+          "parent_signature": null,
+          "signature": "ERf46mplwwVjwwI0TTpog+bgGMXDJ2UiI8Bp8m6DqpaGnXDe9cwBNLxg67j3eQK4leWH6PcQfQJgMDSOqp3BDw==",
+          "signature_id": "5311662e-8763-4611-81bc-983d715d7d5a",
+          "timestamp": 1794435120.5711753,
+          "tool_id": "factcrypt.activate-source"
+        },
+        "format": "tcreceipt",
+        "issued_at": "2026-11-11T22:12:00Z",
+        "key": {
+          "algorithm": "ed25519",
+          "key_id": "factcrypt-authority:1ceb289e848e25df8f275c2ec6c21595e03b95571ab3b80a313c0bf7da849bb5",
+          "public_key_b64": "xM9W7VFCC7BeRjvbr1L3aDQYNOKJsAbwLbX5RJ01oHs="
+        },
+        "summary": {
+          "signature_short": "ERf46mpl…",
+          "timestamp_iso": "2026-11-11T22:12:00Z",
+          "tool_id": "factcrypt.activate-source"
+        },
+        "version": 1
+      },
+      "vault_digest": "ad05e1a30a726d5cc0bf71886e0cb5bcbd6ca524b1faf1a66ebb21f6a15c50dd"
+    },
+    "nonce": "74fabee7-a182-435e-9f0d-96bebca5f188",
+    "parent_signature": null,
+    "signature": "oYs0CCXvSJEuMK1247qbWEBI1B6SzxplpAceDjY629WqOXRI8Uyn+XW8KWUfJUxob60+q1Mz26YG97ohy3EwDw==",
+    "signature_id": "d82003fe-e8b5-4ab7-9864-2ff8d519be4d",
+    "timestamp": 1794435127.506123,
+    "tool_id": "factcrypt.seal"
+  },
+  "format": "tcreceipt",
+  "issued_at": "2026-11-11T22:12:07Z",
+  "key": {
+    "algorithm": "ed25519",
+    "key_id": "35686c76-d785-45fe-ac47-00a58f3c8f62",
+    "public_key_b64": "UOeCdkJhrJLrB3zdDiS/FxPqY4BfgIo87+NCI4nfx+g="
+  },
+  "summary": {
+    "signature_short": "oYs0CCXv…",
+    "timestamp_iso": "2026-11-11T22:12:07Z",
+    "tool_id": "factcrypt.seal"
+  },
+  "version": 1
+}

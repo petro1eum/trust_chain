@@ -1,0 +1,31 @@
+{
+  "format": "tcreceipt",
+  "version": 1,
+  "issued_at": "2026-11-11T22:14:23Z",
+  "envelope": {
+    "tool_id": "factcrypt.resolve",
+    "data": {
+      "schema": "factcrypt.evidence.v1",
+      "export_id": "e61a33e3413f4fb5a1f7f47649a49553",
+      "export_digest": "9c7765c36bcf3d8be38571c7272f258b2343721c794e956e8b896a04c891df39",
+      "plan_digest": "86d845c39f1426af65a70154c0f63acd9821f6ee40f17bdb12e7b13b876cef62",
+      "encrypted_result_digest": "cd5e3c47c2fef95473a7913ca07aa64fb366696690abaa29ea048fb6a92b4c80",
+      "confidentiality": "secret"
+    },
+    "signature": "x3r2ebb3F22j884yAEQq+JO1nBKCJCu1jMQYl3oRhkxnr2ZwxFD5DQ8glY9JcWE69/+kxWIk2tNv/yHZo6a6Bg==",
+    "signature_id": "718c1e5e-2c28-4ef6-829c-c10a41815c52",
+    "timestamp": 1794435263.5394728,
+    "nonce": "45e05912-22fe-486b-bb94-4b4c30e79edf",
+    "parent_signature": "oYs0CCXvSJEuMK1247qbWEBI1B6SzxplpAceDjY629WqOXRI8Uyn+XW8KWUfJUxob60+q1Mz26YG97ohy3EwDw=="
+  },
+  "key": {
+    "algorithm": "ed25519",
+    "key_id": "99cb2333-b01a-4bcb-a69d-b2e7280bddb1",
+    "public_key_b64": "xNw/E2YLP/Om1QMwHoaGHaFdmeXNWHRKA/nVX2qSKYo="
+  },
+  "summary": {
+    "tool_id": "factcrypt.resolve",
+    "timestamp_iso": "2026-11-11T22:14:23Z",
+    "signature_short": "x3r2ebb3\u2026"
+  }
+}

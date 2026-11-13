@@ -1,0 +1,22 @@
+{
+  "schema": "factcrypt.plan.v1",
+  "export_id": "e61a33e3413f4fb5a1f7f47649a49553",
+  "export_digest": "9c7765c36bcf3d8be38571c7272f258b2343721c794e956e8b896a04c891df39",
+  "calculations": [
+    {
+      "id": "line_1",
+      "label": "\u0421\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c \u0441\u0442\u0440\u043e\u043a\u0438 1",
+      "expression": "round(fact(\"f_9e9af50f45304c4bb649751dec05b041\") * fact(\"f_89bf0773ce8b404384292bdecce86970\"), 2)"
+    },
+    {
+      "id": "line_2",
+      "label": "\u0421\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c \u0441\u0442\u0440\u043e\u043a\u0438 2",
+      "expression": "round(fact(\"f_9473fef367db42069a3fff97cf3e4cdc\") * fact(\"f_6d2e319f9ea94fe0b92b3432ee2567d3\"), 2)"
+    },
+    {
+      "id": "grand_total",
+      "label": "\u041e\u0431\u0449\u0430\u044f \u0441\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c",
+      "expression": "sum(result(\"line_1\"), result(\"line_2\"))"
+    }
+  ]
+}

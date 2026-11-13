@@ -243,7 +243,7 @@ function canonicalize(x) {
  * Rebuild the exact byte-sequence covered by the Ed25519 signature.
  * Mirrors trustchain.v2.signer._build_canonical_data.
  */
-function buildCanonicalEnvelope(env) {
+function buildCanonicalEnvelope(env, includeSignatureId = true) {
   if (env.canon !== undefined && env.canon !== null) {
     throw new Error('Unsupported canonicalization profile; use the Python receipt verifier for declared profiles');
   }
@@ -254,10 +254,16 @@ function buildCanonicalEnvelope(env) {
     nonce: env.nonce ?? null,
     parent_signature: env.parent_signature ?? null,
   };
+  if (includeSignatureId && env.signature_id != null) obj.signature_id = env.signature_id;
+  for (const field of ['parent_signatures', 'signer_role', 'custody', 'input_hash', 'alg']) {
+    if (env[field] != null) obj[field] = env[field];
+  }
   if (env.metadata     !== undefined && env.metadata     !== null) obj.metadata = env.metadata;
   if (env.certificate  !== undefined && env.certificate  !== null) obj.certificate = env.certificate;
   if (env.tsa_proof    !== undefined && env.tsa_proof    !== null) obj.tsa_proof = env.tsa_proof;
-  return new TextEncoder().encode(canonicalize(obj));
+  // Python's legacy profile escapes non-ASCII UTF-16 code units (including emoji).
+  const ascii = canonicalize(obj).replace(/[\u007f-\uffff]/g, ch => '\\u' + ch.charCodeAt(0).toString(16).padStart(4, '0'));
+  return new TextEncoder().encode(ascii);
 }
 
 // ------------------------------------------------------------------ verification
@@ -285,8 +291,14 @@ async function verifyReceipt(receipt) {
     const key = await crypto.subtle.importKey(
       'raw', pkBytes, { name: 'Ed25519' }, true, ['verify']
     );
-    const msg = buildCanonicalEnvelope(receipt.envelope);
-    signatureOk = await crypto.subtle.verify('Ed25519', key, sigBytes, msg);
+    // Current signers cover signature_id; legacy receipts omit it.
+    for (const includeSid of [true, false]) {
+      const msg = buildCanonicalEnvelope(receipt.envelope, includeSid);
+      if (await crypto.subtle.verify('Ed25519', key, sigBytes, msg)) {
+        signatureOk = true;
+        break;
+      }
+    }
     if (!signatureOk) errs.push('Ed25519 signature does not match the envelope');
   } catch (e) {
     errs.push('WebCrypto error: ' + (e && e.message ? e.message : String(e)));

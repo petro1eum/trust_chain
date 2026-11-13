@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>A complete agent workflow · Executed TrustChain notebook</title><link rel="stylesheet" href="../docs.css"><link rel="stylesheet" href="../notebook.css"></head>
+<body><a class="skip" href="#content">Skip to notebook</a><header><a href="../index.html">TrustChain</a><nav aria-label="Notebook"><a href="../notebooks.html">Notebook catalog</a><a href="https://github.com/petro1eum/trust_chain/blob/main/examples/trustchain_full_demo.ipynb">Source on GitHub</a><a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_full_demo.ipynb">Run in Colab</a></nav></header>
+<main id="content"><p class="eyebrow">OSS · saved execution</p><h1>A complete agent workflow</h1><p class="lead">Read the code alongside its actual synthetic outputs.</p><div class="note">Executed 2026-11-13 in a fresh local Python 3.12.11 kernel with Core 3.3.0. Dependencies were installed before the run, so installation cells are omitted here. Provider credentials were removed; no live model was called. Local environment paths are redacted. Optional external services may show a skipped or unavailable result. This page is a saved preview, not a live Python session.</div><p class="small">10 code cells completed without execution errors. <a href="manifest.json">Source hash and run metadata</a>.</p><article class="notebook-output"><div class="cell border-box-sizing text_cell rendered" id="cell-id=50dd4de2"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><a href="https://colab.research.google.com/github/petro1eum/trust_chain/blob/main/examples/trustchain_full_demo.ipynb"><img alt="Open In Colab" src="https://colab.research.google.com/assets/colab-badge.svg"/></a></p>
+<h1 id="TrustChain-Full-Demo-with-Optional-Real-LLM">TrustChain Full Demo with Optional Real LLM<a class="anchor-link" href="#TrustChain-Full-Demo-with-Optional-Real-LLM">¶</a></h1><p>This notebook demonstrates selected TrustChain capabilities with a deterministic offline workflow. A live OpenRouter call requires explicit <code>RUN_OPENROUTER = True</code> plus externally configured <code>OPENROUTER_API_KEY</code> and <code>OPENROUTER_MODEL</code>.</p>
+<p><strong>Features tested:</strong></p>
+<ol>
+<li>Basic signing &amp; verification</li>
+<li>Chain of Trust (linked operations)</li>
+<li>Multi-tool agent workflow</li>
+<li>Merkle audit trail</li>
+<li>Tamper detection</li>
+<li>Audit export (JSON)</li>
+<li>Multi-tenant isolation</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=a849c565"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Reviewed with TrustChain 3.3 / Python 3.12. This notebook uses synthetic data. Offline examples use an in-memory log; production persistence, PKI and authorization require configuration. Signatures establish attribution and byte integrity, not the truth of a tool result. <a href="https://github.com/petro1eum/trust_chain/blob/main/examples/README.md">Notebook guide</a>.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=6631c9a1">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Explicit opt-in; an ambient credential never triggers a paid call.</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="n">RUN_OPENROUTER</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">API_KEY</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"OPENROUTER_API_KEY"</span><span class="p">)</span> <span class="k">if</span> <span class="n">RUN_OPENROUTER</span> <span class="k">else</span> <span class="kc">None</span>
+<span class="n">OPENROUTER_MODEL</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"OPENROUTER_MODEL"</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">RUN_OPENROUTER</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">API_KEY</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">OPENROUTER_MODEL</span><span class="p">):</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Configure provider credentials/model outside the notebook before opting in"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Execution mode:"</span><span class="p">,</span> <span class="s2">"OpenRouter"</span> <span class="k">if</span> <span class="n">API_KEY</span> <span class="k">else</span> <span class="s2">"offline fixture; no model call"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Execution mode: offline fixture; no model call
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=e2624236">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Setup</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">types</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimpleNamespace</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">trustchain</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrustChain</span><span class="p">,</span> <span class="n">TrustChainConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">trustchain.v2.merkle</span><span class="w"> </span><span class="kn">import</span> <span class="n">MerkleTree</span><span class="p">,</span> <span class="n">verify_proof</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">trustchain.v2.tenants</span><span class="w"> </span><span class="kn">import</span> <span class="n">TenantManager</span>
+
+<span class="c1"># OpenRouter client is optional. Without a key, use a tiny deterministic</span>
+<span class="c1"># stand-in so Run all works in a fresh Colab runtime.</span>
+<span class="n">client</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="k">if</span> <span class="n">API_KEY</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">openai</span><span class="w"> </span><span class="kn">import</span> <span class="n">OpenAI</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">OpenAI</span><span class="p">(</span>
+        <span class="n">base_url</span><span class="o">=</span><span class="s1">'https://openrouter.ai/api/v1'</span><span class="p">,</span>
+        <span class="n">api_key</span><span class="o">=</span><span class="n">API_KEY</span><span class="p">,</span>
+    <span class="p">)</span>
+
+<span class="c1"># TrustChain instance</span>
+<span class="n">tc</span> <span class="o">=</span> <span class="n">TrustChain</span><span class="p">(</span><span class="n">TrustChainConfig</span><span class="p">(</span><span class="n">enable_nonce</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">'✅ TrustChain ready'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">'🌐 OpenRouter client:'</span><span class="p">,</span> <span class="s1">'enabled'</span> <span class="k">if</span> <span class="n">client</span> <span class="k">else</span> <span class="s1">'offline demo mode'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'🔑 Key ID: </span><span class="si">{</span><span class="n">tc</span><span class="o">.</span><span class="n">get_key_id</span><span class="p">()</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>✅ TrustChain ready
+🌐 OpenRouter client: offline demo mode
+🔑 Key ID: 9c178395-48cf-4893-ae8f-f5b7a09410f5
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/tmp/ipykernel_4503/3849351094.py:22: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  tc = TrustChain(TrustChainConfig(enable_nonce=False))
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=4a836362">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">decimal</span><span class="w"> </span><span class="kn">import</span> <span class="n">Decimal</span><span class="p">,</span> <span class="n">localcontext</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">calculate</span><span class="p">(</span><span class="n">expression</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">expression</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">256</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Expression too large"</span><span class="p">)</span>
+    <span class="n">tree</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"eval"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">ast</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">tree</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">64</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Too many operations"</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">visit</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">depth</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">depth</span> <span class="o">&gt;</span> <span class="mi">16</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Expression too deep"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Constant</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">Decimal</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">get_source_segment</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">node</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">UnaryOp</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">op</span><span class="p">,</span> <span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">UAdd</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">USub</span><span class="p">)):</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">operand</span><span class="p">,</span> <span class="n">depth</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">USub</span><span class="p">):</span> <span class="n">value</span> <span class="o">=</span> <span class="o">-</span><span class="n">value</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">BinOp</span><span class="p">):</span>
+            <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">left</span><span class="p">,</span> <span class="n">depth</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span> <span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">right</span><span class="p">,</span> <span class="n">depth</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Add</span><span class="p">):</span> <span class="n">value</span> <span class="o">=</span> <span class="n">a</span><span class="o">+</span><span class="n">b</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Sub</span><span class="p">):</span> <span class="n">value</span> <span class="o">=</span> <span class="n">a</span><span class="o">-</span><span class="n">b</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Mult</span><span class="p">):</span> <span class="n">value</span> <span class="o">=</span> <span class="n">a</span><span class="o">*</span><span class="n">b</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Div</span><span class="p">):</span> <span class="n">value</span> <span class="o">=</span> <span class="n">a</span><span class="o">/</span><span class="n">b</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Pow</span><span class="p">)</span> <span class="ow">and</span> <span class="n">b</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">b</span> <span class="o">&lt;=</span> <span class="mi">12</span><span class="p">:</span> <span class="n">value</span> <span class="o">=</span> <span class="n">a</span><span class="o">**</span><span class="nb">int</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span> <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Operator forbidden"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Only bounded arithmetic is supported"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="o">.</span><span class="n">is_finite</span><span class="p">()</span> <span class="ow">or</span> <span class="nb">abs</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">Decimal</span><span class="p">(</span><span class="s2">"1e12"</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Result out of range"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span>
+    <span class="k">with</span> <span class="n">localcontext</span><span class="p">()</span> <span class="k">as</span> <span class="n">ctx</span><span class="p">:</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">prec</span> <span class="o">=</span> <span class="mi">30</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">visit</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">body</span><span class="p">))</span>
+<span class="k">assert</span> <span class="n">calculate</span><span class="p">(</span><span class="s2">"2 ** 10"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"1024"</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">calculate</span><span class="p">(</span><span class="s2">"__import__('os').getcwd()"</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+    <span class="k">pass</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span><span class="s2">"Arbitrary code must be rejected"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=08ea8741"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr/>
+<h2 id="1️⃣-Basic-Signing-&amp;-Verification">1️⃣ Basic Signing &amp; Verification<a class="anchor-link" href="#1%EF%B8%8F%E2%83%A3-Basic-Signing-&amp;-Verification">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=484a8e71">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Sign a tool fact using the public TrustChain API — auto-chain + auto-commit.</span>
+<span class="n">signed</span> <span class="o">=</span> <span class="n">tc</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span>
+    <span class="n">tool_id</span><span class="o">=</span><span class="s1">'test_tool'</span><span class="p">,</span>
+    <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s1">'message'</span><span class="p">:</span> <span class="s1">'Hello TrustChain!'</span><span class="p">},</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">'📝 Signed response:'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   Tool: </span><span class="si">{</span><span class="n">signed</span><span class="o">.</span><span class="n">tool_id</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   Data: </span><span class="si">{</span><span class="n">signed</span><span class="o">.</span><span class="n">data</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   Signature: </span><span class="si">{</span><span class="n">signed</span><span class="o">.</span><span class="n">signature</span><span class="p">[:</span><span class="mi">40</span><span class="p">]</span><span class="si">}</span><span class="s1">...'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   Timestamp: </span><span class="si">{</span><span class="n">signed</span><span class="o">.</span><span class="n">timestamp</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="se">\n</span><span class="s1">✅ Verified: </span><span class="si">{</span><span class="n">tc</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">signed</span><span class="p">)</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>📝 Signed response:
+   Tool: test_tool
+   Data: {'message': 'Hello TrustChain!'}
+   Signature: wNUVfqoRRuhyW8ySNh6YdvjOg/r7SjHrVWZ47Es5...
+   Timestamp: 1794600354.801676
+
+✅ Verified: True
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=90c7e191"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr/>
+<h2 id="2️⃣-Chain-of-Trust-with-an-optional-model-call">2️⃣ Chain of Trust with an optional model call<a class="anchor-link" href="#2%EF%B8%8F%E2%83%A3-Chain-of-Trust-with-an-optional-model-call">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=f66af232">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Define tools for the LLM</span>
+<span class="n">tools</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'function'</span><span class="p">,</span> <span class="s1">'function'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'name'</span><span class="p">:</span> <span class="s1">'get_weather'</span><span class="p">,</span> <span class="s1">'parameters'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'object'</span><span class="p">,</span> <span class="s1">'properties'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'city'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'string'</span><span class="p">}}}}},</span>
+    <span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'function'</span><span class="p">,</span> <span class="s1">'function'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'name'</span><span class="p">:</span> <span class="s1">'calculate'</span><span class="p">,</span> <span class="s1">'parameters'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'object'</span><span class="p">,</span> <span class="s1">'properties'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'expr'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'string'</span><span class="p">}}}}},</span>
+    <span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'function'</span><span class="p">,</span> <span class="s1">'function'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'name'</span><span class="p">:</span> <span class="s1">'search'</span><span class="p">,</span> <span class="s1">'parameters'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'object'</span><span class="p">,</span> <span class="s1">'properties'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'query'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'string'</span><span class="p">}}}}}</span>
+<span class="p">]</span>
+
+<span class="c1"># Tool implementations</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">execute_tool</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s1">'get_weather'</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"Sunny, 22°C in </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'city'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Unknown'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+    <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="s1">'calculate'</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">calculate</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'expr'</span><span class="p">,</span> <span class="s1">'0'</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="s1">'search'</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"Found 5 results for: </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'query'</span><span class="p">,</span><span class="w"> </span><span class="s1">''</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+    <span class="k">return</span> <span class="s1">'Unknown'</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">offline_tool_call</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">SimpleNamespace</span><span class="p">(</span>
+        <span class="n">function</span><span class="o">=</span><span class="n">SimpleNamespace</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">arguments</span><span class="o">=</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">args</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+
+<span class="c1"># Multi-step agent workflow</span>
+<span class="n">chain</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">queries</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">'What is the weather in Tokyo? Use the tool.'</span><span class="p">,</span>
+    <span class="s1">'Calculate 2 ** 10 using the calculate tool.'</span><span class="p">,</span>
+    <span class="s1">'Search for AI security using the search tool.'</span>
+<span class="p">]</span>
+<span class="n">offline_calls</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">[</span><span class="n">offline_tool_call</span><span class="p">(</span><span class="s1">'get_weather'</span><span class="p">,</span> <span class="p">{</span><span class="s1">'city'</span><span class="p">:</span> <span class="s1">'Tokyo'</span><span class="p">})],</span>
+    <span class="p">[</span><span class="n">offline_tool_call</span><span class="p">(</span><span class="s1">'calculate'</span><span class="p">,</span> <span class="p">{</span><span class="s1">'expr'</span><span class="p">:</span> <span class="s1">'2 ** 10'</span><span class="p">})],</span>
+    <span class="p">[</span><span class="n">offline_tool_call</span><span class="p">(</span><span class="s1">'search'</span><span class="p">,</span> <span class="p">{</span><span class="s1">'query'</span><span class="p">:</span> <span class="s1">'AI security'</span><span class="p">})],</span>
+<span class="p">]</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">'🤖 Running multi-step agent workflow...</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">query</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'📤 Step </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">query</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">client</span><span class="p">:</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">completions</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">OPENROUTER_MODEL</span><span class="p">,</span>
+            <span class="n">messages</span><span class="o">=</span><span class="p">[{</span><span class="s1">'role'</span><span class="p">:</span> <span class="s1">'user'</span><span class="p">,</span> <span class="s1">'content'</span><span class="p">:</span> <span class="n">query</span><span class="p">}],</span>
+            <span class="n">tools</span><span class="o">=</span><span class="n">tools</span><span class="p">,</span>
+            <span class="n">tool_choice</span><span class="o">=</span><span class="s1">'auto'</span><span class="p">,</span>
+            <span class="n">max_tokens</span><span class="o">=</span><span class="mi">100</span>
+        <span class="p">)</span>
+        <span class="n">tool_calls</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">tool_calls</span> <span class="ow">or</span> <span class="p">[]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">tool_calls</span> <span class="o">=</span> <span class="n">offline_calls</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">tc_call</span> <span class="ow">in</span> <span class="n">tool_calls</span><span class="p">:</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">tc_call</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">arguments</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">execute_tool</span><span class="p">(</span><span class="n">tc_call</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+
+        <span class="c1"># tc.sign() auto-chains from chain HEAD — no manual parent threading.</span>
+        <span class="c1"># Pass parent_signature=None only if you want to start a NEW root.</span>
+        <span class="n">signed</span> <span class="o">=</span> <span class="n">tc</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span>
+            <span class="n">tool_id</span><span class="o">=</span><span class="n">tc_call</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s1">'args'</span><span class="p">:</span> <span class="n">args</span><span class="p">,</span> <span class="s1">'result'</span><span class="p">:</span> <span class="n">result</span><span class="p">},</span>
+        <span class="p">)</span>
+        <span class="n">parent_sig</span> <span class="o">=</span> <span class="n">signed</span><span class="o">.</span><span class="n">parent_signature</span>
+        <span class="n">chain</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">signed</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   ✅ </span><span class="si">{</span><span class="n">tc_call</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   🔏 Signature: </span><span class="si">{</span><span class="n">signed</span><span class="o">.</span><span class="n">signature</span><span class="p">[:</span><span class="mi">32</span><span class="p">]</span><span class="si">}</span><span class="s1">...'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">parent_sig</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   ⛓️ Linked to parent: </span><span class="si">{</span><span class="n">parent_sig</span><span class="p">[:</span><span class="mi">32</span><span class="p">]</span><span class="si">}</span><span class="s1">...'</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'📊 Chain complete: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">chain</span><span class="p">)</span><span class="si">}</span><span class="s1"> tool calls'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'✅ All signatures valid: </span><span class="si">{</span><span class="nb">all</span><span class="p">(</span><span class="n">tc</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">chain</span><span class="p">)</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">tc</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">chain</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">client</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">assert</span> <span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">tool_id</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">chain</span><span class="p">]</span> <span class="o">==</span> <span class="p">[</span><span class="s1">'get_weather'</span><span class="p">,</span> <span class="s1">'calculate'</span><span class="p">,</span> <span class="s1">'search'</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="n">chain</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'result'</span><span class="p">]</span> <span class="o">==</span> <span class="s1">'1024'</span>
+    <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">chain</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">parent_signature</span> <span class="o">==</span> <span class="n">chain</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">signature</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">chain</span><span class="p">)))</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>🤖 Running multi-step agent workflow...
+
+📤 Step 1: What is the weather in Tokyo? Use the tool.
+   ✅ get_weather: Sunny, 22°C in Tokyo
+   🔏 Signature: FvqlGNstDysvOe53XuLscZFB67bozJUh...
+   ⛓️ Linked to parent: wNUVfqoRRuhyW8ySNh6YdvjOg/r7SjHr...
+
+📤 Step 2: Calculate 2 ** 10 using the calculate tool.
+   ✅ calculate: 1024
+   🔏 Signature: L79d5ogbv4LSYFnCf8QSaL+sBZfSPanO...
+   ⛓️ Linked to parent: FvqlGNstDysvOe53XuLscZFB67bozJUh...
+
+📤 Step 3: Search for AI security using the search tool.
+   ✅ search: Found 5 results for: AI security
+   🔏 Signature: khKfKWUn0vKuqAGJJy1QwA/RuUyT3sLw...
+   ⛓️ Linked to parent: L79d5ogbv4LSYFnCf8QSaL+sBZfSPanO...
+
+📊 Chain complete: 3 tool calls
+✅ All signatures valid: True
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=ad22a058"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr/>
+<h2 id="3️⃣-Merkle-Audit-Trail">3️⃣ Merkle Audit Trail<a class="anchor-link" href="#3%EF%B8%8F%E2%83%A3-Merkle-Audit-Trail">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=75f42867">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Build Merkle tree from chain signatures</span>
+<span class="n">signatures</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">signature</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">chain</span><span class="p">]</span>
+<span class="n">tree</span> <span class="o">=</span> <span class="n">MerkleTree</span><span class="o">.</span><span class="n">from_chunks</span><span class="p">(</span><span class="n">signatures</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">'🌳 Merkle Tree Audit Trail'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   Root: </span><span class="si">{</span><span class="n">tree</span><span class="o">.</span><span class="n">root</span><span class="p">[:</span><span class="mi">48</span><span class="p">]</span><span class="si">}</span><span class="s1">...'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   Leaves: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">leaves</span><span class="p">)</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+
+<span class="c1"># Verify inclusion proof</span>
+<span class="n">proof</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">get_proof</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">valid</span> <span class="o">=</span> <span class="n">verify_proof</span><span class="p">(</span><span class="n">signatures</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">proof</span><span class="p">,</span> <span class="n">tree</span><span class="o">.</span><span class="n">root</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">'</span><span class="se">\n</span><span class="s1">🔍 Verifying signature[0] is in tree...'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   Proof length: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">proof</span><span class="o">.</span><span class="n">proof</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="nb">hasattr</span><span class="p">(</span><span class="n">proof</span><span class="p">,</span><span class="w"> </span><span class="s2">"proof"</span><span class="p">)</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s2">"N/A"</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   ✅ Verified: </span><span class="si">{</span><span class="n">valid</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="n">valid</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>🌳 Merkle Tree Audit Trail
+   Root: b63b4b59f7d29138062bc381983b5e109045d772199e0f39...
+   Leaves: 3
+
+🔍 Verifying signature[0] is in tree...
+   Proof length: N/A
+   ✅ Verified: True
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=0edc820a"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr/>
+<h2 id="4️⃣-Tamper-Detection">4️⃣ Tamper Detection<a class="anchor-link" href="#4%EF%B8%8F%E2%83%A3-Tamper-Detection">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=46720c40">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Copy original and tamper with it</span>
+<span class="n">original</span> <span class="o">=</span> <span class="n">chain</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">tampered</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">original</span><span class="p">)</span>
+<span class="n">tampered</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">'result'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'HACKED: 999999 BTC'</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">'🛡️ Tamper Detection Test'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="se">\n</span><span class="s1">   Original data: </span><span class="si">{</span><span class="n">original</span><span class="o">.</span><span class="n">data</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   Tampered data: </span><span class="si">{</span><span class="n">tampered</span><span class="o">.</span><span class="n">data</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="se">\n</span><span class="s1">   Original verified: </span><span class="si">{</span><span class="n">tc</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">original</span><span class="p">)</span><span class="si">}</span><span class="s1"> ✅'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   Tampered verified: </span><span class="si">{</span><span class="n">tc</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">tampered</span><span class="p">)</span><span class="si">}</span><span class="s1"> ❌'</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="n">tc</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">original</span><span class="p">)</span>
+<span class="k">assert</span> <span class="ow">not</span> <span class="n">tc</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">tampered</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>🛡️ Tamper Detection Test
+
+   Original data: {'args': {'city': 'Tokyo'}, 'result': 'Sunny, 22°C in Tokyo'}
+   Tampered data: {'args': {'city': 'Tokyo'}, 'result': 'HACKED: 999999 BTC'}
+
+   Original verified: True ✅
+   Tampered verified: False ❌
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=13309602"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr/>
+<h2 id="5️⃣-Multi-Tenant-Isolation">5️⃣ Multi-Tenant Isolation<a class="anchor-link" href="#5%EF%B8%8F%E2%83%A3-Multi-Tenant-Isolation">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=a2ee5c65">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">key_dir</span><span class="p">:</span>
+    <span class="c1"># Create tenant manager</span>
+    <span class="n">manager</span> <span class="o">=</span> <span class="n">TenantManager</span><span class="p">(</span><span class="n">key_storage_dir</span><span class="o">=</span><span class="n">key_dir</span><span class="p">)</span>
+
+    <span class="c1"># Create separate tenants</span>
+    <span class="n">tenants</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_or_create</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'company_a'</span><span class="p">,</span> <span class="s1">'company_b'</span><span class="p">,</span> <span class="s1">'company_c'</span><span class="p">]</span>
+    <span class="p">}</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">'🏢 Multi-Tenant Isolation Test'</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">tenant_tc</span> <span class="ow">in</span> <span class="n">tenants</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">: Key </span><span class="si">{</span><span class="n">tenant_tc</span><span class="o">.</span><span class="n">get_key_id</span><span class="p">()[:</span><span class="mi">20</span><span class="p">]</span><span class="si">}</span><span class="s1">...'</span><span class="p">)</span>
+
+    <span class="c1"># Sign data with tenant A (public API — keys stay strictly per-tenant)</span>
+    <span class="n">data_a</span> <span class="o">=</span> <span class="n">tenants</span><span class="p">[</span><span class="s1">'company_a'</span><span class="p">]</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="s1">'order'</span><span class="p">,</span> <span class="p">{</span><span class="s1">'id'</span><span class="p">:</span> <span class="mi">12345</span><span class="p">,</span> <span class="s1">'amount'</span><span class="p">:</span> <span class="mi">100</span><span class="p">})</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">'</span><span class="se">\n</span><span class="s1">📝 Company A signed order #12345'</span><span class="p">)</span>
+
+    <span class="c1"># Try to verify with tenant B (should fail)</span>
+    <span class="n">can_b_verify_a</span> <span class="o">=</span> <span class="n">tenants</span><span class="p">[</span><span class="s1">'company_b'</span><span class="p">]</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">data_a</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   Company B can verify A</span><span class="se">\'</span><span class="s1">s data: </span><span class="si">{</span><span class="n">can_b_verify_a</span><span class="si">}</span><span class="s1"> ❌'</span><span class="p">)</span>
+
+    <span class="c1"># Original tenant can verify (should pass)</span>
+    <span class="n">can_a_verify_a</span> <span class="o">=</span> <span class="n">tenants</span><span class="p">[</span><span class="s1">'company_a'</span><span class="p">]</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="n">data_a</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   Company A can verify own data: </span><span class="si">{</span><span class="n">can_a_verify_a</span><span class="si">}</span><span class="s1"> ✅'</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="ow">not</span> <span class="n">can_b_verify_a</span> <span class="ow">and</span> <span class="n">can_a_verify_a</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>🏢 Multi-Tenant Isolation Test
+   company_a: Key dc72ffbe-4b6c-4d53-b...
+   company_b: Key dce0181f-6e4c-48b9-9...
+   company_c: Key eb4c53bd-970b-4dee-9...
+
+📝 Company A signed order #12345
+   Company B can verify A's data: False ❌
+   Company A can verify own data: True ✅
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>&lt;python-environment&gt;/lib/python3.12/site-packages/trustchain/v2/tenants.py:38: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  self._base_config = base_config or TrustChainConfig()
+&lt;python-environment&gt;/lib/python3.12/site-packages/trustchain/v2/tenants.py:56: RuntimeWarning: chain_storage='postgres' запрошен, но TC_VERIFIABLE_LOG_DSN не задан — автоматически используется in-memory backend. В production выставьте DSN (ADR-SEC-005) или TC_STRICT_CHAIN=1 для fail-closed поведения.
+  config = TrustChainConfig(
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=8a2afd05"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr/>
+<h2 id="6️⃣-Export-Audit-Trail">6️⃣ Export Audit Trail<a class="anchor-link" href="#6%EF%B8%8F%E2%83%A3-Export-Audit-Trail">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=b3dabb3c">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Audit trail export — OSS path.</span>
+<span class="c1"># ChainExplorer HTML export requires the authorized Pro wheel or private checkout.</span>
+<span class="n">audit_rows</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">{</span>
+        <span class="s1">'tool_id'</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">tool_id</span><span class="p">,</span>
+        <span class="s1">'signature'</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">signature</span><span class="p">,</span>
+        <span class="s1">'data'</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+        <span class="s1">'timestamp'</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s1">'response_timestamp'</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+    <span class="p">}</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">chain</span>
+<span class="p">]</span>
+<span class="n">json_export</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">audit_rows</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+<span class="n">parsed</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">json_export</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">'</span><span class="se">\U0001f4e4</span><span class="s1"> Audit Trail Export (OSS)'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'   Entries: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">parsed</span><span class="p">)</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">'</span><span class="se">\n\U0001f4c4</span><span class="s1"> JSON Preview:'</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">parsed</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   - </span><span class="si">{</span><span class="n">entry</span><span class="p">[</span><span class="s1">'tool_id'</span><span class="p">]</span><span class="si">}</span><span class="s2">: sig=</span><span class="si">{</span><span class="n">entry</span><span class="p">[</span><span class="s1">'signature'</span><span class="p">][:</span><span class="mi">20</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">'</span><span class="se">\n\U0001f4a1</span><span class="s1"> Pro tier adds HTML/PDF ComplianceReport and ChainExplorer:'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">'   Install the authorized Pro wheel or private checkout; see the Pro guide.'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">'   from trustchain_pro import ChainExplorer, ComplianceReport'</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">parsed</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">chain</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>📤 Audit Trail Export (OSS)
+   Entries: 3
+
+📄 JSON Preview:
+   - get_weather: sig=FvqlGNstDysvOe53XuLs...
+   - calculate: sig=L79d5ogbv4LSYFnCf8QS...
+   - search: sig=khKfKWUn0vKuqAGJJy1Q...
+
+💡 Pro tier adds HTML/PDF ComplianceReport and ChainExplorer:
+   Install the authorized Pro wheel or private checkout; see the Pro guide.
+   from trustchain_pro import ChainExplorer, ComplianceReport
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=8b7c8917"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="🧾-Export-a-.tcreceipt-—-portable,-offline-verifiable-proof">🧾 Export a <code>.tcreceipt</code> — portable, offline-verifiable proof<a class="anchor-link" href="#%F0%9F%A7%BE-Export-a-.tcreceipt-%E2%80%94-portable,-offline-verifiable-proof">¶</a></h2><p>All the signing above lives inside your TrustChain instance. Sometimes you need to
+hand someone <em>else</em> — a regulator, a partner, an end user — a self-contained
+artifact they can verify on their own laptop, without your server.</p>
+<p>That's <code>.tcreceipt</code>: one JSON file, one drag-and-drop into
+<a href="https://github.com/petro1eum/trust_chain/blob/main/examples/verify.html"><code>examples/verify.html</code></a>,
+WebCrypto Ed25519 check, <strong>no network required</strong>.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=5c931fc7">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">trustchain</span><span class="w"> </span><span class="kn">import</span> <span class="n">Receipt</span><span class="p">,</span> <span class="n">build_receipt</span>
+
+<span class="c1"># Take any signed response we produced above — re-use the first one.</span>
+<span class="c1"># In a real agent, you'd loop over the facts you want to expose.</span>
+<span class="n">receipt</span> <span class="o">=</span> <span class="n">build_receipt</span><span class="p">(</span>
+    <span class="n">signed</span><span class="p">,</span>
+    <span class="n">tc</span><span class="o">.</span><span class="n">export_public_key</span><span class="p">(),</span>
+    <span class="n">key_id</span><span class="o">=</span><span class="n">tc</span><span class="o">.</span><span class="n">get_key_id</span><span class="p">(),</span>
+<span class="p">)</span>
+
+<span class="n">out</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"demo_fact.tcreceipt"</span><span class="p">)</span>
+<span class="n">out</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">receipt</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"💾 wrote </span><span class="si">{</span><span class="n">out</span><span class="si">}</span><span class="s2"> — </span><span class="si">{</span><span class="n">out</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span><span class="si">}</span><span class="s2"> bytes"</span><span class="p">)</span>
+
+<span class="c1"># Roundtrip: load + verify + pin to a known public key</span>
+<span class="n">loaded</span> <span class="o">=</span> <span class="n">Receipt</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+<span class="n">v</span> <span class="o">=</span> <span class="n">loaded</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span>
+    <span class="n">expected_public_key_b64</span><span class="o">=</span><span class="n">tc</span><span class="o">.</span><span class="n">export_public_key</span><span class="p">(),</span>
+    <span class="n">max_age_seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">✅ valid       : </span><span class="si">{</span><span class="n">v</span><span class="o">.</span><span class="n">valid</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   sig_ok     : </span><span class="si">{</span><span class="n">v</span><span class="o">.</span><span class="n">signature_ok</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   identity_ok: </span><span class="si">{</span><span class="n">v</span><span class="o">.</span><span class="n">identity_ok</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   errors     : </span><span class="si">{</span><span class="n">v</span><span class="o">.</span><span class="n">errors</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'—'</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   warnings   : </span><span class="si">{</span><span class="n">v</span><span class="o">.</span><span class="n">warnings</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'—'</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Try it in the browser! Download examples/verify.html from the repo,</span>
+<span class="c1"># open it locally (file://), drag demo_fact.tcreceipt onto the drop zone.</span>
+<span class="c1"># You'll get the SAME verdict, no Python, no server.</span>
+
+<span class="k">assert</span> <span class="n">v</span><span class="o">.</span><span class="n">valid</span> <span class="ow">and</span> <span class="n">v</span><span class="o">.</span><span class="n">signature_ok</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>💾 wrote demo_fact.tcreceipt — 923 bytes
+
+✅ valid       : True
+   sig_ok     : True
+   identity_ok: None
+   errors     : —
+   warnings   : —
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=b12d6213"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr/>
+<h2 id="✅-Summary">✅ Summary<a class="anchor-link" href="#%E2%9C%85-Summary">¶</a></h2><p>The assertions above check the offline examples in this notebook. Live provider execution requires explicit opt-in and is not implied by this summary:</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Basic signing</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Verification</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Chain of Trust</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Optional real LLM tool calls</td>
+<td>Not run by default</td>
+</tr>
+<tr>
+<td>Merkle audit trail</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Tamper detection</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Multi-tenant isolation</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Audit export</td>
+<td>JSON checked; HTML requires Pro</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</article></main><footer><a href="../notebooks.html">All public notebooks</a> · <a href="../factcrypt-demo.html">FactCrypt example · paid Pro</a></footer></body></html>

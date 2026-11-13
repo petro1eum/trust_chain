@@ -26,65 +26,31 @@ NODE = shutil.which("node")
 pytestmark = pytest.mark.skipif(NODE is None, reason="node binary not on PATH")
 
 
-# Same canonicalization/verification logic that ships inside verify.html.
-# Keeping it in the test repo as a string means we don't silently drift.
+# Execute the actual shipped page logic, not a copied verifier that can drift.
 _NODE_SCRIPT = r"""
 import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
-const crypto = webcrypto;
-
-const b64 = s => new Uint8Array(Buffer.from(s, 'base64'));
-
-function canonicalize(x) {
-  if (x === null || typeof x !== 'object') return JSON.stringify(x);
-  if (Array.isArray(x)) return '[' + x.map(canonicalize).join(',') + ']';
-  const keys = Object.keys(x).sort();
-  return '{' + keys.map(k => JSON.stringify(k) + ':' + canonicalize(x[k])).join(',') + '}';
-}
-
-function buildCanonicalEnvelope(env) {
-  const obj = {
-    tool_id: env.tool_id ?? null,
-    data: env.data ?? null,
-    timestamp: env.timestamp ?? null,
-    nonce: env.nonce ?? null,
-    parent_signature: env.parent_signature ?? null,
-  };
-  if (env.signature_id !== undefined && env.signature_id !== null) obj.signature_id = env.signature_id;
-  if (env.parent_signatures !== undefined && env.parent_signatures !== null) obj.parent_signatures = env.parent_signatures;
-  if (env.metadata    !== undefined && env.metadata    !== null) obj.metadata    = env.metadata;
-  if (env.certificate !== undefined && env.certificate !== null) obj.certificate = env.certificate;
-  if (env.tsa_proof   !== undefined && env.tsa_proof   !== null) obj.tsa_proof   = env.tsa_proof;
-  return new TextEncoder().encode(canonicalize(obj));
-}
-
+const html = readFileSync(process.argv[3], 'utf8');
+const code = html.split('<script>')[1].split('// ------------------------------------------------------------------ UI')[0];
+const api = new Function('crypto', code + '\nreturn {buildCanonicalEnvelope, verifyReceipt};')(webcrypto);
 const r = JSON.parse(readFileSync(process.argv[2], 'utf8'));
-const pk = await crypto.subtle.importKey(
-  'raw', b64(r.key.public_key_b64), { name: 'Ed25519' }, true, ['verify']
-);
-const msg = buildCanonicalEnvelope(r.envelope);
-const ok = await crypto.subtle.verify('Ed25519', pk, b64(r.envelope.signature), msg);
-
-// Tamper leg: flip a byte in data, expect false.
+const result = await api.verifyReceipt(r);
 const tampered = structuredClone(r);
 tampered.envelope.data = { ...(tampered.envelope.data || {}), __tamper__: 1 };
-const tamperedOk = await crypto.subtle.verify(
-  'Ed25519', pk, b64(r.envelope.signature), buildCanonicalEnvelope(tampered.envelope)
-);
-
+const bad = await api.verifyReceipt(tampered);
 console.log(JSON.stringify({
-  canonical: new TextDecoder().decode(msg),
-  verify_ok: ok,
-  tamper_rejected: tamperedOk === false,
+  canonical: new TextDecoder().decode(api.buildCanonicalEnvelope(r.envelope)),
+  verify_ok: result.signature_ok,
+  tamper_rejected: bad.signature_ok === false,
 }));
 """
 
 
-def _run_node_verify(receipt_path: Path) -> dict:
+def _run_node_verify(receipt_path: Path, page="docs/verify.html") -> dict:
     script = Path(receipt_path.parent) / "_verify.mjs"
     script.write_text(textwrap.dedent(_NODE_SCRIPT))
     proc = subprocess.run(
-        [NODE, str(script), str(receipt_path)],
+        [NODE, str(script), str(receipt_path), str(Path(__file__).resolve().parents[1] / page)],
         capture_output=True,
         text=True,
         timeout=15,
@@ -126,3 +92,37 @@ def test_node_parity_with_metadata_and_certificate(tmp_path: Path):
     assert js["canonical"] == py_canonical
     assert js["verify_ok"] is True
     assert js["tamper_rejected"] is True
+
+
+@pytest.mark.parametrize("page", ["docs/verify.html", "examples/verify.html"])
+def test_shipped_page_handles_unicode_and_attribution(tmp_path, page):
+    signer = Signer()
+    response = signer.sign("source", {"client": "Учебный клиент А 🔐", "value": 12},
+                           signer_role="tool", input_hash="sha256:example",
+                           metadata={"label": "Цена"})
+    receipt = build_receipt(response, signer.get_public_key())
+    result = _run_node_verify(receipt.save(tmp_path / "unicode.tcreceipt"), page)
+    assert result["canonical"] == _canonical_envelope_bytes(receipt.envelope).decode()
+    assert result["verify_ok"] and result["tamper_rejected"]
+
+
+def test_shipped_page_keeps_legacy_signature_support(tmp_path):
+    import base64
+    signer = Signer()
+    receipt = build_receipt(signer.sign("legacy", {"message": "Пример"}), signer.get_public_key())
+    receipt.envelope["signature"] = base64.b64encode(signer._raw_sign(
+        _canonical_envelope_bytes(receipt.envelope, include_signature_id=False)
+    )).decode()
+    result = _run_node_verify(receipt.save(tmp_path / "legacy.tcreceipt"))
+    assert result["verify_ok"] and result["tamper_rejected"]
+
+
+def test_factcrypt_recording_verifies_in_shipped_page(tmp_path):
+    root = Path(__file__).resolve().parents[1] / "docs/assets/factcrypt-demo"
+    source = json.loads((root / "public.tcreceipt").read_text())
+    result_receipt = json.loads((root / "replay-result.tcreceipt").read_text())
+    for index, receipt in enumerate([source, source["envelope"]["data"]["source_activation"], result_receipt]):
+        path = tmp_path / f"recording-{index}.tcreceipt"
+        path.write_text(json.dumps(receipt))
+        result = _run_node_verify(path)
+        assert result["verify_ok"] and result["tamper_rejected"]
